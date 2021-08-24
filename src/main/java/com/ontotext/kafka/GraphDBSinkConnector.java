@@ -16,6 +16,7 @@
 
 package com.ontotext.kafka;
 
+import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.sink.SinkConnector;
@@ -47,15 +48,11 @@ public class GraphDBSinkConnector extends SinkConnector {
 
 	@Override
 	public List<Map<String, String>> taskConfigs(int maxTasks) {
-
 		List<Map<String, String>> taskConfigs = new ArrayList<>(maxTasks);
-
 		for (int i = 0; i < maxTasks; i++) {
 			taskConfigs.add(properties);
 		}
-
 		return taskConfigs;
-
 	}
 
 	@Override
@@ -63,6 +60,35 @@ public class GraphDBSinkConnector extends SinkConnector {
 
 	@Override
 	public ConfigDef config() {
-		return GraphDBSinkConnectorConfig.conf();
+		return GraphDBSinkConfig.createConfig();
 	}
+
+	@Override
+	public Config validate(final Map<String, String> connectorConfigs) {
+		Config config = super.validate(connectorConfigs);
+
+		GraphDBSinkConfig sinkConfig;
+		try {
+			sinkConfig = new GraphDBSinkConfig(connectorConfigs);
+		} catch (Exception e) {
+			return config;
+		}
+		//todo implement connection check to GraphDB
+		return config;
+	}
+
+	// public static void validateServerApi(final MongoClient mongoClient, final Config config) {
+	//    getConfigByName(config, SERVER_API_VERSION_CONFIG)
+	//          .ifPresent(
+	//                serverApiVersion -> {
+	//                   if (!SERVER_API_VERSION_DEFAULT.equals(serverApiVersion.value())
+	//                         && !isAtleastFiveDotZero(mongoClient)) {
+	//                      getConfigByName(config, CONNECTION_URI_CONFIG)
+	//                            .ifPresent(
+	//                                  c ->
+	//                                        c.addErrorMessage(
+	//                                              "Server Version API requires MongoDB 5.0 or greater"));
+	//                   }
+	//                });
+	// }
 }

@@ -27,13 +27,16 @@ public class PropertiesUtil {
 
 	private static String version = "unknown";
 
+	private static Properties properties;
+
 	private PropertiesUtil() {}
 
 	static {
 		try {
-			Properties props = new Properties();
-			props.load(PropertiesUtil.class.getResourceAsStream("/kafka-connect-mongodb-version.properties"));
-			version = props.getProperty("version", version).trim();
+			properties = new Properties();
+			properties.load(PropertiesUtil.class.getResourceAsStream("/graphdb-kafka-version.properties"));
+			properties.load(PropertiesUtil.class.getResourceAsStream("/graphdb-kafka-sink.properties"));
+			version = properties.getProperty("graphdb.version", version).trim();
 		} catch (Exception e) {
 			LOGGER.warn("error while loading version:", e);
 		}
@@ -43,4 +46,7 @@ public class PropertiesUtil {
 		return version;
 	}
 
+	public static String getProperty(String key) {
+		return properties.getProperty(key);
+	}
 }
