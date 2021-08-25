@@ -1,5 +1,6 @@
 package com.ontotext.kafka;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.kafka.common.config.AbstractConfig;
@@ -18,13 +19,19 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	public enum TransactionType {
 		ADD,
 		REPLACE_GRAPH,
-		SMART_UPDATE
-	}
+		SMART_UPDATE;
 
-	public enum BatchingType {
-		TIME_PERIOD,
-		MESSAGE_NUMBER,
-		STATEMENTS_NUMBER
+		private static final Map<String, TransactionType> MAP = new HashMap<>();
+
+		static {
+			for (TransactionType type : values()) {
+				MAP.put(type.toString(), type);
+			}
+		}
+
+		public static TransactionType of(String type) {
+			return MAP.get(type);
+		}
 	}
 
 	public static final String SERVER_IRI = "graphdb.server.iri";
@@ -32,6 +39,8 @@ public class GraphDBSinkConfig extends AbstractConfig {
 
 	//when Kafka messages contain RDF data as value
 	public static final String RDF_FORMAT = "graphdb.transaction.rdf.format";
+	public static final String TRANSACTION_TYPE = "graphdb.transaction.type";
+	public static final String BATCH_SIZE = "graphdb.batch.size";
 
 	public GraphDBSinkConfig(Map<?, ?> originals) {
 		super(CONFIG, originals);
@@ -40,4 +49,5 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	public static ConfigDef createConfig() {
 		return new ConfigDef();
 	}
+
 }

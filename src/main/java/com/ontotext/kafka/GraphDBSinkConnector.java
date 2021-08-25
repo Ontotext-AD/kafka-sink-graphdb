@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import com.ontotext.kafka.service.GraphDBService;
 import com.ontotext.kafka.util.PropertiesUtil;
 
 public class GraphDBSinkConnector extends SinkConnector {
@@ -39,6 +40,7 @@ public class GraphDBSinkConnector extends SinkConnector {
 	@Override
 	public void start(Map<String, String> properties) {
 		this.properties = properties;
+		GraphDBService.connectorService().initialize();
 	}
 
 	@Override
@@ -56,7 +58,9 @@ public class GraphDBSinkConnector extends SinkConnector {
 	}
 
 	@Override
-	public void stop() {}
+	public void stop() {
+		GraphDBService.connectorService().shutDown();
+	}
 
 	@Override
 	public ConfigDef config() {

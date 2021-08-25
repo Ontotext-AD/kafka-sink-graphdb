@@ -1,6 +1,5 @@
 package com.ontotext.kafka;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
@@ -11,10 +10,10 @@ import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 import org.eclipse.rdf4j.repository.Repository;
-import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.http.HTTPRepository;
 import org.eclipse.rdf4j.rio.RDFFormat;
 
+import com.ontotext.kafka.service.GraphDBService;
 import com.ontotext.kafka.util.PropertiesUtil;
 import com.ontotext.kafka.util.RDFValueUtil;
 
@@ -37,10 +36,14 @@ public class GraphDBSinkTask extends SinkTask {
 		this.repository = new HTTPRepository(properties.get(GraphDBSinkConfig.SERVER_IRI),
 				properties.get(GraphDBSinkConfig.REPOSITORY));
 		this.format = RDFValueUtil.getRDFFormat();
+		this.transactionType = GraphDBSinkConfig.TransactionType.of(properties.get(GraphDBSinkConfig.TRANSACTION_TYPE));
 	}
 
 	@Override
 	public void put(Collection<SinkRecord> collection) {
+		if (collection.isEmpty()) {
+			return;
+		}
 		switch (transactionType) {
 			case ADD:
 				addData(collection);
@@ -56,23 +59,12 @@ public class GraphDBSinkTask extends SinkTask {
 	public void stop() {}
 
 	private void addData(Collection<SinkRecord> collection) {
-		try (RepositoryConnection connection = repository.getConnection()) {
-			for (SinkRecord record : collection) {
-				connection.add(new ByteArrayInputStream(getDataStream(record.value())), format);
-			}
+		try {
+			GraphDBService.connectorService().addData(collection);
 		} catch (Exception e) {
 			throw new RetriableException(e.getMessage());
 		}
 	}
 
-	private byte[] getDataStream(Object obj) {
-		try (var bos = new ByteArrayOutputStream();
-				var out = new ObjectOutputStream(bos)) {
-			out.writeObject(obj);
-			out.flush();
-			return bos.toByteArray();
-		} catch (IOException e) {
-			throw new RuntimeException("WELL.... SHIT");
-		}
-	}
+
 }
