@@ -25,8 +25,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import com.ontotext.kafka.convert.DirectRDFConverter;
+import com.ontotext.kafka.convert.RecordConverter;
 import com.ontotext.kafka.service.GraphDBService;
 import com.ontotext.kafka.util.PropertiesUtil;
+import com.ontotext.kafka.util.RDFValueUtil;
 
 public class GraphDBSinkConnector extends SinkConnector {
 
@@ -40,7 +43,11 @@ public class GraphDBSinkConnector extends SinkConnector {
 	@Override
 	public void start(Map<String, String> properties) {
 		this.properties = properties;
-		GraphDBService.connectorService().initialize();
+		RecordConverter converter = new DirectRDFConverter();
+		GraphDBService.connectorService()
+				.initialize(RDFValueUtil.getRDFFormat(properties.get(GraphDBSinkConfig.RDF_FORMAT)),
+						properties.get(GraphDBSinkConfig.SERVER_IRI),
+						properties.get(GraphDBSinkConfig.REPOSITORY),converter);
 	}
 
 	@Override
@@ -71,9 +78,8 @@ public class GraphDBSinkConnector extends SinkConnector {
 	public Config validate(final Map<String, String> connectorConfigs) {
 		Config config = super.validate(connectorConfigs);
 
-		GraphDBSinkConfig sinkConfig;
 		try {
-			sinkConfig = new GraphDBSinkConfig(connectorConfigs);
+			GraphDBSinkConfig sinkConfig = new GraphDBSinkConfig(connectorConfigs);
 		} catch (Exception e) {
 			return config;
 		}

@@ -35,7 +35,7 @@ public class GraphDBSinkTask extends SinkTask {
 		this.properties = properties;
 		this.repository = new HTTPRepository(properties.get(GraphDBSinkConfig.SERVER_IRI),
 				properties.get(GraphDBSinkConfig.REPOSITORY));
-		this.format = RDFValueUtil.getRDFFormat();
+		this.format = RDFValueUtil.getRDFFormat(properties.get(GraphDBSinkConfig.RDF_FORMAT));
 		this.transactionType = GraphDBSinkConfig.TransactionType.of(properties.get(GraphDBSinkConfig.TRANSACTION_TYPE));
 	}
 
@@ -65,6 +65,5 @@ public class GraphDBSinkTask extends SinkTask {
 			throw new RetriableException(e.getMessage());
 		}
 	}
-
 
 }

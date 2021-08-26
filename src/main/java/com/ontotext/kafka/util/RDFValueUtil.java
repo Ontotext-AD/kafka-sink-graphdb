@@ -2,16 +2,11 @@ package com.ontotext.kafka.util;
 
 import org.eclipse.rdf4j.rio.RDFFormat;
 
-import com.ontotext.kafka.GraphDBSinkConfig;
-
 public class RDFValueUtil {
 
-	public static void parseRDFData(Object data) {
+	private RDFValueUtil(){}
 
-	}
-
-	public static RDFFormat getRDFFormat() {
-		String format = PropertiesUtil.getProperty(GraphDBSinkConfig.RDF_FORMAT);
+	public static RDFFormat getRDFFormat(String format) {
 		if (RDFFormat.RDFXML.getDefaultFileExtension().contains(format)) {
 			return RDFFormat.RDFXML;
 		} else if (RDFFormat.NTRIPLES.getDefaultFileExtension().contains(format)) {
