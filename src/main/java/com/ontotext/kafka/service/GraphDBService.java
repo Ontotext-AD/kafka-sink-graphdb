@@ -1,6 +1,7 @@
 package com.ontotext.kafka.service;
 
 import java.util.Collection;
+import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -11,8 +12,8 @@ import org.eclipse.rdf4j.repository.http.HTTPRepository;
 import org.eclipse.rdf4j.rio.RDFFormat;
 
 import com.ontotext.kafka.GraphDBSinkConfig;
-import com.ontotext.kafka.convert.RecordConverter;
 import com.ontotext.kafka.util.PropertiesUtil;
+import com.ontotext.kafka.util.RDFValueUtil;
 
 public class GraphDBService {
 	private static final GraphDBService INSTANCE = new GraphDBService();
@@ -23,11 +24,13 @@ public class GraphDBService {
 
 	private GraphDBService() {}
 
-	public void initialize(RDFFormat format, String address, String repositoryId, RecordConverter converter) {
-		if (repository.compareAndSet(null, fetchRepository(address, repositoryId))) {
+	public void initialize(Map<String, String> properties) {
+		if (repository.compareAndSet(null, fetchRepository(properties.get(GraphDBSinkConfig.SERVER_IRI),
+				properties.get(GraphDBSinkConfig.REPOSITORY)))) {
 			batchProcessor = new Thread(
-					new SinkRecordsProcessor(sinkRecords, shouldRun, repository.get(), format, converter,
-							Integer.parseInt(PropertiesUtil.getProperty(GraphDBSinkConfig.BATCH_SIZE))));
+					new SinkRecordsProcessor(sinkRecords, shouldRun, repository.get(),
+							RDFValueUtil.getRDFFormat(properties.get(GraphDBSinkConfig.RDF_FORMAT)),
+							5));
 			batchProcessor.start();
 		}
 	}

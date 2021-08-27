@@ -23,8 +23,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
-import com.ontotext.kafka.convert.DirectRDFConverter;
-
 class SinkRecordsProcessorTest {
 	private LinkedList<Reader> streams;
 	private LinkedList<RDFFormat> formats;
@@ -100,14 +98,15 @@ class SinkRecordsProcessorTest {
 	private Thread createProcessorThread(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
 			Repository repository, int batchSize) {
 		Thread thread = new Thread(
-				new SinkRecordsProcessor(sinkRecords, shouldRun, repository, RDFFormat.NQUADS, new DirectRDFConverter(), batchSize));
+				new SinkRecordsProcessor(sinkRecords, shouldRun, repository, RDFFormat.NQUADS, batchSize));
 		thread.setDaemon(true);
 		return thread;
 	}
 
 	private void generateSinkRecords(Queue<Collection<SinkRecord>> sinkRecords, int recordsSize, int statementsSize) {
 		for (int i = 0; i < recordsSize; i++) {
-			SinkRecord sinkRecord = new SinkRecord("topic", 0, null, null, null, generateRDFStatements(statementsSize).getBytes(),
+			SinkRecord sinkRecord = new SinkRecord("topic", 0, null, null, null,
+					generateRDFStatements(statementsSize).getBytes(),
 					12);
 			sinkRecords.add(Collections.singleton(sinkRecord));
 		}

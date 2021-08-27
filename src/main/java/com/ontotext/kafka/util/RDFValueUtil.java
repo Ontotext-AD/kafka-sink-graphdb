@@ -1,5 +1,13 @@
 package com.ontotext.kafka.util;
 
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.io.StringReader;
+import java.util.Objects;
+
+import org.apache.kafka.connect.errors.DataException;
 import org.eclipse.rdf4j.rio.RDFFormat;
 
 public class RDFValueUtil {
@@ -39,6 +47,16 @@ public class RDFValueUtil {
 			return RDFFormat.HDT;
 		} else {
 			throw new IllegalArgumentException("Invalid RDF Format " + format);
+		}
+	}
+
+	public static Reader convertData(Object obj) {
+		Objects.requireNonNull(obj,"Cannot parse null objects");
+		if (obj instanceof byte[]) {
+			return new BufferedReader(new InputStreamReader(new ByteArrayInputStream((byte[]) obj)));
+		} else {
+			throw new DataException("error: no converter present due to unexpected object type "
+					                        + obj.getClass().getName());
 		}
 	}
 }
