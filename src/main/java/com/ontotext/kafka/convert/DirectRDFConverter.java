@@ -1,28 +1,41 @@
 package com.ontotext.kafka.convert;
 
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.io.StringReader;
-import java.util.Objects;
+import java.util.Map;
 
-import org.apache.kafka.connect.errors.DataException;
+import org.apache.kafka.common.header.Headers;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaAndValue;
+import org.apache.kafka.connect.storage.Converter;
 
-public class DirectRDFConverter implements RecordConverter {
+/**
+ * Simple converter that maintains the record value as a byte[]
+ *
+ * @author Tomas Kovachev tomas.kovachev@ontotext.com
+ */
+public class DirectRDFConverter implements Converter {
 
 	@Override
-	public Reader convert(Object obj) {
-		Objects.requireNonNull(obj,"Cannot parse null objects");
-		if (obj instanceof String) {
-			return new StringReader(((String) obj));
-		} else if (obj instanceof byte[]) {
-			return new BufferedReader(new InputStreamReader(new ByteArrayInputStream((byte[]) obj)));
-		}
-		else {
-			// return new StringReader(obj.toString());
-			throw new DataException("error: no converter present due to unexpected object type "
-					                        + obj.getClass().getName());
-		}
+	public void configure(Map<String, ?> configs, boolean isKey) {}
+
+	@Override
+	public byte[] fromConnectData(String topic, Schema schema, Object value) {
+		//todo implement
+		return new byte[0];
+	}
+
+	@Override
+	public byte[] fromConnectData(String topic, Headers headers, Schema schema, Object value) {
+		//todo implement
+		return new byte[0];
+	}
+
+	@Override
+	public SchemaAndValue toConnectData(String topic, byte[] value) {
+		return new SchemaAndValue(null, value);
+	}
+
+	@Override
+	public SchemaAndValue toConnectData(String topic, Headers headers, byte[] value) {
+		return new SchemaAndValue(null, value);
 	}
 }
