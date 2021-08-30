@@ -37,6 +37,7 @@ import com.ontotext.kafka.util.PropertiesUtil;
 public class GraphDBSinkConnector extends SinkConnector {
 
 	private Map<String, String> properties;
+	private GraphDBSinkConfig.AuthenticationType authType;
 
 	@Override
 	public String version() {
