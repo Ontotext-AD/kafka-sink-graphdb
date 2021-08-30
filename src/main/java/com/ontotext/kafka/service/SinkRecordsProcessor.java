@@ -1,78 +1,107 @@
 package com.ontotext.kafka.service;
 
-import java.io.IOException;
 import java.io.Reader;
 import java.util.Collection;
 import java.util.Queue;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
-import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.rio.RDFFormat;
 
-import com.ontotext.kafka.util.RDFValueUtil;
+import com.ontotext.kafka.util.ValueUtil;
 
-public class SinkRecordsProcessor implements Runnable {
-	private final Queue<Collection<SinkRecord>> sinkRecords;
-	private final LinkedBlockingQueue<Reader> recordsBatch;
-	private final Repository repository;
-	private final AtomicBoolean shouldRun;
-	private final RDFFormat format;
-	private final int batchSize;
+/**
+ * A processor which batches and wraps sink records in readers and flushes the smart updates to a given
+ * GraphDB {@link org.eclipse.rdf4j.repository.http.HTTPRepository}.
+ * <p>
+ * Batches that do not meet the {@link com.ontotext.kafka.GraphDBSinkConfig#BATCH_SIZE} are flushed
+ * after passing {@link com.ontotext.kafka.GraphDBSinkConfig#BATCH_COMMIT_SCHEDULER} threshold.
+ *
+ * @author Tomas Kovachev tomas.kovachev@ontotext.com
+ */
+public abstract class SinkRecordsProcessor implements Runnable {
+	protected final Queue<Collection<SinkRecord>> sinkRecords;
+	protected final LinkedBlockingQueue<Reader> recordsBatch;
+	protected final Repository repository;
+	protected final AtomicBoolean shouldRun;
+	protected final RDFFormat format;
+	protected final Timer commitTimer;
+	protected final ScheduleCommitter scheduleCommitter;
+	protected final ReentrantLock timeoutCommitLock;
+	protected final int batchSize;
+	protected final long timeoutCommitMs;
 
-	public SinkRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
-			Repository repository, RDFFormat format, int batchSize) {
+	protected SinkRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
+			Repository repository, RDFFormat format, int batchSize, long timeoutCommitMs) {
 		this.recordsBatch = new LinkedBlockingQueue<>();
 		this.sinkRecords = sinkRecords;
 		this.shouldRun = shouldRun;
 		this.repository = repository;
 		this.format = format;
+		this.commitTimer = new Timer(true);
+		this.scheduleCommitter = new ScheduleCommitter();
+		this.timeoutCommitLock = new ReentrantLock();
 		this.batchSize = batchSize;
+		this.timeoutCommitMs = timeoutCommitMs;
 	}
 
 	@Override
 	public void run() {
-		while (shouldRun.get()) {
-			Collection<SinkRecord> messages = sinkRecords.poll();
-			if (messages != null) {
-				consumeRecords(messages);
+		try {
+			commitTimer.schedule(scheduleCommitter, timeoutCommitMs, timeoutCommitMs);
+			while (shouldRun.get()) {
+				Collection<SinkRecord> messages = sinkRecords.poll();
+				if (messages != null) {
+					consumeRecords(messages);
+				}
 			}
+			// commit any records left before shutdown
+			while (sinkRecords.peek() != null) {
+				consumeRecords(sinkRecords.poll());
+			}
+			//final flush after all messages have been batched
+			flushUpdates();
+		} finally {
+			// stop the scheduled committer
+			scheduleCommitter.cancel();
+			commitTimer.cancel();
 		}
-		// commit any records left before shutdown
-		while (sinkRecords.peek() != null) {
-			consumeRecords(sinkRecords.poll());
-		}
-		//final flush after all messages have been batched
-		flushRecords();
 	}
 
-	private void consumeRecords(Collection<SinkRecord> messages) {
+	public void flushUpdates() {
+		try {
+			timeoutCommitLock.lock();
+			flushRecordUpdates();
+		} finally {
+			if (timeoutCommitLock.isHeldByCurrentThread()) {
+				timeoutCommitLock.unlock();
+			}
+		}
+	}
+
+	protected void consumeRecords(Collection<SinkRecord> messages) {
 		for (SinkRecord message : messages) {
 			if (batchSize <= recordsBatch.size()) {
-				flushRecords();
+				flushUpdates();
 			}
-			recordsBatch.add(RDFValueUtil.convertData(message.value()));
+			recordsBatch.add(ValueUtil.convertRDFData(message.value()));
 		}
 		if (batchSize <= recordsBatch.size()) {
-			flushRecords();
+			flushUpdates();
 		}
 	}
 
-	private void flushRecords() {
-		if (!recordsBatch.isEmpty()) {
-			try (RepositoryConnection connection = repository.getConnection()) {
-				connection.begin();
-				while (recordsBatch.peek() != null) {
-					connection.add(recordsBatch.poll(), format);
-				}
-				connection.commit();
-			} catch (IOException e) {
-				throw new RuntimeException(e);
-				//todo first add retries
-				//todo inject error handler
-			}
+	protected abstract void flushRecordUpdates();
+
+	public class ScheduleCommitter extends TimerTask {
+		@Override
+		public void run() {
+			flushUpdates();
 		}
 	}
 }

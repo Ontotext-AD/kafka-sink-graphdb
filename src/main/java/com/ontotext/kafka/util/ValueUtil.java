@@ -10,9 +10,9 @@ import java.util.Objects;
 import org.apache.kafka.connect.errors.DataException;
 import org.eclipse.rdf4j.rio.RDFFormat;
 
-public class RDFValueUtil {
+public class ValueUtil {
 
-	private RDFValueUtil(){}
+	private ValueUtil() {}
 
 	public static RDFFormat getRDFFormat(String format) {
 		if (RDFFormat.RDFXML.getDefaultFileExtension().contains(format)) {
@@ -50,10 +50,12 @@ public class RDFValueUtil {
 		}
 	}
 
-	public static Reader convertData(Object obj) {
-		Objects.requireNonNull(obj,"Cannot parse null objects");
+	public static Reader convertRDFData(Object obj) {
+		Objects.requireNonNull(obj, "Cannot parse null objects");
 		if (obj instanceof byte[]) {
 			return new BufferedReader(new InputStreamReader(new ByteArrayInputStream((byte[]) obj)));
+		} else if (obj instanceof String) {
+			return new StringReader((String) obj);
 		} else {
 			throw new DataException("error: no converter present due to unexpected object type "
 					                        + obj.getClass().getName());

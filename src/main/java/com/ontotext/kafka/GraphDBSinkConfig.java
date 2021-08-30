@@ -1,7 +1,5 @@
 package com.ontotext.kafka;
 
-import static org.apache.kafka.common.config.ConfigDef.NO_DEFAULT_VALUE;
-
 import java.util.HashMap;
 import java.util.Map;
 
@@ -9,6 +7,11 @@ import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigValue;
 
+/**
+ * Config implementation used to store and validate main Connector properties including Authentication and Transaction Type.
+ *
+ * @author Tomas Kovachev tomas.kovachev@ontotext.com
+ */
 public class GraphDBSinkConfig extends AbstractConfig {
 
 	public static final ConfigDef CONFIG = createConfig();
@@ -107,7 +110,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 						       AUTH_BASIC_USER_DOC)
 				       .define(AUTH_BASIC_PASS, ConfigDef.Type.STRING, "", ConfigDef.Importance.LOW,
 						       AUTH_BASIC_PASS_DOC)
-				       .define(AUTH_HEADER_TOKEN, ConfigDef.Type.STRING,"", ConfigDef.Importance.LOW,
+				       .define(AUTH_HEADER_TOKEN, ConfigDef.Type.STRING, "", ConfigDef.Importance.LOW,
 						       AUTH_HEADER_TOKEN_DOC);
 	}
 

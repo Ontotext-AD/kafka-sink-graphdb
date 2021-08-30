@@ -27,11 +27,17 @@ import java.util.Map;
 
 import com.ontotext.kafka.service.GraphDBService;
 import com.ontotext.kafka.util.PropertiesUtil;
-import com.ontotext.kafka.util.RDFValueUtil;
 
+/**
+ * {@link SinkConnector} implementation for streaming messages containing RDF data to GraphDB repositories
+ * asynchronously through {@link GraphDBService} .
+ *
+ * @author Tomas Kovachev tomas.kovachev@ontotext.com
+ */
 public class GraphDBSinkConnector extends SinkConnector {
 
 	private Map<String, String> properties;
+	private GraphDBSinkConfig.AuthenticationType authType;
 
 	@Override
 	public String version() {
@@ -70,8 +76,7 @@ public class GraphDBSinkConnector extends SinkConnector {
 
 	@Override
 	public Config validate(final Map<String, String> connectorConfigs) {
-		Config config = super.validate(connectorConfigs);
-
+		var config = super.validate(connectorConfigs);
 		try {
 			GraphDBSinkConfig sinkConfig = new GraphDBSinkConfig(connectorConfigs);
 		} catch (Exception e) {
@@ -80,19 +85,4 @@ public class GraphDBSinkConnector extends SinkConnector {
 		//todo implement connection check to GraphDB
 		return config;
 	}
-
-	// public static void validateServerApi(final MongoClient mongoClient, final Config config) {
-	//    getConfigByName(config, SERVER_API_VERSION_CONFIG)
-	//          .ifPresent(
-	//                serverApiVersion -> {
-	//                   if (!SERVER_API_VERSION_DEFAULT.equals(serverApiVersion.value())
-	//                         && !isAtleastFiveDotZero(mongoClient)) {
-	//                      getConfigByName(config, CONNECTION_URI_CONFIG)
-	//                            .ifPresent(
-	//                                  c ->
-	//                                        c.addErrorMessage(
-	//                                              "Server Version API requires MongoDB 5.0 or greater"));
-	//                   }
-	//                });
-	// }
 }

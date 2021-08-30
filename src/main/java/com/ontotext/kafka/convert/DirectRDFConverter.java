@@ -8,7 +8,7 @@ import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.storage.Converter;
 
 /**
- * Simple converter that maintains the record value as a byte[]
+ * Simple converter that maintains the record key/value as a byte[]
  *
  * @author Tomas Kovachev tomas.kovachev@ontotext.com
  */
