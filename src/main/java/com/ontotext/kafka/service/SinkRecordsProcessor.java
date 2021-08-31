@@ -1,6 +1,9 @@
 package com.ontotext.kafka.service;
 
-import java.io.Reader;
+import org.apache.kafka.connect.sink.SinkRecord;
+import org.eclipse.rdf4j.repository.Repository;
+import org.eclipse.rdf4j.rio.RDFFormat;
+
 import java.util.Collection;
 import java.util.Queue;
 import java.util.Timer;
@@ -9,14 +12,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 
-import org.apache.kafka.connect.sink.SinkRecord;
-import org.eclipse.rdf4j.repository.Repository;
-import org.eclipse.rdf4j.rio.RDFFormat;
-
-import com.ontotext.kafka.util.ValueUtil;
-
 /**
- * A processor which batches and wraps sink records in readers and flushes the smart updates to a given
+ * A processor which batches sink records and flushes the smart updates to a given
  * GraphDB {@link org.eclipse.rdf4j.repository.http.HTTPRepository}.
  * <p>
  * Batches that do not meet the {@link com.ontotext.kafka.GraphDBSinkConfig#BATCH_SIZE} are flushed
@@ -26,7 +23,7 @@ import com.ontotext.kafka.util.ValueUtil;
  */
 public abstract class SinkRecordsProcessor implements Runnable {
 	protected final Queue<Collection<SinkRecord>> sinkRecords;
-	protected final LinkedBlockingQueue<Reader> recordsBatch;
+	protected final LinkedBlockingQueue<SinkRecord> recordsBatch;
 	protected final Repository repository;
 	protected final AtomicBoolean shouldRun;
 	protected final RDFFormat format;
@@ -89,7 +86,7 @@ public abstract class SinkRecordsProcessor implements Runnable {
 			if (batchSize <= recordsBatch.size()) {
 				flushUpdates();
 			}
-			recordsBatch.add(ValueUtil.convertRDFData(message.value()));
+			recordsBatch.add(message);
 		}
 		if (batchSize <= recordsBatch.size()) {
 			flushUpdates();
