@@ -1,5 +1,5 @@
 <assembly>
-  <id>graphdb-plugin</id>
+  <id>plugin</id>
   <formats>
     <format>zip</format>
   </formats>

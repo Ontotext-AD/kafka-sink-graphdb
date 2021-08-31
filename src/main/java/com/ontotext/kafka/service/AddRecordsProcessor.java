@@ -1,11 +1,12 @@
 package com.ontotext.kafka.service;
 
+import com.ontotext.kafka.util.ValueUtil;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.rio.RDFFormat;
 
-import java.io.IOException;
+import java.io.*;
 import java.util.Collection;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -30,7 +31,8 @@ public class AddRecordsProcessor extends SinkRecordsProcessor {
 			try (RepositoryConnection connection = repository.getConnection()) {
 				connection.begin();
 				while (recordsBatch.peek() != null) {
-					connection.add(recordsBatch.poll(), format);
+					connection.add(ValueUtil.convertRDFData(recordsBatch.peek().value()), format);
+					recordsBatch.remove();
 				}
 				connection.commit();
 			} catch (IOException e) {

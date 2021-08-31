@@ -11,6 +11,7 @@ import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.http.HTTPRepository;
 
 import com.ontotext.kafka.GraphDBSinkConfig;
+import com.ontotext.kafka.error.ErrorHandler;
 import com.ontotext.kafka.util.ValueUtil;
 
 /**
@@ -24,6 +25,8 @@ public class GraphDBService {
 	private final AtomicBoolean shouldRun = new AtomicBoolean(true);
 	private final AtomicReference<Repository> repository = new AtomicReference<>(null);
 	private final ConcurrentLinkedQueue<Collection<SinkRecord>> sinkRecords = new ConcurrentLinkedQueue<>();
+	//todo propagate global error handler to dedicated sink records processor
+	private ErrorHandler errorHandler;
 	private Thread recordProcessor;
 	private int batchSize;
 	private long timeoutCommitMs;

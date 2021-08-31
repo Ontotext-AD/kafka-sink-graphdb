@@ -64,9 +64,11 @@ public class GraphDBSinkConfig extends AbstractConfig {
 
 	public static final String AUTH_BASIC_USER = "graphdb.auth.basic.username";
 	public static final String AUTH_BASIC_USER_DOC = "GraphDB basic security username";
+	public static final String DEFAULT_AUTH_BASIC_USER = "admin";
 
 	public static final String AUTH_BASIC_PASS = "graphdb.auth.basic.password";
 	public static final String AUTH_BASIC_PASS_DOC = "GraphDB basic security password";
+	public static final String DEFAULT_AUTH_BASIC_PASS = "root";
 
 	public static final String AUTH_HEADER_TOKEN = "graphdb.auth.header.token";
 	public static final String AUTH_HEADER_TOKEN_DOC = "GraphDB custom header token";
@@ -90,7 +92,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	}
 
 	public static ConfigDef createConfig() {
-		return new ConfigDef()
+		return new GraphDBConfigDef()
 				       .define(SERVER_IRI, ConfigDef.Type.STRING, ConfigDef.Importance.HIGH,
 						       SERVER_IRI_DOC)
 				       .define(REPOSITORY, ConfigDef.Type.STRING, ConfigDef.Importance.HIGH,
@@ -106,9 +108,9 @@ public class GraphDBSinkConfig extends AbstractConfig {
 						       BATCH_COMMIT_SCHEDULER_DOC)
 				       .define(AUTH_TYPE, ConfigDef.Type.STRING, DEFAULT_AUTH_TYPE, ConfigDef.Importance.HIGH,
 						       AUTH_TYPE_DOC)
-				       .define(AUTH_BASIC_USER, ConfigDef.Type.STRING, "", ConfigDef.Importance.LOW,
+				       .define(AUTH_BASIC_USER, ConfigDef.Type.STRING, DEFAULT_AUTH_BASIC_USER, ConfigDef.Importance.LOW,
 						       AUTH_BASIC_USER_DOC)
-				       .define(AUTH_BASIC_PASS, ConfigDef.Type.STRING, "", ConfigDef.Importance.LOW,
+				       .define(AUTH_BASIC_PASS, ConfigDef.Type.STRING, DEFAULT_AUTH_BASIC_PASS, ConfigDef.Importance.LOW,
 						       AUTH_BASIC_PASS_DOC)
 				       .define(AUTH_HEADER_TOKEN, ConfigDef.Type.STRING, "", ConfigDef.Importance.LOW,
 						       AUTH_HEADER_TOKEN_DOC);
@@ -117,6 +119,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	public static class GraphDBConfigDef extends ConfigDef {
 		@Override
 		public Map<String, ConfigValue> validateAll(Map<String, String> props) {
+			//todo add validation of properties
 			return super.validateAll(props);
 		}
 	}
