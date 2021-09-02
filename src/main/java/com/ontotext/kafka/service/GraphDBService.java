@@ -6,6 +6,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.ontotext.kafka.error.LogErrorHandler;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.http.HTTPRepository;
@@ -25,7 +26,6 @@ public class GraphDBService {
 	private final AtomicBoolean shouldRun = new AtomicBoolean(true);
 	private final AtomicReference<Repository> repository = new AtomicReference<>(null);
 	private final ConcurrentLinkedQueue<Collection<SinkRecord>> sinkRecords = new ConcurrentLinkedQueue<>();
-	//todo propagate global error handler to dedicated sink records processor
 	private ErrorHandler errorHandler;
 	private Thread recordProcessor;
 	private int batchSize;
@@ -37,6 +37,7 @@ public class GraphDBService {
 		if (repository.compareAndSet(null, fetchRepository(properties))) {
 			batchSize = Integer.parseInt(properties.get(GraphDBSinkConfig.BATCH_SIZE));
 			timeoutCommitMs = Long.parseLong(properties.get(GraphDBSinkConfig.BATCH_COMMIT_SCHEDULER));
+			errorHandler = new LogErrorHandler();
 			recordProcessor = new Thread(
 					fetchProcessor(properties.get(GraphDBSinkConfig.TRANSACTION_TYPE),
 							properties.get(GraphDBSinkConfig.RDF_FORMAT)));
@@ -81,8 +82,10 @@ public class GraphDBService {
 		switch (type) {
 			case ADD:
 				return new AddRecordsProcessor(sinkRecords, shouldRun, repository.get(),
-						ValueUtil.getRDFFormat(rdfFormat), batchSize, timeoutCommitMs);
+						ValueUtil.getRDFFormat(rdfFormat), batchSize, timeoutCommitMs, errorHandler);
 			case SMART_UPDATE:
+				return new UpdateRecordsProcessor(sinkRecords, shouldRun, repository.get(),
+						ValueUtil.getRDFFormat(rdfFormat), batchSize, timeoutCommitMs, errorHandler);
 			case REPLACE_GRAPH:
 			default:
 				throw new UnsupportedOperationException("Not implemented yet");

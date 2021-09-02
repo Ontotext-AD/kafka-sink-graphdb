@@ -13,6 +13,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
+import com.ontotext.kafka.error.ErrorHandler;
+import com.ontotext.kafka.error.LogErrorHandler;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.rio.RDFFormat;
@@ -28,6 +30,7 @@ class AddRecordsProcessorTest {
 	private Repository repository;
 	private AtomicBoolean shouldRun;
 	private Queue<Collection<SinkRecord>> sinkRecords;
+	private ErrorHandler errorHandler;
 
 	@BeforeEach
 	public void setup() {
@@ -36,6 +39,7 @@ class AddRecordsProcessorTest {
 		repository = initRepository(streams, formats);
 		shouldRun = new AtomicBoolean(true);
 		sinkRecords = new LinkedBlockingQueue<>();
+		errorHandler = new LogErrorHandler();
 	}
 
 	@Test
@@ -138,7 +142,7 @@ class AddRecordsProcessorTest {
 			Repository repository, int batchSize, long commitTimeout) {
 		Thread thread = new Thread(
 				new AddRecordsProcessor(sinkRecords, shouldRun, repository, RDFFormat.NQUADS, batchSize,
-						commitTimeout));
+						commitTimeout, errorHandler));
 		thread.setDaemon(true);
 		return thread;
 	}

@@ -1,13 +1,11 @@
 package com.ontotext.kafka.service;
 
+import com.ontotext.kafka.error.ErrorHandler;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.rio.RDFFormat;
 
-import java.util.Collection;
-import java.util.Queue;
-import java.util.Timer;
-import java.util.TimerTask;
+import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
@@ -24,6 +22,7 @@ import java.util.concurrent.locks.ReentrantLock;
 public abstract class SinkRecordsProcessor implements Runnable {
 	protected final Queue<Collection<SinkRecord>> sinkRecords;
 	protected final LinkedBlockingQueue<SinkRecord> recordsBatch;
+	protected final Queue<Map.Entry<SinkRecord, Throwable>> failedRecords;
 	protected final Repository repository;
 	protected final AtomicBoolean shouldRun;
 	protected final RDFFormat format;
@@ -32,9 +31,10 @@ public abstract class SinkRecordsProcessor implements Runnable {
 	protected final ReentrantLock timeoutCommitLock;
 	protected final int batchSize;
 	protected final long timeoutCommitMs;
+	protected final ErrorHandler errorHandler;
 
 	protected SinkRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
-			Repository repository, RDFFormat format, int batchSize, long timeoutCommitMs) {
+								   Repository repository, RDFFormat format, int batchSize, long timeoutCommitMs, ErrorHandler errorHandler) {
 		this.recordsBatch = new LinkedBlockingQueue<>();
 		this.sinkRecords = sinkRecords;
 		this.shouldRun = shouldRun;
@@ -45,6 +45,8 @@ public abstract class SinkRecordsProcessor implements Runnable {
 		this.timeoutCommitLock = new ReentrantLock();
 		this.batchSize = batchSize;
 		this.timeoutCommitMs = timeoutCommitMs;
+		this.errorHandler = errorHandler;
+		failedRecords = new LinkedBlockingQueue<>();
 	}
 
 	@Override
@@ -83,13 +85,33 @@ public abstract class SinkRecordsProcessor implements Runnable {
 
 	protected void consumeRecords(Collection<SinkRecord> messages) {
 		for (SinkRecord message : messages) {
+			recordsBatch.add(message);
 			if (batchSize <= recordsBatch.size()) {
 				flushUpdates();
 			}
-			recordsBatch.add(message);
 		}
-		if (batchSize <= recordsBatch.size()) {
-			flushUpdates();
+	}
+
+	protected void catchMalformedRecords(SinkRecord record, RuntimeException e) {
+		Map.Entry<SinkRecord, Throwable> entry = Map.entry(record, e);
+		if (!failedRecords.contains(entry)) {
+			failedRecords.offer(entry);
+		}
+	}
+
+	protected void removeFlushedRecords(int flushedRecords) {
+		if (flushedRecords > 0)
+			for (int i = 0; i < flushedRecords; i++) {
+				recordsBatch.poll();
+			}
+	}
+
+	protected void clearFailed() {
+		while (!failedRecords.isEmpty()) {
+			Map.Entry<SinkRecord, Throwable> entry = failedRecords.poll();
+			SinkRecord record = entry.getKey();
+			Throwable ex = entry.getValue();
+			errorHandler.handleFailingRecord(record, ex);
 		}
 	}
 
