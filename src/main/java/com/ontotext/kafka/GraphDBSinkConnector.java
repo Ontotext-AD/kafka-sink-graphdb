@@ -16,17 +16,27 @@
 
 package com.ontotext.kafka;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkConnector;
 
+import java.io.IOException;
+import java.net.URL;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 import com.ontotext.kafka.service.GraphDBService;
 import com.ontotext.kafka.util.PropertiesUtil;
+import org.eclipse.rdf4j.http.protocol.UnauthorizedException;
+import org.eclipse.rdf4j.repository.RepositoryConnection;
+import org.eclipse.rdf4j.repository.RepositoryException;
+import org.eclipse.rdf4j.repository.http.HTTPRepository;
+import org.json.JSONObject;
 
 /**
  * {@link SinkConnector} implementation for streaming messages containing RDF data to GraphDB repositories
@@ -81,7 +91,49 @@ public class GraphDBSinkConnector extends SinkConnector {
 		} catch (Exception e) {
 			return config;
 		}
-		//todo implement connection check to GraphDB -> add also security check
+		validateGraphDBConnection(connectorConfigs);
 		return config;
+	}
+
+	private void validateGraphDBConnection(Map<String, String> connectorConfigs) {
+		String serverIri = connectorConfigs.get(GraphDBSinkConfig.SERVER_IRI);
+		String repositoryId = connectorConfigs.get(GraphDBSinkConfig.REPOSITORY);
+		//NOTE: when the user doesn't have write permissions it says invalid repo
+		try {
+			URL versionUrl = new URL(serverIri + "rest/info/version");
+			String version = new JSONObject(IOUtils.toString(versionUrl, Charset.defaultCharset())).getString("productVersion");
+
+			int major = Integer.parseInt(version.split("\\.")[0]);
+			if (major < 10) {
+				int minor = Integer.parseInt(version.split("\\.")[1]);
+				if (major == 9 && minor < 10) {
+					throw new ConnectException("Kafka sink is supported on GraphDB 9.10 or higher. Please update your GraphDB");
+				}
+			}
+		} catch (IOException e) {
+			throw new ConnectException("No GraphDB running on the provided GraphDB server iri");
+		}
+
+		var repository = new HTTPRepository(serverIri, repositoryId);
+		switch (GraphDBSinkConfig.AuthenticationType.of(connectorConfigs.get(GraphDBSinkConfig.AUTH_TYPE))) {
+			case NONE:
+				break;
+			case BASIC:
+				repository.setUsernameAndPassword(
+						connectorConfigs.get(GraphDBSinkConfig.AUTH_BASIC_USER),
+						connectorConfigs.get(GraphDBSinkConfig.AUTH_BASIC_PASS));
+				break;
+			case CUSTOM:
+			default:
+				throw new UnsupportedOperationException(connectorConfigs.get(GraphDBSinkConfig.AUTH_TYPE) + " not supported");
+		}
+		try (RepositoryConnection connection = repository.getConnection()) {
+			connection.begin();
+		} catch (RepositoryException e) {
+			if (e instanceof UnauthorizedException) {
+				throw new ConnectException("Invalid credentials");
+			}
+			throw new ConnectException("Invalid repository");
+		}
 	}
 }

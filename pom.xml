@@ -208,7 +208,12 @@
             <version>11.0.0.M2</version>
 <!--            <scope>provided</scope>-->
         </dependency>
-    </dependencies>
+		<dependency>
+			<groupId>org.json</groupId>
+			<artifactId>json</artifactId>
+			<version>20210307</version>
+		</dependency>
+	</dependencies>
 
 	<profiles>
 		<profile>
