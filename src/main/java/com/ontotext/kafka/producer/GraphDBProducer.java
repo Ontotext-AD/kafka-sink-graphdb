@@ -1,7 +1,6 @@
 package com.ontotext.kafka.producer;
 
 import org.apache.kafka.clients.producer.*;
-import org.apache.kafka.common.serialization.StringSerializer;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -9,7 +8,6 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
-import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
 public class GraphDBProducer {
@@ -18,10 +16,7 @@ public class GraphDBProducer {
     private static List<String> allFiles = null;
 
     private Producer<String, String> getProducer(Properties props) {
-        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
-        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
-
-        return new KafkaProducer<String, String>(props);
+        return new KafkaProducer<>(props);
     }
 
     public static void main(String[] args) {
