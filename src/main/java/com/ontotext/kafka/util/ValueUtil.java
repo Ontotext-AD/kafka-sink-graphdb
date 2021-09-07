@@ -8,6 +8,8 @@ import java.io.StringReader;
 import java.util.Objects;
 
 import org.apache.kafka.connect.errors.DataException;
+import org.eclipse.rdf4j.model.Resource;
+import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.rio.RDFFormat;
 
 public class ValueUtil {
@@ -59,6 +61,18 @@ public class ValueUtil {
 		} else {
 			throw new DataException("error: no converter present due to unexpected object type "
 					                        + obj.getClass().getName());
+		}
+	}
+
+	public static Resource convertIRIKey(Object obj) {
+		Objects.requireNonNull(obj, "Cannot parse null objects");
+		if (obj instanceof byte[]) {
+			return SimpleValueFactory.getInstance().createIRI(new String((byte[]) obj));
+		} else if (obj instanceof String) {
+			return SimpleValueFactory.getInstance().createIRI((String) obj);
+		} else {
+			throw new DataException("error: no converter present due to unexpected object type "
+					+ obj.getClass().getName());
 		}
 	}
 }
