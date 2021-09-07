@@ -31,7 +31,8 @@ public class GraphDBService {
 	private int batchSize;
 	private long timeoutCommitMs;
 
-	private GraphDBService() {}
+	private GraphDBService() {
+	}
 
 	public void initialize(Map<String, String> properties) {
 		if (repository.compareAndSet(null, fetchRepository(properties))) {
@@ -83,6 +84,8 @@ public class GraphDBService {
 				return new AddRecordsProcessor(sinkRecords, shouldRun, repository.get(),
 						ValueUtil.getRDFFormat(rdfFormat), batchSize, timeoutCommitMs);
 			case SMART_UPDATE:
+				return new UpdateRecordsProcessor(sinkRecords, shouldRun, repository.get(),
+						ValueUtil.getRDFFormat(rdfFormat), batchSize, timeoutCommitMs);
 			case REPLACE_GRAPH:
 			default:
 				throw new UnsupportedOperationException("Not implemented yet");
