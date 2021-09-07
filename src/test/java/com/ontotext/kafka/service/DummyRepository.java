@@ -1,5 +1,6 @@
 package com.ontotext.kafka.service;
 
+import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.repository.Repository;
@@ -8,16 +9,23 @@ import org.eclipse.rdf4j.repository.RepositoryException;
 import org.eclipse.rdf4j.rio.RDFFormat;
 
 import java.io.File;
-import java.io.InputStream;
 import java.io.Reader;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 public class DummyRepository implements Repository {
 
 	private BiConsumer<Reader, RDFFormat> consumer;
+	private Consumer<Resource[]> contexts;
 
 	public DummyRepository(BiConsumer<Reader, RDFFormat> consumer) {
 		this.consumer = consumer;
+		this.contexts = null;
+	}
+
+	public DummyRepository(BiConsumer<Reader, RDFFormat> consumer, Consumer<Resource[]> contexts) {
+		this.consumer = consumer;
+		this.contexts = contexts;
 	}
 
 	@Override
@@ -49,7 +57,7 @@ public class DummyRepository implements Repository {
 
 	@Override
 	public RepositoryConnection getConnection() throws RepositoryException {
-		return new DummyRepositoryConnection(consumer);
+		return new DummyRepositoryConnection(consumer, contexts);
 	}
 
 	@Override

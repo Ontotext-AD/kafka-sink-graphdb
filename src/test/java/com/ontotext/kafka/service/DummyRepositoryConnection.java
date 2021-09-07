@@ -18,9 +18,11 @@ import java.util.function.Consumer;
 public class DummyRepositoryConnection implements RepositoryConnection {
 
 	private BiConsumer<Reader, RDFFormat> consumer;
+	private Consumer<Resource[]> contexts;
 
-	public DummyRepositoryConnection(BiConsumer<Reader, RDFFormat> consumer) {
+	public DummyRepositoryConnection(BiConsumer<Reader, RDFFormat> consumer, Consumer<Resource[]> contexts) {
 		this.consumer = consumer;
+		this.contexts = contexts;
 	}
 
 	@Override
@@ -191,6 +193,9 @@ public class DummyRepositoryConnection implements RepositoryConnection {
 	@Override
 	public void add(Reader reader, String baseURI, RDFFormat dataFormat, Resource... contexts) throws IOException, RDFParseException, RepositoryException {
 		consumer.accept(reader, dataFormat);
+		if (contexts.length != 0) {
+			this.contexts.accept(contexts);
+		}
 	}
 
 	@Override
