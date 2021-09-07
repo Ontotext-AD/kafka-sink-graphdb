@@ -2,6 +2,7 @@ package com.ontotext.kafka;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
@@ -119,8 +120,23 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	public static class GraphDBConfigDef extends ConfigDef {
 		@Override
 		public Map<String, ConfigValue> validateAll(Map<String, String> props) {
-			//todo add validation of properties
+			System.out.println();
+			System.out.println();
+			System.out.println();
+			System.out.println();
+			System.out.println("VALIDATE ALL");
+			System.out.println();
+			System.out.println();
+			System.out.println();
+			System.out.println();
+			Set<ConfigKey> values = (Set<ConfigKey>) configKeys().values();
+			for (ConfigKey k : values) {
+				System.out.println(k.type + " " + k.name);
+			}
+
 			return super.validateAll(props);
 		}
+
+		private void validateAuthType(){}
 	}
 }
