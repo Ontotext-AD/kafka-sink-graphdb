@@ -2,7 +2,6 @@ package com.ontotext.kafka.service;
 
 import com.ontotext.kafka.util.ValueUtil;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.rio.RDFFormat;
@@ -13,12 +12,10 @@ import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * {@link SinkRecordsProcessor} implementation that directly replaces a graph from {@link SinkRecord} values
+ * {@link SinkRecordsProcessor} implementation that directly replaces a graph from {@link SinkRecord} key which
+ * indicates the IRI of the named graph and value describing the new RDF contents of the named graph
  * through a {@link RepositoryConnection} to a GraphDB repository.
  * <p>
- * To perform an update, the following information must be provided:
- * The IRI of the named graph (the document ID)
- * The new RDF contents of the named graph (the document contents)
  *
  * @author Denitsa Stoyanova denitsa.stoyanova@ontotext.com
  */
@@ -37,11 +34,7 @@ public class ReplaceGraphProcessor extends SinkRecordsProcessor {
 				connection.begin();
 
 				if (shouldClearGraph && recordsBatch.peek() != null) {
-					SinkRecord record = recordsBatch.poll();
-
-					Resource key = ValueUtil.convertIRIKey(record.key());
-					connection.clear(key);
-					connection.add(ValueUtil.convertRDFData(record.value()), format, key);
+					connection.clear(ValueUtil.convertIRIKey(recordsBatch.peek().key()));
 					shouldClearGraph = false;
 				}
 
@@ -59,5 +52,4 @@ public class ReplaceGraphProcessor extends SinkRecordsProcessor {
 			shouldClearGraph = true;
 		}
 	}
-
 }

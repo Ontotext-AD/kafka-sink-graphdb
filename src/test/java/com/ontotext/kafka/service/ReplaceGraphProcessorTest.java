@@ -1,5 +1,6 @@
 package com.ontotext.kafka.service;
 
+import com.ontotext.kafka.util.ValueUtil;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.repository.Repository;
@@ -47,17 +48,15 @@ public class ReplaceGraphProcessorTest {
 		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch, 5000);
 		recordsProcessor.start();
 		awaitEmptyCollection(sinkRecords);
-		assertTrue(formats.isEmpty());
-		assertTrue(streams.isEmpty());
 		shouldRun.set(false);
 		awaitProcessorShutdown(recordsProcessor);
 		assertFalse(recordsProcessor.isAlive());
+		streams.poll();
 		assertEquals(1, streams.size());
-		assertEquals(15, Rio.parse(streams.poll(), RDFFormat.NQUADS).size());
-		for(Resource[] records : contexts) {
+		assertEquals(checkStatements(15), Rio.parse(streams.poll(), RDFFormat.NQUADS).toString());
+		for (Resource[] records : contexts) {
 			assertTrue(Arrays.stream(records).allMatch(r -> r.stringValue().equals("http://example/")));
 		}
-		System.out.println(this.contexts.size());
 	}
 
 	@Test
@@ -73,11 +72,12 @@ public class ReplaceGraphProcessorTest {
 		shouldRun.set(false);
 		awaitProcessorShutdown(recordsProcessor);
 		assertFalse(recordsProcessor.isAlive());
+		streams.poll();
 		assertEquals(4, streams.size());
 		for (Reader reader : streams) {
-			assertEquals(15, Rio.parse(reader, RDFFormat.NQUADS).size());
+			assertEquals(checkStatements(15), Rio.parse(reader, RDFFormat.NQUADS).toString());
 		}
-		for(Resource[] records : contexts) {
+		for (Resource[] records : contexts) {
 			assertTrue(Arrays.stream(records).allMatch(r -> r.stringValue().equals("http://example/")));
 		}
 	}
@@ -92,15 +92,16 @@ public class ReplaceGraphProcessorTest {
 		recordsProcessor.start();
 		awaitEmptyCollection(sinkRecords);
 		//space only for two batches of size 2
+		streams.poll();
 		awaitCollectionSizeReached(streams, 4);
 		shouldRun.set(false);
 		awaitProcessorShutdown(recordsProcessor);
 		assertFalse(recordsProcessor.isAlive());
 		assertEquals(5, streams.size());
 		for (Reader reader : streams) {
-			assertEquals(15, Rio.parse(reader, RDFFormat.NQUADS).size());
+			assertEquals(checkStatements(15), Rio.parse(reader, RDFFormat.NQUADS).toString());
 		}
-		for(Resource[] records : contexts) {
+		for (Resource[] records : contexts) {
 			assertTrue(Arrays.stream(records).allMatch(r -> r.stringValue().equals("http://example/")));
 		}
 	}
@@ -114,15 +115,16 @@ public class ReplaceGraphProcessorTest {
 		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch, 50);
 		recordsProcessor.start();
 		awaitEmptyCollection(sinkRecords);
+		streams.poll();
 		awaitCollectionSizeReached(streams, 1);
 		shouldRun.set(false);
 		awaitProcessorShutdown(recordsProcessor);
 		assertFalse(recordsProcessor.isAlive());
 		assertEquals(3, streams.size());
 		for (Reader reader : streams) {
-			assertEquals(12, Rio.parse(reader, RDFFormat.NQUADS).size());
+			assertEquals(checkStatements(12), Rio.parse(reader, RDFFormat.NQUADS).toString());
 		}
-		for(Resource[] records : contexts) {
+		for (Resource[] records : contexts) {
 			assertTrue(Arrays.stream(records).allMatch(r -> r.stringValue().equals("http://example/")));
 		}
 	}
@@ -135,7 +137,8 @@ public class ReplaceGraphProcessorTest {
 		generateSinkRecords(sinkRecords, 9, 12);
 		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch, 600);
 		recordsProcessor.start();
-		verifyForMilliseconds(()-> streams.size() < 9, 500);
+		streams.poll();
+		verifyForMilliseconds(() -> streams.size() < 9, 500);
 		awaitEmptyCollection(sinkRecords);
 		awaitCollectionSizeReached(streams, 9);
 		shouldRun.set(false);
@@ -143,9 +146,9 @@ public class ReplaceGraphProcessorTest {
 		assertFalse(recordsProcessor.isAlive());
 		assertEquals(9, streams.size());
 		for (Reader reader : streams) {
-			assertEquals(12, Rio.parse(reader, RDFFormat.NQUADS).size());
+			assertEquals(checkStatements(12), Rio.parse(reader, RDFFormat.NQUADS).toString());
 		}
-		for(Resource[] records : contexts) {
+		for (Resource[] records : contexts) {
 			assertTrue(Arrays.stream(records).allMatch(r -> r.stringValue().equals("http://example/")));
 		}
 	}
@@ -161,23 +164,31 @@ public class ReplaceGraphProcessorTest {
 
 	private void generateSinkRecords(Queue<Collection<SinkRecord>> sinkRecords, int recordsSize, int statementsSize) {
 		for (int i = 0; i < recordsSize; i++) {
-			SinkRecord sinkRecord = new SinkRecord("topic", 0, null, "http://example/".getBytes(), null,
-					generateRDFStatements(statementsSize).getBytes(),
-					12);
+			SinkRecord sinkRecord = new SinkRecord("topic", 0, null, "http://example/".getBytes(),
+					null, generateRDFStatements("one", "two", "three", statementsSize)
+					.getBytes(), 12);
 			sinkRecords.add(Collections.singleton(sinkRecord));
 		}
 	}
 
-	private String generateRDFStatements(int quantity) {
+	private String generateRDFStatements(String subject, String predicate, String object, int quantity) {
 		StringBuilder builder = new StringBuilder();
 		for (int i = 0; i < quantity; i++) {
-			builder.append("<urn:one")
-					.append(i)
-					.append("> <urn:two")
-					.append(i)
-					.append("> <urn:three")
-					.append(i)
-					.append("> . \n");
+			builder.append("<urn:").append(subject)
+					.append(i).append("> <urn:").append(predicate)
+					.append(i).append("> <urn:").append(object)
+					.append(i).append("> . \n");
+		}
+		return builder.toString();
+	}
+
+	private String checkStatements(int quantity) {
+		StringBuilder builder = new StringBuilder("[");
+		for (int i = 0; i < quantity; i++) {
+			builder.append("(urn:one")
+					.append(i).append(", urn:two")
+					.append(i).append(", urn:three")
+					.append(i).append(")").append(i != quantity - 1 ? ", " : "]");
 		}
 		return builder.toString();
 	}
@@ -204,6 +215,8 @@ public class ReplaceGraphProcessorTest {
 	}
 
 	private Repository initRepository(Queue<Reader> streams, Queue<RDFFormat> formats, Queue<Resource[]> contexts) {
+		streams.add(ValueUtil.convertRDFData(generateRDFStatements("four", "five", "six", 15)));
+		contexts.add(new Resource[]{ValueUtil.convertIRIKey("http://example/")});
 		return new DummyRepository((in, format) -> {
 			streams.add(in);
 			formats.add(format);
