@@ -1,72 +1,46 @@
 package com.ontotext.kafka.producer;
 
 import org.apache.kafka.clients.producer.*;
-
 import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 
-public class GraphDBProducer {
-    private static String configFile = null;
-    private static String kafkaTopic = null;
-    private static List<String> allFiles = null;
+public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
+    private final List<String> allFiles;
+    private final String kafkaTopic;
+    private final Properties properties;
 
-    private Producer<String, String> getProducer(Properties props) {
-        return new KafkaProducer<>(props);
+    public GraphDBProducer(List<String> files, String kafkaTopic, Properties properties) {
+        super(properties);
+        this.properties = properties;
+        this.allFiles = files;
+        this.kafkaTopic = kafkaTopic;
     }
 
-    public static void main(String[] args) {
-        if (args.length < 3) {
-            System.out.println("Please provide command line arguments: configPath topic filesToReadFrom...");
-            System.exit(1);
-        }
-
-        configFile = args[0];
-        kafkaTopic = args[1];
-        allFiles = Arrays.asList(args).subList(2, args.length);
-        GraphDBProducer producer = new GraphDBProducer();
-        producer.publish();
-    }
-
-    private void publish() {
-        Properties props = null;
-        try {
-            props = loadConfig(configFile);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        final Producer<String, String> producer = getProducer(props);
-
-        for (String file : allFiles) {
+    public void publish() {
+        for (String file : this.allFiles) {
             try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
                 String line = reader.readLine();
                 while(line != null) {
-                    final ProducerRecord<String, String> producerRecord = new ProducerRecord<>(kafkaTopic, null, line);
-                    producer.send(producerRecord).get();
+                    String key = null;
+                    if (properties.getProperty("graphdb.key") != null) {
+                        key = properties.getProperty("graphdb.key");
+                    }
+                    final ProducerRecord<String, String> producerRecord = new ProducerRecord<>(this.kafkaTopic, key, line);
+                    super.send((ProducerRecord<K, V>) producerRecord, new Callback() {
+                        @Override
+                        public void onCompletion(RecordMetadata recordMetadata, Exception e) {
+                            if(e != null) {
+                                e.printStackTrace();
+                            }
+                        }
+                    }).get();
                     line = reader.readLine();
                 }
             } catch (IOException | InterruptedException | ExecutionException e) {
                 e.printStackTrace();
             }
         }
-    }
-
-    private static Properties loadConfig(final String configFile) throws IOException {
-        if (!Files.exists(Paths.get(configFile))) {
-            throw new IOException(configFile + " not found.");
-        }
-        final Properties cfg = new Properties();
-        try (InputStream inputStream = new FileInputStream(configFile)) {
-            cfg.load(inputStream);
-        }
-        cfg.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
-        cfg.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
-
-        return cfg;
     }
 }
