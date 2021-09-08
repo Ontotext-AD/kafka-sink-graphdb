@@ -98,7 +98,6 @@ public class GraphDBSinkConnector extends SinkConnector {
 	private void validateGraphDBConnection(Map<String, String> connectorConfigs) {
 		String serverIri = connectorConfigs.get(GraphDBSinkConfig.SERVER_IRI);
 		String repositoryId = connectorConfigs.get(GraphDBSinkConfig.REPOSITORY);
-		//NOTE: when the user doesn't have write permissions it says invalid repo
 		try {
 			URL versionUrl = new URL(serverIri + "rest/info/version");
 			String version = new JSONObject(IOUtils.toString(versionUrl, Charset.defaultCharset())).getString("productVersion");
@@ -107,7 +106,7 @@ public class GraphDBSinkConnector extends SinkConnector {
 			if (major < 10) {
 				int minor = Integer.parseInt(version.split("\\.")[1]);
 				if (major == 9 && minor < 9) {
-					throw new ConnectException("Kafka sink is supported on GraphDB 9.10 or higher. Please update your GraphDB");
+					throw new ConnectException("Kafka sink is supported on GraphDB 9.10 or newer. Please update your GraphDB");
 				}
 			}
 		} catch (IOException e) {
@@ -132,9 +131,9 @@ public class GraphDBSinkConnector extends SinkConnector {
 			connection.rollback();
 		} catch (RepositoryException e) {
 			if (e instanceof UnauthorizedException) {
-				throw new ConnectException("Invalid credentials");
+				throw new ConnectException(e.getMessage() + ": Invalid credentials");
 			}
-			throw new ConnectException("Invalid repository");
+			throw new ConnectException(e.getMessage() + ": Invalid repository");
 		}
 	}
 }

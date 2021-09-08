@@ -1,11 +1,10 @@
-package com.ontotext.kafka.validators;
+package com.ontotext.kafka.validation;
 
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigException;
 
 import java.util.LinkedHashSet;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 public class ValidEnum implements ConfigDef.Validator {
 	final Set<String> validEnums;
@@ -26,25 +25,21 @@ public class ValidEnum implements ConfigDef.Validator {
 	}
 
 	@Override
-	public void ensureValid(String s, Object o) {
+	public void ensureValid(final String key, final Object o) {
 
 		if (o instanceof String) {
 			if (!validEnums.contains(((String) o).toLowerCase())) {
-				throw new ConfigException(s,
-						String.format("'%s' is not a valid value for %s. Valid values are %s.",
+				throw new ConfigException(key, o, String.format("'%s' is not a valid value for %s. Should be one of: %s",
 								o, enumClass.getSimpleName(),
 								validEnums));
 			}
 		} else {
-			throw new ConfigException(s,
-					o, "Must be a String");
+			throw new ConfigException(key, o, "Must be a String");
 		}
 	}
 
 	@Override
 	public String toString() {
-		return this.validEnums.stream()
-				.sorted()
-				.collect(Collectors.joining(", "));
+		return this.validEnums.toString();
 	}
 }

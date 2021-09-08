@@ -2,7 +2,7 @@ package com.ontotext.kafka;
 
 import java.util.*;
 
-import com.ontotext.kafka.validators.ValidEnum;
+import com.ontotext.kafka.validation.ValidEnum;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigValue;
