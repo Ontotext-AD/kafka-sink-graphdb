@@ -23,11 +23,8 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
             try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
                 String line = reader.readLine();
                 while(line != null) {
-                    String key = null;
-                    if (properties.getProperty("graphdb.key") != null) {
-                        key = properties.getProperty("graphdb.key");
-                    }
-                    final ProducerRecord<String, String> producerRecord = new ProducerRecord<>(this.kafkaTopic, key, line);
+                    //TODO how to pass key for replace and updates?
+                    final ProducerRecord<String, String> producerRecord = new ProducerRecord<>(this.kafkaTopic, null, line);
                     super.send((ProducerRecord<K, V>) producerRecord, new Callback() {
                         @Override
                         public void onCompletion(RecordMetadata recordMetadata, Exception e) {
