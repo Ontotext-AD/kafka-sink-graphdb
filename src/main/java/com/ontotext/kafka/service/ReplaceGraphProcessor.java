@@ -23,7 +23,8 @@ public class ReplaceGraphProcessor extends SinkRecordsProcessor {
 
 	private boolean shouldClearGraph = true;
 
-	protected ReplaceGraphProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun, Repository repository, RDFFormat format, int batchSize, long timeoutCommitMs) {
+	protected ReplaceGraphProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
+									Repository repository, RDFFormat format, int batchSize, long timeoutCommitMs) {
 		super(sinkRecords, shouldRun, repository, format, batchSize, timeoutCommitMs);
 	}
 
