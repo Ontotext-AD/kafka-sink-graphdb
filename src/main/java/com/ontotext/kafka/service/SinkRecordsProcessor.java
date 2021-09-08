@@ -1,15 +1,21 @@
 package com.ontotext.kafka.service;
 
 import com.ontotext.kafka.error.ErrorHandler;
-
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.rio.RDFFormat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.Queue;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
+
+import static com.ontotext.kafka.util.PropertiesUtil.*;
 
 /**
  * A processor which batches sink records and flushes the smart updates to a given
@@ -21,9 +27,14 @@ import java.util.concurrent.locks.ReentrantLock;
  * @author Tomas Kovachev tomas.kovachev@ontotext.com
  */
 public abstract class SinkRecordsProcessor implements Runnable {
+
+	protected static final Logger LOGGER = LoggerFactory.getLogger(SinkRecordsProcessor.class);
+	protected static final int NUMBER_OF_CONNECTION_RETRIES = getFromPropertyOrDefault(CONNECTION_NUMBER_OF_RETRIES, DEFAULT_CONNECTION_NUMBER_OF_RETRIES);
+	protected static final long DEFERRED_TIME_BETWEEN_RETRIES = getFromPropertyOrDefault(CONNECTION_RETRY_DEFERRED_TIME, DEFAULT_CONNECTION_RETRY_DEFERRED_TIME);
+	protected static final String ERROR_TOLERANCE = getFromPropertyOrDefault(ERRORS_TOLERANCE, DEFAULT_ERRORS_TOLERANCE);
+
 	protected final Queue<Collection<SinkRecord>> sinkRecords;
 	protected final LinkedBlockingQueue<SinkRecord> recordsBatch;
-	protected final Queue<Map.Entry<SinkRecord, Throwable>> failedRecords;
 	protected final Repository repository;
 	protected final AtomicBoolean shouldRun;
 	protected final RDFFormat format;
@@ -48,7 +59,6 @@ public abstract class SinkRecordsProcessor implements Runnable {
 		this.batchSize = batchSize;
 		this.timeoutCommitMs = timeoutCommitMs;
 		this.errorHandler = errorHandler;
-		failedRecords = new LinkedBlockingQueue<>();
 	}
 
 	@Override
@@ -91,29 +101,6 @@ public abstract class SinkRecordsProcessor implements Runnable {
 			if (batchSize <= recordsBatch.size()) {
 				flushUpdates();
 			}
-		}
-	}
-
-	protected void catchMalformedRecords(SinkRecord record, RuntimeException e) {
-		Map.Entry<SinkRecord, Throwable> entry = Map.entry(record, e);
-		if (!failedRecords.contains(entry)) {
-			failedRecords.offer(entry);
-		}
-	}
-
-	protected void removeFlushedRecords(int flushedRecords) {
-		if (flushedRecords > 0)
-			for (int i = 0; i < flushedRecords; i++) {
-				recordsBatch.poll();
-			}
-	}
-
-	protected void clearFailed() {
-		while (!failedRecords.isEmpty()) {
-			Map.Entry<SinkRecord, Throwable> entry = failedRecords.poll();
-			SinkRecord record = entry.getKey();
-			Throwable ex = entry.getValue();
-			errorHandler.handleFailingRecord(record, ex);
 		}
 	}
 

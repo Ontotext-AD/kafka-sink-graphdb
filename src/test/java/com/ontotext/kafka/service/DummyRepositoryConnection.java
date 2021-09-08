@@ -13,11 +13,10 @@ import java.io.InputStream;
 import java.io.Reader;
 import java.net.URL;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 public class DummyRepositoryConnection implements RepositoryConnection {
 
-	private BiConsumer<Reader, RDFFormat> consumer;
+	protected BiConsumer<Reader, RDFFormat> consumer;
 
 	public DummyRepositoryConnection(BiConsumer<Reader, RDFFormat> consumer) {
 		this.consumer = consumer;

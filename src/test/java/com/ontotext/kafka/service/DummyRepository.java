@@ -14,7 +14,7 @@ import java.util.function.BiConsumer;
 
 public class DummyRepository implements Repository {
 
-	private BiConsumer<Reader, RDFFormat> consumer;
+	protected BiConsumer<Reader, RDFFormat> consumer;
 
 	public DummyRepository(BiConsumer<Reader, RDFFormat> consumer) {
 		this.consumer = consumer;

@@ -87,28 +87,6 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	public static final long DEFAULT_BATCH_COMMIT_SCHEDULER = 3000;
 	public static final String BATCH_COMMIT_SCHEDULER_DOC = "The timeout applied per batch that is not full before it is committed";
 
-	//todo we need to create topic for failed messages in kafka with name from - properties - errors.deadletterqueue.topic.name
-	public static final String DEAD_LETTER_QUEUE_TOPIC_NAME = "errors.deadletterqueue.topic.name";
-	public static final String DEAD_LETTER_QUEUE_TOPIC_NAME_DOC = "The name of topic in Kafka for failed messages";
-	public static final String ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME = "failed-messages-01";
-
-	public static final String ERRORS_TOLERANCE = "errors.tolerance";
-	public static final String ERRORS_TOLERANCE_DOC = "all or none\n" +
-			" all - ignores all errors and continue\n" +
-			" none - causes the connector task to immediately fail\n" +
-			" We use all as default and send all failed messages to dedicated topic: "
-			+ ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME;
-	public static final String DEFAULT_ERRORS_TOLERANCE = "all";
-
-	public static final String ERRORS_ENABLE_HEADERS = "errors.deadletterqueue.context.headers.enable";
-	public static final String ERRORS_ENABLE_HEADERS_DOC = "Stores information about the error caused the failure";
-	public static final boolean DEFAULT_ERRORS_ENABLE_HEADERS = true;
-
-	public static final String ERRORS_TOPIC_REPLICATION = "errors.deadletterqueue.topic.replication.factor";
-	public static final String ERRORS_TOPIC_REPLICATION_DOC = "If you’re running on a single-node Kafka cluster, " +
-			" you will also need to set it because the default is 3";
-	public static final short DEFAULT_ERRORS_TOPIC_REPLICATION = 1;
-
 	public GraphDBSinkConfig(Map<?, ?> originals) {
 		super(CONFIG, originals);
 	}
@@ -135,19 +113,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 				       .define(AUTH_BASIC_PASS, ConfigDef.Type.STRING, DEFAULT_AUTH_BASIC_PASS, ConfigDef.Importance.LOW,
 						       AUTH_BASIC_PASS_DOC)
 				       .define(AUTH_HEADER_TOKEN, ConfigDef.Type.STRING, "", ConfigDef.Importance.LOW,
-						       AUTH_HEADER_TOKEN_DOC)
-					   .define(ERRORS_TOLERANCE, ConfigDef.Type.STRING, DEFAULT_ERRORS_TOLERANCE, ConfigDef.Importance.MEDIUM,
-							   ERRORS_TOLERANCE_DOC)
-					   .define(DEAD_LETTER_QUEUE_TOPIC_NAME, ConfigDef.Type.STRING, ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME,
-						       ConfigDef.Importance.MEDIUM,
-							   DEAD_LETTER_QUEUE_TOPIC_NAME_DOC)
-				       .define(ERRORS_ENABLE_HEADERS, ConfigDef.Type.BOOLEAN, DEFAULT_ERRORS_ENABLE_HEADERS,
-							   ConfigDef.Importance.MEDIUM,
-							   ERRORS_ENABLE_HEADERS_DOC)
-				       .define(ERRORS_TOPIC_REPLICATION, ConfigDef.Type.SHORT, DEFAULT_ERRORS_TOPIC_REPLICATION,
-							   ConfigDef.Importance.MEDIUM,
-							   ERRORS_TOPIC_REPLICATION_DOC)
-				;
+						       AUTH_HEADER_TOKEN_DOC);
 	}
 
 	public static class GraphDBConfigDef extends ConfigDef {
