@@ -1,9 +1,8 @@
 package com.ontotext.kafka;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
+import com.ontotext.kafka.validators.ValidEnum;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigValue;
@@ -61,7 +60,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 
 	public static final String AUTH_TYPE = "graphdb.auth.type";
 	public static final String AUTH_TYPE_DOC = "The authentication type used by GraphDB";
-	public static final String DEFAULT_AUTH_TYPE = "none";
+	public static final String DEFAULT_AUTH_TYPE = "NONE";
 
 	public static final String AUTH_BASIC_USER = "graphdb.auth.basic.username";
 	public static final String AUTH_BASIC_USER_DOC = "GraphDB basic security username";
@@ -79,6 +78,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 
 	public static final String TRANSACTION_TYPE = "graphdb.transaction.type";
 	public static final String TRANSACTION_TYPE_DOC = "The RDF update transaction type";
+	public static final String DEFAULT_TRANSACTION_TYPE = "ADD";
 
 	public static final String BATCH_SIZE = "graphdb.batch.size";
 	public static final int DEFAULT_BATCH_SIZE = 64;
@@ -92,6 +92,10 @@ public class GraphDBSinkConfig extends AbstractConfig {
 		super(CONFIG, originals);
 	}
 
+	public static ConfigDef.Validator validEnum(Class<? extends Enum> enumClass) {
+		return ValidEnum.of(enumClass);
+	}
+
 	public static ConfigDef createConfig() {
 		return new GraphDBConfigDef()
 				       .define(SERVER_IRI, ConfigDef.Type.STRING, ConfigDef.Importance.HIGH,
@@ -100,14 +104,15 @@ public class GraphDBSinkConfig extends AbstractConfig {
 						       REPOSITORY_DOC)
 				       .define(RDF_FORMAT, ConfigDef.Type.STRING, ConfigDef.Importance.HIGH,
 						       RDF_FORMAT_DOC)
-				       .define(TRANSACTION_TYPE, ConfigDef.Type.STRING, ConfigDef.Importance.HIGH,
-						       TRANSACTION_TYPE_DOC)
+				       .define(TRANSACTION_TYPE, ConfigDef.Type.STRING, DEFAULT_TRANSACTION_TYPE, validEnum(GraphDBSinkConfig.TransactionType.class),
+						       ConfigDef.Importance.HIGH, TRANSACTION_TYPE_DOC)
 				       .define(BATCH_SIZE, ConfigDef.Type.INT, DEFAULT_BATCH_SIZE, ConfigDef.Importance.HIGH,
 						       BATCH_SIZE_DOC)
 				       .define(BATCH_COMMIT_SCHEDULER, ConfigDef.Type.LONG, DEFAULT_BATCH_COMMIT_SCHEDULER,
 						       ConfigDef.Importance.HIGH,
 						       BATCH_COMMIT_SCHEDULER_DOC)
-				       .define(AUTH_TYPE, ConfigDef.Type.STRING, DEFAULT_AUTH_TYPE, ConfigDef.Importance.HIGH,
+				       .define(AUTH_TYPE, ConfigDef.Type.STRING, DEFAULT_AUTH_TYPE,
+						       validEnum(GraphDBSinkConfig.AuthenticationType.class), ConfigDef.Importance.HIGH,
 						       AUTH_TYPE_DOC)
 				       .define(AUTH_BASIC_USER, ConfigDef.Type.STRING, DEFAULT_AUTH_BASIC_USER, ConfigDef.Importance.LOW,
 						       AUTH_BASIC_USER_DOC)
@@ -120,23 +125,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	public static class GraphDBConfigDef extends ConfigDef {
 		@Override
 		public Map<String, ConfigValue> validateAll(Map<String, String> props) {
-			System.out.println();
-			System.out.println();
-			System.out.println();
-			System.out.println();
-			System.out.println("VALIDATE ALL");
-			System.out.println();
-			System.out.println();
-			System.out.println();
-			System.out.println();
-			Set<ConfigKey> values = (Set<ConfigKey>) configKeys().values();
-			for (ConfigKey k : values) {
-				System.out.println(k.type + " " + k.name);
-			}
-
 			return super.validateAll(props);
 		}
-
-		private void validateAuthType(){}
 	}
 }

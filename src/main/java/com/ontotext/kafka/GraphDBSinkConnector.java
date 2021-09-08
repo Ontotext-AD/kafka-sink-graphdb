@@ -106,7 +106,7 @@ public class GraphDBSinkConnector extends SinkConnector {
 			int major = Integer.parseInt(version.split("\\.")[0]);
 			if (major < 10) {
 				int minor = Integer.parseInt(version.split("\\.")[1]);
-				if (major == 9 && minor < 10) {
+				if (major == 9 && minor < 9) {
 					throw new ConnectException("Kafka sink is supported on GraphDB 9.10 or higher. Please update your GraphDB");
 				}
 			}
@@ -129,6 +129,7 @@ public class GraphDBSinkConnector extends SinkConnector {
 		}
 		try (RepositoryConnection connection = repository.getConnection()) {
 			connection.begin();
+			connection.rollback();
 		} catch (RepositoryException e) {
 			if (e instanceof UnauthorizedException) {
 				throw new ConnectException("Invalid credentials");
