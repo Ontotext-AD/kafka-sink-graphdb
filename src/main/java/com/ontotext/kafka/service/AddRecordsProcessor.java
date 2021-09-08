@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeoutException;
+
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -33,6 +34,7 @@ public class AddRecordsProcessor extends SinkRecordsProcessor {
 	public AddRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun, Repository repository,
 							   RDFFormat format, int batchSize, long timeoutCommitMs, ErrorHandler errorHandler) {
 		super(sinkRecords, shouldRun, repository, format, batchSize, timeoutCommitMs, errorHandler);
+
 	}
 
 	@Override
@@ -85,5 +87,4 @@ public class AddRecordsProcessor extends SinkRecordsProcessor {
 			catchMalformedRecords(record, e);
 		}
 	}
-
 }

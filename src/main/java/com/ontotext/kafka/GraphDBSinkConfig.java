@@ -147,7 +147,6 @@ public class GraphDBSinkConfig extends AbstractConfig {
 				       .define(ERRORS_TOPIC_REPLICATION, ConfigDef.Type.SHORT, DEFAULT_ERRORS_TOPIC_REPLICATION,
 							   ConfigDef.Importance.MEDIUM,
 							   ERRORS_TOPIC_REPLICATION_DOC)
-
 				;
 	}
 

@@ -12,7 +12,6 @@ import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
-
 import com.ontotext.kafka.error.ErrorHandler;
 import com.ontotext.kafka.error.LogErrorHandler;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -143,6 +142,7 @@ class AddRecordsProcessorTest {
 		Thread thread = new Thread(
 				new AddRecordsProcessor(sinkRecords, shouldRun, repository, RDFFormat.NQUADS, batchSize,
 						commitTimeout, errorHandler));
+
 		thread.setDaemon(true);
 		return thread;
 	}
