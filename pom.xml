@@ -65,11 +65,6 @@
 				<artifactId>maven-assembly-plugin</artifactId>
 				<version>3.1.1</version>
 				<configuration>
-					<archive>
-						<manifest>
-							<mainClass>com.ontotext.kafka.producer.GraphDBProducer</mainClass>
-						</manifest>
-					</archive>
 					<finalName>${project.artifactId}</finalName>
 					<descriptors>
 						<descriptor>graphdb-plugin.xml</descriptor>
