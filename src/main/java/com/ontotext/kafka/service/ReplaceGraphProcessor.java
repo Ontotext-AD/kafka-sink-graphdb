@@ -2,6 +2,7 @@ package com.ontotext.kafka.service;
 
 import com.ontotext.kafka.util.ValueUtil;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.rio.RDFFormat;
@@ -21,8 +22,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class ReplaceGraphProcessor extends SinkRecordsProcessor {
 
-	private boolean shouldClearGraph = true;
-
 	protected ReplaceGraphProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
 									Repository repository, RDFFormat format, int batchSize, long timeoutCommitMs) {
 		super(sinkRecords, shouldRun, repository, format, batchSize, timeoutCommitMs);
@@ -33,15 +32,11 @@ public class ReplaceGraphProcessor extends SinkRecordsProcessor {
 		if (!recordsBatch.isEmpty()) {
 			try (RepositoryConnection connection = repository.getConnection()) {
 				connection.begin();
-
-				if (shouldClearGraph && recordsBatch.peek() != null) {
-					connection.clear(ValueUtil.convertIRIKey(recordsBatch.peek().key()));
-					shouldClearGraph = false;
-				}
-
 				while (recordsBatch.peek() != null) {
 					SinkRecord record = recordsBatch.poll();
-					connection.add(ValueUtil.convertRDFData(record.value()), format, ValueUtil.convertIRIKey(record.key()));
+					Resource context = ValueUtil.convertIRIKey(record.key());
+					connection.clear(context);
+					connection.add(ValueUtil.convertRDFData(record.value()), format, context);
 				}
 				connection.commit();
 			} catch (IOException e) {
@@ -49,8 +44,6 @@ public class ReplaceGraphProcessor extends SinkRecordsProcessor {
 				//todo first add retries
 				//todo inject error handler
 			}
-		} else {
-			shouldClearGraph = true;
 		}
 	}
 }

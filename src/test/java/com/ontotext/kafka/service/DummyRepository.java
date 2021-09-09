@@ -15,17 +15,19 @@ import java.util.function.Consumer;
 
 public class DummyRepository implements Repository {
 
-	private BiConsumer<Reader, RDFFormat> consumer;
-	private Consumer<Resource[]> contexts;
+	private BiConsumer<Reader, RDFFormat> addFormatConsumer;
+	private BiConsumer<String, Reader> addContextConsumer;
+	private Consumer<String> removeConsumer;
 
 	public DummyRepository(BiConsumer<Reader, RDFFormat> consumer) {
-		this.consumer = consumer;
-		this.contexts = null;
+		this.addFormatConsumer = consumer;
 	}
 
-	public DummyRepository(BiConsumer<Reader, RDFFormat> consumer, Consumer<Resource[]> contexts) {
-		this.consumer = consumer;
-		this.contexts = contexts;
+	public DummyRepository(BiConsumer<String, Reader> addContextConsumer,
+						   BiConsumer<Reader, RDFFormat> addFormatConsumer, Consumer<String> removeConsumer) {
+		this.addFormatConsumer = addFormatConsumer;
+		this.addContextConsumer = addContextConsumer;
+		this.removeConsumer = removeConsumer;
 	}
 
 	@Override
@@ -57,7 +59,7 @@ public class DummyRepository implements Repository {
 
 	@Override
 	public RepositoryConnection getConnection() throws RepositoryException {
-		return new DummyRepositoryConnection(consumer, contexts);
+		return new DummyRepositoryConnection(addFormatConsumer, addContextConsumer, removeConsumer);
 	}
 
 	@Override

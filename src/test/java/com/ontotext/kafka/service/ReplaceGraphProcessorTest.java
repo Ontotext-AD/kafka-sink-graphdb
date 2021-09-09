@@ -1,8 +1,6 @@
 package com.ontotext.kafka.service;
 
-import com.ontotext.kafka.util.ValueUtil;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.Rio;
@@ -14,6 +12,7 @@ import org.junit.jupiter.api.Timeout;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
@@ -22,19 +21,17 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class ReplaceGraphProcessorTest {
-	private Queue<Reader> streams;
-	private Queue<RDFFormat> formats;
-	private Queue<Resource[]> contexts;
 	private Repository repository;
 	private AtomicBoolean shouldRun;
 	private Queue<Collection<SinkRecord>> sinkRecords;
+	private Map<String, Reader> contextMap;
+	private Map<Reader, RDFFormat> formatMap;
 
 	@BeforeEach
 	public void setup() {
-		streams = new LinkedBlockingQueue<>();
-		formats = new LinkedBlockingQueue<>();
-		contexts = new LinkedBlockingQueue<>();
-		repository = initRepository(streams, formats, contexts);
+		contextMap = new ConcurrentHashMap<>();
+		formatMap = new ConcurrentHashMap<>();
+		repository = initRepository(contextMap, formatMap);
 		shouldRun = new AtomicBoolean(true);
 		sinkRecords = new LinkedBlockingQueue<>();
 	}
@@ -42,21 +39,42 @@ public class ReplaceGraphProcessorTest {
 	@Test
 	@DisplayName("Test shutdown and write unprocessed raw batched message")
 	@Timeout(5)
-	void testShutdownWriteRawBatchedMessage() throws InterruptedException, IOException {
+	void testShutdownWriteRawBatchedMessageAddOneContext() throws InterruptedException, IOException {
 		int batch = 5;
-		generateSinkRecords(sinkRecords, 1, 15);
+		generateSinkRecordsContexts(sinkRecords, new String[]{"http://example/"});
 		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch, 5000);
+
 		recordsProcessor.start();
 		awaitEmptyCollection(sinkRecords);
 		shouldRun.set(false);
 		awaitProcessorShutdown(recordsProcessor);
 		assertFalse(recordsProcessor.isAlive());
-		streams.poll();
-		assertEquals(1, streams.size());
-		assertEquals(checkStatements(15), Rio.parse(streams.poll(), RDFFormat.NQUADS).toString());
-		for (Resource[] records : contexts) {
-			assertTrue(Arrays.stream(records).allMatch(r -> r.stringValue().equals("http://example/")));
-		}
+
+		assertEquals(1, contextMap.size());
+		assertEquals(1, formatMap.size());
+
+		assertEquals(checkRDFStatementsWithContexts(0), Rio.parse(contextMap.get("http://example/"), RDFFormat.NQUADS).toString());
+	}
+
+	@Test
+	@DisplayName("Test shutdown and write unprocessed raw batched message")
+	@Timeout(5)
+	void testShutdownWriteRawBatchedMessageReplaceMoreContexts() throws InterruptedException, IOException {
+		int batch = 5;
+		generateSinkRecordsContexts(sinkRecords, new String[]{"http://example1/", "http://example2/", "http://example1/"});
+		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch, 5000);
+		recordsProcessor.start();
+
+		awaitEmptyCollection(sinkRecords);
+		shouldRun.set(false);
+		awaitProcessorShutdown(recordsProcessor);
+		assertFalse(recordsProcessor.isAlive());
+
+		assertEquals(2, contextMap.size());
+		assertEquals(2, formatMap.size());
+
+		assertEquals(checkRDFStatementsWithContexts(2), Rio.parse(contextMap.get("http://example1/"), RDFFormat.NQUADS).toString());
+		assertEquals(checkRDFStatementsWithContexts(1), Rio.parse(contextMap.get("http://example2/"), RDFFormat.NQUADS).toString());
 	}
 
 	@Test
@@ -64,22 +82,21 @@ public class ReplaceGraphProcessorTest {
 	@Timeout(5)
 	void testWriteRawBatchedMessage() throws InterruptedException, IOException {
 		int batch = 2;
-		generateSinkRecords(sinkRecords, 4, 15);
+		generateSinkRecordsContexts(sinkRecords, new String[]{"http://example1/", "http://example2/", "http://example1/", "http://example2/"});
 		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch, 5000);
 		recordsProcessor.start();
+
 		awaitEmptyCollection(sinkRecords);
-		awaitCollectionSizeReached(streams, 4);
+		awaitCollectionSizeReached(contextMap, 2);
 		shouldRun.set(false);
 		awaitProcessorShutdown(recordsProcessor);
 		assertFalse(recordsProcessor.isAlive());
-		streams.poll();
-		assertEquals(4, streams.size());
-		for (Reader reader : streams) {
-			assertEquals(checkStatements(15), Rio.parse(reader, RDFFormat.NQUADS).toString());
-		}
-		for (Resource[] records : contexts) {
-			assertTrue(Arrays.stream(records).allMatch(r -> r.stringValue().equals("http://example/")));
-		}
+
+		assertEquals(2, contextMap.size());
+		assertEquals(2, formatMap.size());
+
+		assertEquals(checkRDFStatementsWithContexts(2), Rio.parse(contextMap.get("http://example1/"), RDFFormat.NQUADS).toString());
+		assertEquals(checkRDFStatementsWithContexts(3), Rio.parse(contextMap.get("http://example2/"), RDFFormat.NQUADS).toString());
 	}
 
 	@Test
@@ -87,70 +104,70 @@ public class ReplaceGraphProcessorTest {
 	@Timeout(5)
 	void testWriteRawBatchedMessageWithRemaining() throws InterruptedException, IOException {
 		int batch = 2;
-		generateSinkRecords(sinkRecords, 5, 15);
+		String[] contexts = constructGraphIri(5);
+		generateSinkRecordsContexts(sinkRecords, contexts);
 		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch, 5000);
 		recordsProcessor.start();
+
 		awaitEmptyCollection(sinkRecords);
 		//space only for two batches of size 2
-		streams.poll();
-		awaitCollectionSizeReached(streams, 4);
+		awaitCollectionSizeReached(contextMap, 4);
 		shouldRun.set(false);
 		awaitProcessorShutdown(recordsProcessor);
 		assertFalse(recordsProcessor.isAlive());
-		assertEquals(5, streams.size());
-		for (Reader reader : streams) {
-			assertEquals(checkStatements(15), Rio.parse(reader, RDFFormat.NQUADS).toString());
-		}
-		for (Resource[] records : contexts) {
-			assertTrue(Arrays.stream(records).allMatch(r -> r.stringValue().equals("http://example/")));
-		}
+
+		assertEquals(5, contextMap.size());
+		assertEquals(5, formatMap.size());
+
+		assertContexts(contexts);
 	}
 
 	@Test
 	@DisplayName("Test write raw messages waiting for timeout as not reached threshold of batch")
 	@Timeout(5)
 	void testWriteBatchTimeout() throws InterruptedException, IOException {
-		int batch = 4;
-		generateSinkRecords(sinkRecords, 3, 12);
-		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch, 50);
+		int batch = 2;
+		String[] contexts = constructGraphIri(3);
+		generateSinkRecordsContexts(sinkRecords, new String[]{"http://example1/", "http://example2/", "http://example3/",
+				"http://example2/", "http://example3/"});
+		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch, 20);
 		recordsProcessor.start();
+
 		awaitEmptyCollection(sinkRecords);
-		streams.poll();
-		awaitCollectionSizeReached(streams, 1);
+		awaitCollectionSizeReached(contextMap, 1);
 		shouldRun.set(false);
 		awaitProcessorShutdown(recordsProcessor);
 		assertFalse(recordsProcessor.isAlive());
-		assertEquals(3, streams.size());
-		for (Reader reader : streams) {
-			assertEquals(checkStatements(12), Rio.parse(reader, RDFFormat.NQUADS).toString());
-		}
-		for (Resource[] records : contexts) {
-			assertTrue(Arrays.stream(records).allMatch(r -> r.stringValue().equals("http://example/")));
-		}
+
+		assertEquals(3, contextMap.size());
+		assertEquals(3, formatMap.size());
+
+		assertEquals(checkRDFStatementsWithContexts(0), Rio.parse(contextMap.get("http://example1/"), RDFFormat.NQUADS).toString());
+		assertEquals(checkRDFStatementsWithContexts(3), Rio.parse(contextMap.get("http://example2/"), RDFFormat.NQUADS).toString());
+		assertEquals(checkRDFStatementsWithContexts(4), Rio.parse(contextMap.get("http://example3/"), RDFFormat.NQUADS).toString());
 	}
 
 	@Test
 	@DisplayName("Test write raw messages waiting for timeout as not reached threshold after second batch")
 	@Timeout(5)
 	void testWriteBatchTimeoutAfterProperBatching() throws InterruptedException, IOException {
-		int batch = 4;
-		generateSinkRecords(sinkRecords, 9, 12);
+		int batch = 2;
+		String[] contexts = constructGraphIri(9);
+		generateSinkRecordsContexts(sinkRecords, contexts);
 		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch, 600);
 		recordsProcessor.start();
-		streams.poll();
-		verifyForMilliseconds(() -> streams.size() < 9, 500);
+
+		verifyForMilliseconds(() -> contextMap.size() < 9, 500);
 		awaitEmptyCollection(sinkRecords);
-		awaitCollectionSizeReached(streams, 9);
+		awaitCollectionSizeReached(contextMap, 9);
 		shouldRun.set(false);
 		awaitProcessorShutdown(recordsProcessor);
 		assertFalse(recordsProcessor.isAlive());
-		assertEquals(9, streams.size());
-		for (Reader reader : streams) {
-			assertEquals(checkStatements(12), Rio.parse(reader, RDFFormat.NQUADS).toString());
-		}
-		for (Resource[] records : contexts) {
-			assertTrue(Arrays.stream(records).allMatch(r -> r.stringValue().equals("http://example/")));
-		}
+
+		assertEquals(9, contextMap.size());
+		assertEquals(9, formatMap.size());
+
+		assertContexts(contexts);
 	}
 
 	private Thread createProcessorThread(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
@@ -162,35 +179,41 @@ public class ReplaceGraphProcessorTest {
 		return thread;
 	}
 
-	private void generateSinkRecords(Queue<Collection<SinkRecord>> sinkRecords, int recordsSize, int statementsSize) {
-		for (int i = 0; i < recordsSize; i++) {
-			SinkRecord sinkRecord = new SinkRecord("topic", 0, null, "http://example/".getBytes(),
-					null, generateRDFStatements("one", "two", "three", statementsSize)
+	private void generateSinkRecordsContexts(Queue<Collection<SinkRecord>> sinkRecords, String[] contexts) {
+		for (int i = 0; i < contexts.length; i++) {
+			SinkRecord sinkRecord = new SinkRecord("topic", 0, null, contexts[i].getBytes(),
+					null, generateRDFStatementsWithContexts(i)
 					.getBytes(), 12);
 			sinkRecords.add(Collections.singleton(sinkRecord));
 		}
 	}
 
-	private String generateRDFStatements(String subject, String predicate, String object, int quantity) {
-		StringBuilder builder = new StringBuilder();
-		for (int i = 0; i < quantity; i++) {
-			builder.append("<urn:").append(subject)
-					.append(i).append("> <urn:").append(predicate)
-					.append(i).append("> <urn:").append(object)
-					.append(i).append("> . \n");
-		}
-		return builder.toString();
+	private String generateRDFStatementsWithContexts(int graphArrayIndex) {
+		return "<urn:one" + graphArrayIndex +
+				"> <urn:two" + graphArrayIndex +
+				"> <urn:three" + graphArrayIndex +
+				"> . ";
 	}
 
-	private String checkStatements(int quantity) {
-		StringBuilder builder = new StringBuilder("[");
-		for (int i = 0; i < quantity; i++) {
-			builder.append("(urn:one")
-					.append(i).append(", urn:two")
-					.append(i).append(", urn:three")
-					.append(i).append(")").append(i != quantity - 1 ? ", " : "]");
+	private String checkRDFStatementsWithContexts(int graphArrayIndex) {
+		return "[(urn:one" + graphArrayIndex +
+				", urn:two" + graphArrayIndex +
+				", urn:three" + graphArrayIndex +
+				")]";
+	}
+
+	private String[] constructGraphIri(int contextsSize) {
+		String[] contexts = new String[contextsSize];
+		for (int i = 0; i < contextsSize; i++) {
+			contexts[i] = "http://example" + (i + 1) + "/";
 		}
-		return builder.toString();
+		return  contexts;
+	}
+
+	private void assertContexts(String[] contexts) throws IOException {
+		for (int i = 0; i < contexts.length; i++) {
+			assertEquals(checkRDFStatementsWithContexts(i), Rio.parse(contextMap.get(contexts[i]), RDFFormat.NQUADS).toString());
+		}
 	}
 
 	private void verifyForMilliseconds(Supplier<Boolean> supplier, long ms) {
@@ -209,17 +232,17 @@ public class ReplaceGraphProcessorTest {
 		processor.join();
 	}
 
-	private void awaitCollectionSizeReached(Collection collection, int size) {
+	private void awaitCollectionSizeReached(Map collection, int size) {
 		while (collection.size() < size) {
 		}
 	}
 
-	private Repository initRepository(Queue<Reader> streams, Queue<RDFFormat> formats, Queue<Resource[]> contexts) {
-		streams.add(ValueUtil.convertRDFData(generateRDFStatements("four", "five", "six", 15)));
-		contexts.add(new Resource[]{ValueUtil.convertIRIKey("http://example/")});
-		return new DummyRepository((in, format) -> {
-			streams.add(in);
-			formats.add(format);
-		}, contexts::add);
+	private Repository initRepository(Map<String, Reader> contextMap, Map<Reader, RDFFormat> formatMap) {
+		return new DummyRepository(contextMap::put, formatMap::put, (ctx) -> {
+				Reader removed = contextMap.remove(ctx);
+				if(removed != null) {
+					formatMap.remove(removed);
+				}
+		});
 	}
 }
