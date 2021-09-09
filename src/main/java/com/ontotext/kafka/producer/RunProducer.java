@@ -19,27 +19,14 @@ public class RunProducer {
         String kafkaTopic = args[1];
         List<String> allFiles = Arrays.asList(args).subList(2, args.length);
         Properties props = null;
+        GraphDBProducerConfig config = new GraphDBProducerConfig();
         try {
-            props = loadConfig(configFile);
+            props = config.loadConfig(configFile);
         } catch (IOException e) {
             e.printStackTrace();
         }
         GraphDBProducer<String, String> producer = new GraphDBProducer<>(allFiles, kafkaTopic, props);
         producer.publish();
-    }
-
-    private static Properties loadConfig(final String configFile) throws IOException {
-        if (!Files.exists(Paths.get(configFile))) {
-            throw new IOException(configFile + " not found.");
-        }
-        final Properties cfg = new Properties();
-        try (InputStream inputStream = new FileInputStream(configFile)) {
-            cfg.load(inputStream);
-        }
-        cfg.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
-        cfg.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
-
-        return cfg;
     }
 
 }
