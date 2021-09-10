@@ -28,9 +28,9 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
         for (String file : this.allFiles) {
             try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
                 String line = reader.readLine();
-                String key = null;
+                byte[] key = null;
                 if (this.keySeparator != null && line.contains(this.keySeparator)) {
-                    key = line.split(this.keySeparator)[0];
+                    key = line.split(this.keySeparator)[0].getBytes();
                     line = line.split(this.keySeparator)[1];
                 }
                 StringBuilder builder = new StringBuilder();
@@ -38,7 +38,7 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
                     builder.append(line).append("\n");
                     line = reader.readLine();
                 }
-                final ProducerRecord<String, String> producerRecord = new ProducerRecord<>(this.kafkaTopic, key, builder.toString());
+                final ProducerRecord<byte[], byte[]> producerRecord = new ProducerRecord<>(this.kafkaTopic, key, builder.toString().getBytes());
                 super.send((ProducerRecord<K, V>) producerRecord, new Callback() {
                     @Override
                     public void onCompletion(RecordMetadata recordMetadata, Exception e) {
