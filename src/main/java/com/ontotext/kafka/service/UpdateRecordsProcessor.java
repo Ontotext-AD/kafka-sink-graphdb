@@ -1,13 +1,11 @@
 package com.ontotext.kafka.service;
 
+import com.ontotext.kafka.util.PropertiesUtil;
 import com.ontotext.kafka.util.ValueUtil;
 import org.apache.kafka.common.errors.TimeoutException;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.eclipse.rdf4j.query.BindingSet;
-import org.eclipse.rdf4j.query.QueryLanguage;
-import org.eclipse.rdf4j.query.TupleQueryResult;
-import org.eclipse.rdf4j.query.Update;
+import org.eclipse.rdf4j.query.UpdateExecutionException;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.RepositoryException;
@@ -17,9 +15,8 @@ import org.eclipse.rdf4j.rio.UnsupportedRDFormatException;
 
 import java.io.IOException;
 import java.io.Reader;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -29,13 +26,8 @@ public class UpdateRecordsProcessor extends SinkRecordsProcessor {
 	private final long LINGER_BETWEEN_RETRIES = 100L;
 	private final long TOTAL_RETRY_TIME = 30_000L;
 
-	private static final String TEMPLATE = "template";
-	private static final String TEMPLATE_ID_PLACEHOLDER = "{{templateIdPlaceholder}}";
-	private static final String TEMPLATE_QUERY = "select ?template {" +
-			"<{{templateIdPlaceholder}}> <http://www.ontotext.com/sparql/template> ?template" +
-			"}";
-
-	protected UpdateRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun, Repository repository, RDFFormat format, int batchSize, long timeoutCommitMs) {
+	protected UpdateRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
+									 Repository repository, RDFFormat format, int batchSize, long timeoutCommitMs) {
 		super(sinkRecords, shouldRun, repository, format, batchSize, timeoutCommitMs);
 	}
 
@@ -83,42 +75,36 @@ public class UpdateRecordsProcessor extends SinkRecordsProcessor {
 
 	private void updateRecord(SinkRecord record, RepositoryConnection connection) throws IOException {
 		try {
-			String templateId = (String) record.key();
-			String template = getTemplate(templateId);
+			String query = getQuery(record);
+			connection.prepareUpdate(query)
+					.execute();
 
-			Update update = connection.prepareUpdate(QueryLanguage.SPARQL, template);
-			update.execute();
-			Reader valueReader = ValueUtil.convertRDFData(record.value());
-
-			connection.add(valueReader, format);
-		} catch (RDFParseException | UnsupportedRDFormatException | DataException | RepositoryException e) {
+		} catch (UpdateExecutionException | NullPointerException | RDFParseException |
+				UnsupportedRDFormatException | DataException | RepositoryException e) {
 			// Catch records that caused exceptions we can't recover from by retrying the connection
 			//catchMalformedRecords(record, e);
 		}
 	}
 
-	private String getTemplate(String templateId) {
-		List<String> templateIds = new ArrayList<>();
-		String query = getQuery(templateId);
+	private String getQuery(SinkRecord record) throws IOException {
+		String templateId = PropertiesUtil.getProperty(PropertiesUtil.TEMPLATE_ID);
+		Objects.requireNonNull(templateId, "Cannot update with empty templateId");
 
-		try (RepositoryConnection connection = repository.getConnection()) {
-			TupleQueryResult templates = connection.prepareTupleQuery(query).evaluate();
-			while (templates.hasNext()) {
-				BindingSet template = templates.next();
-				templateIds.add(template.getValue(TEMPLATE).stringValue());
-			}
-		}
+		String templateBinding = (String) record.key();
+		Objects.requireNonNull(templateBinding, "Cannot update with empty key");
 
-		if (templateIds.size() == 1) {
-			return templateIds.get(0);
-		}
-		if (templateIds.isEmpty()) {
-			throw new RuntimeException("Template with Id: " + templateId + " not found!");
-		}
-		throw new RuntimeException("Multiple templates with Id: " + templateId + " found!");
+		Object recordRDFData = record.value();
+		Objects.requireNonNull(recordRDFData, "Cannot update with empty value");
+		Reader reader = ValueUtil.convertRDFData(recordRDFData);
+
+
+
+		return "PREFIX onto: <http://www.ontotext.com/>\n" +
+				"insert data {\n" +
+				"    onto:smart-update onto:sparql-template <" + templateId + ">;\n" +
+				"               onto:template-binding-id <" + templateBinding + "> .\n" +
+				recordRDFData +
+				"}\n";
 	}
 
-	private String getQuery(String templateId) {
-		return TEMPLATE_QUERY.replace(TEMPLATE_ID_PLACEHOLDER, templateId);
-	}
 }
