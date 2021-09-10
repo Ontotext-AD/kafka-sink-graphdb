@@ -1,6 +1,9 @@
 package com.ontotext.kafka.producer;
 
 import org.apache.kafka.clients.producer.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.*;
 import java.util.List;
 import java.util.Properties;
@@ -12,6 +15,8 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
     private final Properties properties;
     private final String keySeparator;
     private Long updatesPauses = null;
+    private static final Logger LOG = LoggerFactory.getLogger(GraphDBProducer.class);
+
 
     public GraphDBProducer(List<String> files, String kafkaTopic, Properties properties) {
         super(properties);
@@ -43,7 +48,7 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
                     @Override
                     public void onCompletion(RecordMetadata recordMetadata, Exception e) {
                         if(e != null) {
-                            e.printStackTrace();
+                            LOG.error(e.getMessage());
                         }
                     }
                 }).get();
@@ -51,7 +56,7 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
                     Thread.sleep(updatesPauses);
                 }
             } catch (IOException | InterruptedException | ExecutionException e) {
-                e.printStackTrace();
+                LOG.error(e.getMessage());
             }
         }
     }
