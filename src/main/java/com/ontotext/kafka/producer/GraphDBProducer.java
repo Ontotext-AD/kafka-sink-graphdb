@@ -11,6 +11,7 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
     private final String kafkaTopic;
     private final Properties properties;
     private final String keySeparator;
+    private Long updatesPauses = null;
 
     public GraphDBProducer(List<String> files, String kafkaTopic, Properties properties) {
         super(properties);
@@ -18,6 +19,9 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
         this.allFiles = files;
         this.kafkaTopic = kafkaTopic;
         this.keySeparator = properties.getProperty("graphdb.key.separator");
+        if (properties.getProperty("graphdb.updates.time.pauses") != null) {
+            this.updatesPauses = Long.parseLong(properties.getProperty("graphdb.updates.time.pauses"));
+        }
     }
 
     public void publish() {
@@ -43,7 +47,9 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
                         }
                     }
                 }).get();
-
+                if (updatesPauses != null) {
+                    Thread.sleep(updatesPauses);
+                }
             } catch (IOException | InterruptedException | ExecutionException e) {
                 e.printStackTrace();
             }
