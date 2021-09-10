@@ -23,6 +23,8 @@ import org.slf4j.LoggerFactory;
 
 public class PropertiesUtil {
 
+	public static final String TEMPLATE_ID = "graphdb.template.id";
+
 	private static final Logger LOGGER = LoggerFactory.getLogger(PropertiesUtil.class);
 
 	private static String version = "unknown";
