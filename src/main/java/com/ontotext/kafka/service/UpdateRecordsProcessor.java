@@ -14,12 +14,15 @@ import org.eclipse.rdf4j.rio.RDFParseException;
 import org.eclipse.rdf4j.rio.UnsupportedRDFormatException;
 
 import java.io.IOException;
-import java.io.Reader;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import static com.ontotext.kafka.util.PropertiesUtil.TEMPLATE_ID;
+import static com.ontotext.kafka.util.PropertiesUtil.getProperty;
+import static com.ontotext.kafka.util.ValueUtil.convertValueToString;
 
 public class UpdateRecordsProcessor extends SinkRecordsProcessor {
 
@@ -79,6 +82,9 @@ public class UpdateRecordsProcessor extends SinkRecordsProcessor {
 			connection.prepareUpdate(query)
 					.execute();
 
+			connection.add(ValueUtil
+					.convertRDFData(record.value()), format);
+
 		} catch (UpdateExecutionException | NullPointerException | RDFParseException |
 				UnsupportedRDFormatException | DataException | RepositoryException e) {
 			// Catch records that caused exceptions we can't recover from by retrying the connection
@@ -86,18 +92,37 @@ public class UpdateRecordsProcessor extends SinkRecordsProcessor {
 		}
 	}
 
-	private String getQuery(SinkRecord record) throws IOException {
-		String templateId = PropertiesUtil.getProperty(PropertiesUtil.TEMPLATE_ID);
-		Objects.requireNonNull(templateId, "Cannot update with empty templateId");
+	private String getQuery(SinkRecord record) {
+		String templateId = Objects.requireNonNull(getProperty(TEMPLATE_ID), "Cannot update with empty templateId");
+		String templateBinding = convertValueToString(record.key());
 
-		String templateBinding = (String) record.key();
-		Objects.requireNonNull(templateBinding, "Cannot update with empty key");
+		return "PREFIX onto: <http://www.ontotext.com/>\n" +
+				"insert data {\n" +
+				"    onto:smart-update onto:sparql-template <" + templateId + ">;\n" +
+				"               onto:template-binding-id <" + templateBinding + "> .\n" +
+				"}\n";
+	}
 
-		Object recordRDFData = record.value();
-		Objects.requireNonNull(recordRDFData, "Cannot update with empty value");
-		Reader reader = ValueUtil.convertRDFData(recordRDFData);
+/*
 
+	private void updateRecord(SinkRecord record, RepositoryConnection connection) throws IOException {
+		try {
+			String query = getQuery(record);
+			connection.prepareUpdate(query)
+					.execute();
 
+		} catch (UpdateExecutionException | NullPointerException | RDFParseException |
+				UnsupportedRDFormatException | DataException | RepositoryException e) {
+			// Catch records that caused exceptions we can't recover from by retrying the connection
+			//catchMalformedRecords(record, e);
+		}
+	}
+
+	private String getQuery(SinkRecord record) {
+		String templateId = Objects.requireNonNull(getProperty(TEMPLATE_ID), "Cannot update with empty templateId");
+
+		String templateBinding = convertValueToString(record.key());
+		String recordRDFData = convertValueToString(record.value());
 
 		return "PREFIX onto: <http://www.ontotext.com/>\n" +
 				"insert data {\n" +
@@ -106,5 +131,6 @@ public class UpdateRecordsProcessor extends SinkRecordsProcessor {
 				recordRDFData +
 				"}\n";
 	}
+*/
 
 }
