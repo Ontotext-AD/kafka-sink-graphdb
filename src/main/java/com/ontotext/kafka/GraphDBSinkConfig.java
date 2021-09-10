@@ -2,7 +2,8 @@ package com.ontotext.kafka;
 
 import java.util.*;
 
-import com.ontotext.kafka.validation.ValidEnum;
+import com.ontotext.kafka.util.ValidateEnum;
+import com.ontotext.kafka.util.VisibleIfRecommender;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigValue;
@@ -92,10 +93,6 @@ public class GraphDBSinkConfig extends AbstractConfig {
 		super(CONFIG, originals);
 	}
 
-	public static ConfigDef.Validator validEnum(Class<? extends Enum> enumClass) {
-		return ValidEnum.of(enumClass);
-	}
-
 	public static ConfigDef createConfig() {
 		return new GraphDBConfigDef()
 				       .define(SERVER_IRI, ConfigDef.Type.STRING, ConfigDef.Importance.HIGH,
@@ -104,7 +101,8 @@ public class GraphDBSinkConfig extends AbstractConfig {
 						       REPOSITORY_DOC)
 				       .define(RDF_FORMAT, ConfigDef.Type.STRING, ConfigDef.Importance.HIGH,
 						       RDF_FORMAT_DOC)
-				       .define(TRANSACTION_TYPE, ConfigDef.Type.STRING, DEFAULT_TRANSACTION_TYPE, validEnum(GraphDBSinkConfig.TransactionType.class),
+				       .define(TRANSACTION_TYPE, ConfigDef.Type.STRING, DEFAULT_TRANSACTION_TYPE,
+							   ValidateEnum.of(GraphDBSinkConfig.TransactionType.class),
 						       ConfigDef.Importance.HIGH, TRANSACTION_TYPE_DOC)
 				       .define(BATCH_SIZE, ConfigDef.Type.INT, DEFAULT_BATCH_SIZE, ConfigDef.Importance.HIGH,
 						       BATCH_SIZE_DOC)
@@ -112,12 +110,18 @@ public class GraphDBSinkConfig extends AbstractConfig {
 						       ConfigDef.Importance.HIGH,
 						       BATCH_COMMIT_SCHEDULER_DOC)
 				       .define(AUTH_TYPE, ConfigDef.Type.STRING, DEFAULT_AUTH_TYPE,
-						       validEnum(GraphDBSinkConfig.AuthenticationType.class), ConfigDef.Importance.HIGH,
-						       AUTH_TYPE_DOC)
-				       .define(AUTH_BASIC_USER, ConfigDef.Type.STRING, DEFAULT_AUTH_BASIC_USER, ConfigDef.Importance.LOW,
-						       AUTH_BASIC_USER_DOC)
-				       .define(AUTH_BASIC_PASS, ConfigDef.Type.STRING, DEFAULT_AUTH_BASIC_PASS, ConfigDef.Importance.LOW,
-						       AUTH_BASIC_PASS_DOC)
+							   ValidateEnum.of(GraphDBSinkConfig.AuthenticationType.class),
+							   ConfigDef.Importance.HIGH, AUTH_TYPE_DOC)
+				       .define(AUTH_BASIC_USER, ConfigDef.Type.STRING, DEFAULT_AUTH_BASIC_USER,
+							   ConfigDef.Importance.HIGH, AUTH_BASIC_USER_DOC,
+							   null, -1, ConfigDef.Width.NONE, AUTH_BASIC_USER,
+							   Collections.singletonList(AUTH_TYPE),
+							   VisibleIfRecommender.VisibleIf(AUTH_TYPE,AuthenticationType.BASIC))
+				       .define(AUTH_BASIC_PASS, ConfigDef.Type.PASSWORD, DEFAULT_AUTH_BASIC_PASS,
+							   ConfigDef.Importance.HIGH, AUTH_BASIC_PASS_DOC,
+							   null, -1, ConfigDef.Width.NONE, AUTH_BASIC_PASS,
+							   Collections.singletonList(AUTH_TYPE),
+							   VisibleIfRecommender.VisibleIf(AUTH_TYPE,AuthenticationType.BASIC))
 				       .define(AUTH_HEADER_TOKEN, ConfigDef.Type.STRING, "", ConfigDef.Importance.LOW,
 						       AUTH_HEADER_TOKEN_DOC);
 	}

@@ -1,4 +1,4 @@
-package com.ontotext.kafka.validation;
+package com.ontotext.kafka.util;
 
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigException;
@@ -6,15 +6,15 @@ import org.apache.kafka.common.config.ConfigException;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-public class ValidEnum implements ConfigDef.Validator {
+public class ValidateEnum implements ConfigDef.Validator {
 	final Set<String> validEnums;
 	final Class<?> enumClass;
 
-	public static ValidEnum of(Class<?> enumClass) {
-		return new ValidEnum(enumClass);
+	public static ValidateEnum of(Class<?> enumClass) {
+		return new ValidateEnum(enumClass);
 	}
 
-	private ValidEnum(Class<?> enumClass) {
+	private ValidateEnum(Class<?> enumClass) {
 		Set<String> validEnums = new LinkedHashSet<>();
 		for (Object o : enumClass.getEnumConstants()) {
 			String key = o.toString().toLowerCase();
