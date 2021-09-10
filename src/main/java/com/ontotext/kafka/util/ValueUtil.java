@@ -1,18 +1,15 @@
 package com.ontotext.kafka.util;
 
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.io.StringReader;
-import java.util.Objects;
-
 import org.apache.kafka.connect.errors.DataException;
 import org.eclipse.rdf4j.rio.RDFFormat;
 
+import java.io.*;
+import java.util.Objects;
+
 public class ValueUtil {
 
-	private ValueUtil() {}
+	private ValueUtil() {
+	}
 
 	public static RDFFormat getRDFFormat(String format) {
 		if (RDFFormat.RDFXML.getDefaultFileExtension().contains(format)) {
@@ -58,7 +55,20 @@ public class ValueUtil {
 			return new StringReader((String) obj);
 		} else {
 			throw new DataException("error: no converter present due to unexpected object type "
-					                        + obj.getClass().getName());
+					+ obj.getClass().getName());
 		}
 	}
+
+	public static String convertValueToString(Object value) {
+		Objects.requireNonNull(value, "Cannot convert value of null objects");
+		if (value instanceof byte[]) {
+			return new String((byte[]) value);
+		} else if (value instanceof String) {
+			return (String) value;
+		} else {
+			throw new DataException("error: no value converter present due to unexpected object type "
+					+ value.getClass().getName());
+		}
+	}
+
 }
