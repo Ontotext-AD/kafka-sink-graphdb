@@ -6,4 +6,5 @@ fi
 
 cd "$1/kafka-sink-graphdb/"
 shift
-java -cp kafka-clients.jar:slf4j-api.jar:slf4j-simple.jar:kafka-sink-graphdb.jar com.ontotext.kafka.producer.RunProducer $@
+#TODO set name for jar
+java -cp kafka-sink-graphdb-1.0-SNAPSHOT.jar com.ontotext.kafka.producer.RunProducer $@
