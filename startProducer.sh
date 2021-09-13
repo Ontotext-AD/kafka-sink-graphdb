@@ -1,10 +1,11 @@
 if [ $# -lt 4 ]
   then
-    echo "./startProducer.sh <plugins dir> <producer config properties file path> <kafka topic> <files to add data from> ..."
+    echo "./startProducer.sh <project dir> <producer config properties file path> <kafka topic> <file with keys> <files to add data from> ..."
     exit 1
 fi
 
-cd "$1/kafka-sink-graphdb/"
+cd "$1/target/"
 shift
-#TODO set name for jar
-java -cp kafka-sink-graphdb-1.0-SNAPSHOT.jar com.ontotext.kafka.producer.RunProducer $@
+
+java -cp graphdb-kafka-plugin.jar com.ontotext.kafka.producer.RunProducer $@
+rm graphdb-kafka-plugin.jar

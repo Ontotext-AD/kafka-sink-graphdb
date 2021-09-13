@@ -30,6 +30,7 @@
 	<packaging>jar</packaging>
 
 	<build>
+		<finalName>graphdb-kafka-plugin</finalName>
 		<plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
