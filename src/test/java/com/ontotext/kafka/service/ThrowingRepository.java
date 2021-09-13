@@ -23,7 +23,7 @@ public class ThrowingRepository extends DummyRepository {
 	@Override
 	public RepositoryConnection getConnection() throws RepositoryException {
 		if (connection == null)
-			connection = new ThrowingExceptionConnection(consumer, e, numberOfThrows);
+			connection = new ThrowingExceptionConnection(addFormatConsumer, e, numberOfThrows);
 		return connection;
 	}
 

@@ -1,6 +1,7 @@
 package com.ontotext.kafka.service;
 
 import com.ontotext.kafka.error.ErrorHandler;
+import com.ontotext.kafka.error.LogErrorHandler;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryException;
@@ -35,7 +36,10 @@ class AddRecordsProcessorTest {
 		repository = initRepository(streams, formats);
 		shouldRun = new AtomicBoolean(true);
 		sinkRecords = new LinkedBlockingQueue<>();
-		errorHandler = (record, ex) -> {
+		errorHandler = new LogErrorHandler() {
+			@Override
+			public void handleFailingRecord(SinkRecord record, Throwable ex) {
+			}
 		};
 	}
 
@@ -287,7 +291,7 @@ class AddRecordsProcessorTest {
 		int batch = 4;
 		int expectedSize = 4;
 
-		repository = initThrowingRepository(streams, formats, new IOException(), 5);
+		repository = initThrowingRepository(streams, formats, new IOException(), 3);
 		generateSinkRecords(sinkRecords, 4, 12);
 		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch, 50);
 		recordsProcessor.start();

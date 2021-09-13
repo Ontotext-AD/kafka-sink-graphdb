@@ -1,5 +1,6 @@
 package com.ontotext.kafka.service;
 
+import com.ontotext.kafka.error.ErrorHandler;
 import com.ontotext.kafka.util.ValueUtil;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.model.Resource;
@@ -23,8 +24,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class ReplaceGraphProcessor extends SinkRecordsProcessor {
 
 	protected ReplaceGraphProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
-									Repository repository, RDFFormat format, int batchSize, long timeoutCommitMs) {
-		super(sinkRecords, shouldRun, repository, format, batchSize, timeoutCommitMs);
+									Repository repository, RDFFormat format, int batchSize, long timeoutCommitMs, ErrorHandler errorHandler) {
+		super(sinkRecords, shouldRun, repository, format, batchSize, timeoutCommitMs, errorHandler);
 	}
 
 	protected void flushRecordUpdates() {

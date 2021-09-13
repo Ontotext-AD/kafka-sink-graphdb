@@ -5,20 +5,17 @@ import com.ontotext.kafka.util.PropertiesUtil;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.connect.runtime.SinkConnectorConfig;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Properties;
 
-import static com.ontotext.kafka.util.PropertiesUtil.DEAD_LETTER_QUEUE_TOPIC_NAME;
-import static com.ontotext.kafka.util.PropertiesUtil.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME;
-
 class FailedRecordProducer implements FailedProducer {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(FailedRecordProducer.class);
-	private static final String TOPIC_NAME = PropertiesUtil.getFromPropertyOrDefault(DEAD_LETTER_QUEUE_TOPIC_NAME,
-			ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME);
+	private static final String TOPIC_NAME = PropertiesUtil.getProperty(SinkConnectorConfig.DLQ_TOPIC_NAME_CONFIG);
 	private Properties properties;
 	private Producer<String, String> producer;
 

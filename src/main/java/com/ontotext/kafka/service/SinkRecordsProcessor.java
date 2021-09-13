@@ -7,10 +7,7 @@ import org.eclipse.rdf4j.rio.RDFFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collection;
-import java.util.Queue;
-import java.util.Timer;
-import java.util.TimerTask;
+import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
@@ -29,9 +26,6 @@ import static com.ontotext.kafka.util.PropertiesUtil.*;
 public abstract class SinkRecordsProcessor implements Runnable {
 
 	protected static final Logger LOGGER = LoggerFactory.getLogger(SinkRecordsProcessor.class);
-	protected static final int NUMBER_OF_CONNECTION_RETRIES = getFromPropertyOrDefault(CONNECTION_NUMBER_OF_RETRIES, DEFAULT_CONNECTION_NUMBER_OF_RETRIES);
-	protected static final long DEFERRED_TIME_BETWEEN_RETRIES = getFromPropertyOrDefault(CONNECTION_RETRY_DEFERRED_TIME, DEFAULT_CONNECTION_RETRY_DEFERRED_TIME);
-	protected static final String ERROR_TOLERANCE = getFromPropertyOrDefault(ERRORS_TOLERANCE, DEFAULT_ERRORS_TOLERANCE);
 
 	protected final Queue<Collection<SinkRecord>> sinkRecords;
 	protected final LinkedBlockingQueue<SinkRecord> recordsBatch;
@@ -44,6 +38,8 @@ public abstract class SinkRecordsProcessor implements Runnable {
 	protected final int batchSize;
 	protected final long timeoutCommitMs;
 	protected final ErrorHandler errorHandler;
+	protected Set<SinkRecord> failedRecords;
+
 
 	protected SinkRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
 								   Repository repository, RDFFormat format, int batchSize, long timeoutCommitMs, ErrorHandler errorHandler) {
@@ -59,6 +55,7 @@ public abstract class SinkRecordsProcessor implements Runnable {
 		this.batchSize = batchSize;
 		this.timeoutCommitMs = timeoutCommitMs;
 		this.errorHandler = errorHandler;
+		failedRecords = new HashSet<>();
 	}
 
 	@Override

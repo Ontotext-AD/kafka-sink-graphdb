@@ -23,10 +23,7 @@ import java.util.Properties;
 
 public class PropertiesUtil {
 
-	public static final String DEAD_LETTER_QUEUE_TOPIC_NAME = "errors.deadletterqueue.topic.name";
-	public static final String ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME = "failed-messages-01";
 	public static final String ERRORS_TOLERANCE = "errors.tolerance";
-	public static final String DEFAULT_ERRORS_TOLERANCE = "all";
 	public static final String CONNECTION_RETRY_DEFERRED_TIME = "connection.retry.deferred.time";
 	public static final long DEFAULT_CONNECTION_RETRY_DEFERRED_TIME = 100L;
 	public static final String CONNECTION_NUMBER_OF_RETRIES = "connection.retry.number.of.times";

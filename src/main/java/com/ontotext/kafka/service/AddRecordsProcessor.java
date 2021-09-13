@@ -2,6 +2,8 @@ package com.ontotext.kafka.service;
 
 import com.ontotext.kafka.error.ErrorHandler;
 import com.ontotext.kafka.util.ValueUtil;
+import org.apache.kafka.connect.errors.RetriableException;
+import org.apache.kafka.connect.runtime.errors.Operation;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
@@ -13,7 +15,6 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -22,7 +23,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  * @author Tomas Kovachev tomas.kovachev@ontotext.com
  */
-public class AddRecordsProcessor extends SinkRecordsProcessor {
+public class AddRecordsProcessor extends SinkRecordsProcessor implements Operation<Object> {
+
 
 	public AddRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun, Repository repository,
 							   RDFFormat format, int batchSize, long timeoutCommitMs, ErrorHandler errorHandler) {
@@ -31,67 +33,43 @@ public class AddRecordsProcessor extends SinkRecordsProcessor {
 
 	@Override
 	public void flushRecordUpdates() {
-		try {
-			if (!recordsBatch.isEmpty()) {
-				flush();
-				recordsBatch.clear();
-			}
-		} catch (TimeoutException e) {
-			LOGGER.error(e.getMessage());
-			throw new RuntimeException(e);
+		failedRecords.clear();
+		if (!recordsBatch.isEmpty() &&
+				errorHandler.handleRetry(this) == null) {
+
+			LOGGER.error("Flushing run out of attempts");
+			throw new RuntimeException("Flushing run out of attempts");
 		}
 	}
 
-	private void flush() throws TimeoutException {
-		int retryCount = 1;
-		Set<SinkRecord> failedRecords = new HashSet<>();
-		SinkRecord currentRecord = null;
-		do {
-			try (RepositoryConnection connection = repository.getConnection()) {
-				connection.begin();
-				for (SinkRecord record : recordsBatch) {
-					currentRecord = record;
-					addRecord(record, connection, failedRecords);
-				}
-				connection.commit();
-				return;
-
-			} catch (IOException | RepositoryException e) {
-				long startAttempt = System.currentTimeMillis();
-				LOGGER.warn("Exception while flushing records " + e.getMessage());
-
-				if (ERROR_TOLERANCE.equalsIgnoreCase("none"))
-					throw new RuntimeException(e);
-
-				//retry sending all valid records in the batch until successful or timeout
-				if (NUMBER_OF_CONNECTION_RETRIES <= retryCount) {
-					String msg = String.format("Tried adding record%s but ran out of attempt retries due to: %s",
-							currentRecord == null ? "" : " " + currentRecord,
-							e.getMessage());
-					throw new TimeoutException(msg);
-				}
-				while (DEFERRED_TIME_BETWEEN_RETRIES > System.currentTimeMillis() - startAttempt) {
-					//do nothing
-				}
-				LOGGER.info("Retrying connection...");
-				retryCount++;
+	@Override
+	public Object call() throws RetriableException {
+		try (RepositoryConnection connection = repository.getConnection()) {
+			connection.begin();
+			for (SinkRecord record : recordsBatch) {
+				addRecord(record, connection);
 			}
-		} while (true);
+			connection.commit();
+			recordsBatch.clear();
+			failedRecords.clear();
+			return new Object();
+
+		} catch (RepositoryException e) {
+			throw new RetriableException(e);
+		}
 	}
 
-	private void addRecord(SinkRecord record, RepositoryConnection connection, Set<SinkRecord> failedRecords) throws IOException {
+	private void addRecord(SinkRecord record, RepositoryConnection connection) {
 		try {
 			if (!failedRecords.contains(record)) {
 				connection.add(ValueUtil.convertRDFData(record.value()), format);
 			}
 		} catch (Exception e) {
-			if (ERROR_TOLERANCE.equalsIgnoreCase("none"))
-				throw new RuntimeException(e);
 			if (e instanceof IOException)
-				throw new IOException(e.getMessage());
+				throw new RetriableException(e.getMessage());
 			// Catch records that caused exceptions we can't recover from by retrying the connection
-			errorHandler.handleFailingRecord(record, e);
 			failedRecords.add(record);
+			errorHandler.handleFailingRecord(record, e);
 		}
 	}
 
