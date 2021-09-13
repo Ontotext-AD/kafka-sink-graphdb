@@ -26,7 +26,7 @@ public class RunProducer {
         try {
             props = config.loadConfig(configFile);
         } catch (IOException e) {
-            e.printStackTrace();
+            LOG.error(e.getMessage());
         }
         GraphDBProducer<String, String> producer = new GraphDBProducer<>(allFiles, kafkaTopic, props);
         producer.publish();
