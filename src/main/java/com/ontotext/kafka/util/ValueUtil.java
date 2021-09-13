@@ -17,7 +17,8 @@ import java.util.Objects;
 
 public class ValueUtil {
 
-	private ValueUtil() {}
+	private ValueUtil() {
+	}
 
 	public static RDFFormat getRDFFormat(String format) {
 		if (RDFFormat.RDFXML.getDefaultFileExtension().contains(format)) {
@@ -59,12 +60,15 @@ public class ValueUtil {
 		Objects.requireNonNull(obj, "Cannot parse null objects");
 		if (obj instanceof byte[]) {
 			return new BufferedReader(new InputStreamReader(new ByteArrayInputStream((byte[]) obj)));
-		} else if (obj instanceof String) {
-			return new StringReader((String) obj);
 		} else {
-			throw new DataException("error: no converter present due to unexpected object type "
-					+ obj.getClass().getName());
+			return new StringReader(convertValueToString(obj));
 		}
+	}
+
+	public static Resource convertIRIKey(Object obj) {
+		return SimpleValueFactory
+				.getInstance()
+				.createIRI(convertValueToString(obj));
 	}
 
 	public static String convertValueToString(Object value) {
@@ -79,16 +83,4 @@ public class ValueUtil {
 		}
 	}
 
-
-	public static Resource convertIRIKey(Object obj) {
-		Objects.requireNonNull(obj, "Cannot parse null objects");
-		if (obj instanceof byte[]) {
-			return SimpleValueFactory.getInstance().createIRI(new String((byte[]) obj));
-		} else if (obj instanceof String) {
-			return SimpleValueFactory.getInstance().createIRI((String) obj);
-		} else {
-			throw new DataException("error: no converter present due to unexpected object type "
-					+ obj.getClass().getName());
-		}
-	}
 }

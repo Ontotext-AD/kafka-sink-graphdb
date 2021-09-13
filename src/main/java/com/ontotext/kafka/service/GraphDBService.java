@@ -88,7 +88,6 @@ public class GraphDBService {
 			case REPLACE_GRAPH:
 				return new ReplaceGraphProcessor(sinkRecords, shouldRun, repository.get(),
 						ValueUtil.getRDFFormat(rdfFormat), batchSize, timeoutCommitMs);
-			case SMART_UPDATE:
 			default:
 				throw new UnsupportedOperationException("Not implemented yet");
 		}
