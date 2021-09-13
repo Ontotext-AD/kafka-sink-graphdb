@@ -22,8 +22,8 @@ import java.util.stream.Stream;
 public class DummyRepositoryConnection implements RepositoryConnection {
 
 	protected BiConsumer<Reader, RDFFormat> addFormatConsumer;
-	private Consumer<String> removeConsumer;
-	private BiConsumer<String, Reader> addContextConsumer;
+	private final Consumer<String> removeConsumer;
+	private final BiConsumer<String, Reader> addContextConsumer;
 
 	public DummyRepositoryConnection(BiConsumer<Reader, RDFFormat> addConsumer, BiConsumer<String, Reader> addContextConsumer,
 									 Consumer<String> removeContextsConsumer) {
@@ -158,7 +158,7 @@ public class DummyRepositoryConnection implements RepositoryConnection {
 	}
 
 	@Override
-	public boolean isActive() throws UnknownTransactionStateException, RepositoryException {
+	public boolean isActive() throws RepositoryException {
 		return false;
 	}
 

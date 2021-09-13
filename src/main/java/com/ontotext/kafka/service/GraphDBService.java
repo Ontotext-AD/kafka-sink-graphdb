@@ -1,20 +1,19 @@
 package com.ontotext.kafka.service;
 
+import com.ontotext.kafka.GraphDBSinkConfig;
+import com.ontotext.kafka.error.ErrorHandler;
+import com.ontotext.kafka.error.LogErrorHandler;
+import com.ontotext.kafka.operations.GraphDBOperator;
+import com.ontotext.kafka.util.ValueUtil;
+import org.apache.kafka.connect.sink.SinkRecord;
+import org.eclipse.rdf4j.repository.Repository;
+import org.eclipse.rdf4j.repository.http.HTTPRepository;
+
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-
-import com.ontotext.kafka.error.LogErrorHandler;
-
-import org.apache.kafka.connect.sink.SinkRecord;
-import org.eclipse.rdf4j.repository.Repository;
-import org.eclipse.rdf4j.repository.http.HTTPRepository;
-
-import com.ontotext.kafka.GraphDBSinkConfig;
-import com.ontotext.kafka.error.ErrorHandler;
-import com.ontotext.kafka.util.ValueUtil;
 
 /**
  * Global Singleton Service that resolves GraphDB's {@link HTTPRepository} and initializes the {@link SinkRecordsProcessor}
@@ -28,18 +27,20 @@ public class GraphDBService {
 	private final AtomicReference<Repository> repository = new AtomicReference<>(null);
 	private final ConcurrentLinkedQueue<Collection<SinkRecord>> sinkRecords = new ConcurrentLinkedQueue<>();
 	private ErrorHandler errorHandler;
+	private GraphDBOperator operator;
 	private Thread recordProcessor;
 	private int batchSize;
 	private long timeoutCommitMs;
 
-	private GraphDBService() {}
+	private GraphDBService() {
+	}
 
 	public void initialize(Map<String, String> properties) {
 		if (repository.compareAndSet(null, fetchRepository(properties))) {
 			batchSize = Integer.parseInt(properties.get(GraphDBSinkConfig.BATCH_SIZE));
 			timeoutCommitMs = Long.parseLong(properties.get(GraphDBSinkConfig.BATCH_COMMIT_SCHEDULER));
 			errorHandler = new LogErrorHandler();
-
+			operator = new GraphDBOperator();
 			recordProcessor = new Thread(
 					fetchProcessor(properties.get(GraphDBSinkConfig.TRANSACTION_TYPE),
 							properties.get(GraphDBSinkConfig.RDF_FORMAT)));
@@ -84,13 +85,11 @@ public class GraphDBService {
 		switch (type) {
 			case ADD:
 				return new AddRecordsProcessor(sinkRecords, shouldRun, repository.get(),
-						ValueUtil.getRDFFormat(rdfFormat), batchSize, timeoutCommitMs, errorHandler);
-			case SMART_UPDATE:
-				return new UpdateRecordsProcessor(sinkRecords, shouldRun, repository.get(),
-						ValueUtil.getRDFFormat(rdfFormat), batchSize, timeoutCommitMs, errorHandler);
+						ValueUtil.getRDFFormat(rdfFormat), batchSize, timeoutCommitMs, errorHandler, operator);
 			case REPLACE_GRAPH:
 				return new ReplaceGraphProcessor(sinkRecords, shouldRun, repository.get(),
-						ValueUtil.getRDFFormat(rdfFormat), batchSize, timeoutCommitMs, errorHandler);
+						ValueUtil.getRDFFormat(rdfFormat), batchSize, timeoutCommitMs, errorHandler, operator);
+			case SMART_UPDATE:
 			default:
 				throw new UnsupportedOperationException("Not implemented yet");
 		}
