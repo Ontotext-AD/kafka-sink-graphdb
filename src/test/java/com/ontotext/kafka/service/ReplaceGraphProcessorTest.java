@@ -1,5 +1,7 @@
 package com.ontotext.kafka.service;
 
+import com.ontotext.kafka.error.ErrorHandler;
+import com.ontotext.kafka.operators.GraphDBOperator;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.rio.RDFFormat;
@@ -11,14 +13,16 @@ import org.junit.jupiter.api.Timeout;
 
 import java.io.IOException;
 import java.io.Reader;
-import java.util.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class ReplaceGraphProcessorTest {
 	private Repository repository;
@@ -26,6 +30,9 @@ public class ReplaceGraphProcessorTest {
 	private Queue<Collection<SinkRecord>> sinkRecords;
 	private Map<String, Reader> contextMap;
 	private Map<Reader, RDFFormat> formatMap;
+	private final ErrorHandler errorHandler = (r, e) -> {
+	};
+	private final GraphDBOperator operator = new GraphDBOperator();
 
 	@BeforeEach
 	public void setup() {
@@ -174,7 +181,7 @@ public class ReplaceGraphProcessorTest {
 										 Repository repository, int batchSize, long commitTimeout) {
 		Thread thread = new Thread(
 				new ReplaceGraphProcessor(sinkRecords, shouldRun, repository, RDFFormat.NQUADS, batchSize,
-						commitTimeout));
+						commitTimeout, errorHandler, operator));
 		thread.setDaemon(true);
 		return thread;
 	}
@@ -207,7 +214,7 @@ public class ReplaceGraphProcessorTest {
 		for (int i = 0; i < contextsSize; i++) {
 			contexts[i] = "http://example" + (i + 1) + "/";
 		}
-		return  contexts;
+		return contexts;
 	}
 
 	private void assertContexts(String[] contexts) throws IOException {
@@ -239,10 +246,10 @@ public class ReplaceGraphProcessorTest {
 
 	private Repository initRepository(Map<String, Reader> contextMap, Map<Reader, RDFFormat> formatMap) {
 		return new DummyRepository(contextMap::put, formatMap::put, (ctx) -> {
-				Reader removed = contextMap.remove(ctx);
-				if(removed != null) {
-					formatMap.remove(removed);
-				}
+			Reader removed = contextMap.remove(ctx);
+			if (removed != null) {
+				formatMap.remove(removed);
+			}
 		});
 	}
 }

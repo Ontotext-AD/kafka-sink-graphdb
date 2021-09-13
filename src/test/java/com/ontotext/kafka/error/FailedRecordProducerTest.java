@@ -38,6 +38,7 @@ public class FailedRecordProducerTest {
 	public void testProducerThrowingException() {
 		producer = new FailedRecordProducer(throwingProducer());
 		producer.returnFailed(record);
+		producer.returnFailed(record);
 
 		Assertions.assertEquals(0, records.size());
 	}
