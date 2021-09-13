@@ -12,14 +12,24 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.net.URL;
+import java.util.Arrays;
+import java.util.List;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class DummyRepositoryConnection implements RepositoryConnection {
 
-	protected BiConsumer<Reader, RDFFormat> consumer;
+	protected BiConsumer<Reader, RDFFormat> addFormatConsumer;
+	private Consumer<String> removeConsumer;
+	private BiConsumer<String, Reader> addContextConsumer;
 
-	public DummyRepositoryConnection(BiConsumer<Reader, RDFFormat> consumer) {
-		this.consumer = consumer;
+	public DummyRepositoryConnection(BiConsumer<Reader, RDFFormat> addConsumer, BiConsumer<String, Reader> addContextConsumer,
+									 Consumer<String> removeContextsConsumer) {
+		this.addFormatConsumer = addConsumer;
+		this.addContextConsumer = addContextConsumer;
+		this.removeConsumer = removeContextsConsumer;
 	}
 
 	@Override
@@ -189,7 +199,10 @@ public class DummyRepositoryConnection implements RepositoryConnection {
 
 	@Override
 	public void add(Reader reader, String baseURI, RDFFormat dataFormat, Resource... contexts) throws IOException, RDFParseException, RepositoryException {
-		consumer.accept(reader, dataFormat);
+		if (contexts.length != 0) {
+			addContextConsumer.accept(Arrays.stream(contexts).map(Value::stringValue).findFirst().get(), reader);
+		}
+		addFormatConsumer.accept(reader, dataFormat);
 	}
 
 	@Override
@@ -244,7 +257,7 @@ public class DummyRepositoryConnection implements RepositoryConnection {
 
 	@Override
 	public void clear(Resource... contexts) throws RepositoryException {
-
+		removeConsumer.accept(Arrays.stream(contexts).map(Value::stringValue).findFirst().get());
 	}
 
 	@Override
