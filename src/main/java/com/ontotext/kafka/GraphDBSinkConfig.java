@@ -115,12 +115,10 @@ public class GraphDBSinkConfig extends AbstractConfig {
 				       .define(AUTH_BASIC_USER, ConfigDef.Type.STRING, DEFAULT_AUTH_BASIC_USER,
 							   ConfigDef.Importance.HIGH, AUTH_BASIC_USER_DOC,
 							   null, -1, ConfigDef.Width.NONE, AUTH_BASIC_USER,
-							   Collections.singletonList(AUTH_TYPE),
 							   VisibleIfRecommender.VisibleIf(AUTH_TYPE,AuthenticationType.BASIC))
 				       .define(AUTH_BASIC_PASS, ConfigDef.Type.PASSWORD, DEFAULT_AUTH_BASIC_PASS,
 							   ConfigDef.Importance.HIGH, AUTH_BASIC_PASS_DOC,
 							   null, -1, ConfigDef.Width.NONE, AUTH_BASIC_PASS,
-							   Collections.singletonList(AUTH_TYPE),
 							   VisibleIfRecommender.VisibleIf(AUTH_TYPE,AuthenticationType.BASIC))
 				       .define(AUTH_HEADER_TOKEN, ConfigDef.Type.STRING, "", ConfigDef.Importance.LOW,
 						       AUTH_HEADER_TOKEN_DOC);

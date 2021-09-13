@@ -65,7 +65,8 @@ public class GraphDBService {
 			case NONE:
 				return repository;
 			case BASIC:
-				repository.setUsernameAndPassword((String) properties.get(GraphDBSinkConfig.AUTH_BASIC_USER),
+				repository.setUsernameAndPassword(
+						(String) properties.get(GraphDBSinkConfig.AUTH_BASIC_USER),
 						((Password) properties.get(GraphDBSinkConfig.AUTH_BASIC_PASS)).value());
 				return repository;
 			case CUSTOM:

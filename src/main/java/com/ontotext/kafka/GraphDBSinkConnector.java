@@ -16,29 +16,20 @@
 
 package com.ontotext.kafka;
 
-//import com.ontotext.kafka.util.ValidateGraphDBConnection;
-import org.apache.commons.io.IOUtils;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
-import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkConnector;
 
-import java.io.IOException;
-import java.net.URL;
-import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 import com.ontotext.kafka.service.GraphDBService;
 import com.ontotext.kafka.util.PropertiesUtil;
-import org.eclipse.rdf4j.http.protocol.UnauthorizedException;
-import org.eclipse.rdf4j.repository.RepositoryConnection;
-import org.eclipse.rdf4j.repository.RepositoryException;
-import org.eclipse.rdf4j.repository.http.HTTPRepository;
-import org.json.JSONObject;
+import com.ontotext.kafka.util.ValidateGraphDBConnection;
+
 
 /**
  * {@link SinkConnector} implementation for streaming messages containing RDF data to GraphDB repositories
@@ -90,52 +81,9 @@ public class GraphDBSinkConnector extends SinkConnector {
 	@Override
 	public Config validate(final Map<String, String> connectorConfigs) {
 		var config = super.validate(connectorConfigs);
-		//TODO: remake the connection validation
-		//validateGraphDBConnection(connectorConfigs);
-		//ValidateGraphDBConnection.validateGraphDBConnection(config);
-		return config;
+		if (config.configValues().stream().anyMatch((cv) -> !cv.errorMessages().isEmpty())) {
+			return config;
+		}
+		return ValidateGraphDBConnection.validateGraphDBConnection(config);
 	}
-
-//	private void validateGraphDBConnection(Map<String, String> connectorConfigs) {
-//		String serverIri = connectorConfigs.get(GraphDBSinkConfig.SERVER_IRI);
-//		String repositoryId = connectorConfigs.get(GraphDBSinkConfig.REPOSITORY);
-//		try {
-//			URL versionUrl = new URL(serverIri + "rest/info/version");
-//			String version = new JSONObject(IOUtils.toString(versionUrl, Charset.defaultCharset())).getString("productVersion");
-//
-//			int major = Integer.parseInt(version.split("\\.")[0]);
-//			if (major < 10) {
-//				int minor = Integer.parseInt(version.split("\\.")[1]);
-//				if (major == 9 && minor < 9) {
-//					throw new ConnectException("Kafka sink is supported on GraphDB 9.10 or newer. Please update your GraphDB");
-//				}
-//			}
-//		} catch (IOException e) {
-//			throw new ConnectException("No GraphDB running on the provided GraphDB server iri");
-//		}
-//
-//		var repository = new HTTPRepository(serverIri, repositoryId);
-//		switch (GraphDBSinkConfig.AuthenticationType.of(connectorConfigs.get(GraphDBSinkConfig.AUTH_TYPE))) {
-//			case NONE:
-//				break;
-//			case BASIC:
-//				System.out.println(connectorConfigs.get(GraphDBSinkConfig.AUTH_BASIC_PASS));
-//				repository.setUsernameAndPassword(
-//						connectorConfigs.get(GraphDBSinkConfig.AUTH_BASIC_USER),
-//						connectorConfigs.get(GraphDBSinkConfig.AUTH_BASIC_PASS));
-//				break;
-//			case CUSTOM:
-//			default:
-//				throw new UnsupportedOperationException(connectorConfigs.get(GraphDBSinkConfig.AUTH_TYPE) + " not supported");
-//		}
-//		try (RepositoryConnection connection = repository.getConnection()) {
-//			connection.begin();
-//			connection.rollback();
-//		} catch (RepositoryException e) {
-//			if (e instanceof UnauthorizedException) {
-//				throw new ConnectException(e.getMessage() + ": Invalid credentials");
-//			}
-//			throw new ConnectException(e.getMessage() + ": Invalid repository");
-//		}
-//	}
 }
