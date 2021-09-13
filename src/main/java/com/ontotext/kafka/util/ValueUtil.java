@@ -1,6 +1,15 @@
 package com.ontotext.kafka.util;
 
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.io.StringReader;
+import java.util.Objects;
+
 import org.apache.kafka.connect.errors.DataException;
+import org.eclipse.rdf4j.model.Resource;
+import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.rio.RDFFormat;
 
 import java.io.*;
@@ -8,8 +17,7 @@ import java.util.Objects;
 
 public class ValueUtil {
 
-	private ValueUtil() {
-	}
+	private ValueUtil() {}
 
 	public static RDFFormat getRDFFormat(String format) {
 		if (RDFFormat.RDFXML.getDefaultFileExtension().contains(format)) {
@@ -71,4 +79,16 @@ public class ValueUtil {
 		}
 	}
 
+
+	public static Resource convertIRIKey(Object obj) {
+		Objects.requireNonNull(obj, "Cannot parse null objects");
+		if (obj instanceof byte[]) {
+			return SimpleValueFactory.getInstance().createIRI(new String((byte[]) obj));
+		} else if (obj instanceof String) {
+			return SimpleValueFactory.getInstance().createIRI((String) obj);
+		} else {
+			throw new DataException("error: no converter present due to unexpected object type "
+					+ obj.getClass().getName());
+		}
+	}
 }
