@@ -242,7 +242,12 @@
             <version>11.0.0.M2</version>
 <!--            <scope>provided</scope>-->
         </dependency>
-    </dependencies>
+		<dependency>
+			<groupId>com.ontotext.graphdb</groupId>
+			<artifactId>graphdb-free-runtime</artifactId>
+			<version>9.9-SNAPSHOT</version>
+		</dependency>
+	</dependencies>
 
 	<profiles>
 		<profile>
