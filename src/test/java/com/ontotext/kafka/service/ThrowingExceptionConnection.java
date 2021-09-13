@@ -16,7 +16,7 @@ public class ThrowingExceptionConnection extends DummyRepositoryConnection {
 	private final Exception e;
 
 	public ThrowingExceptionConnection(BiConsumer<Reader, RDFFormat> consumer, Exception e, int numberOfThrows) {
-		super(consumer);
+		super(consumer, null, null);
 		this.e = e;
 		this.numberOfThrows = numberOfThrows;
 	}
