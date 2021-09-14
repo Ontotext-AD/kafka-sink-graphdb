@@ -1,6 +1,7 @@
 package com.ontotext.kafka.producer;
 
 import org.apache.kafka.clients.producer.*;
+import org.apache.kafka.common.utils.ByteBufferOutputStream;
 import org.eclipse.rdf4j.model.BNode;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.query.GraphQueryResult;
@@ -10,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
@@ -20,6 +22,7 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
     private final Properties properties;
     private Long updatesPauses = null;
     private static final Logger LOG = LoggerFactory.getLogger(GraphDBProducer.class);
+    private String outputMessageFormat = "nq";
 
 
     public GraphDBProducer(List<String> files, String kafkaTopic, Properties properties) {
@@ -29,6 +32,9 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
         this.kafkaTopic = kafkaTopic;
         if (properties.getProperty("graphdb.updates.time.pauses") != null) {
             this.updatesPauses = Long.parseLong(properties.getProperty("graphdb.updates.time.pauses"));
+        }
+        if (properties.getProperty("graphdb.message.output.format") != null) {
+            this.outputMessageFormat = properties.getProperty("graphdb.message.output.format");
         }
     }
 
@@ -56,12 +62,15 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
     }
 
     public void publish() {
+        RDFFormat outputFormat = getOutputFormat(this.outputMessageFormat);
         for (int i = 0; i < allFiles.size(); i += 2) {
             String dataFile = allFiles.get(i);
             String keysFile = allFiles.get(i + 1);
             try {
                 InputStream dataStream = new FileInputStream(dataFile);
                 RDFFormat inputFormat = Rio.getParserFormatForFileName(dataFile).orElse(RDFFormat.TURTLE);
+
+                ByteArrayOutputStream message = new ByteArrayOutputStream();
 
                 try (GraphQueryResult res = QueryResults.parseGraphBackground(dataStream,dataFile, inputFormat);
                      BufferedReader keysReader = new BufferedReader(new FileReader(keysFile))) {
@@ -70,18 +79,19 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
                     String keyStatements = keysReader.readLine().split("=")[1];
                     int numberOfStatementsPerKey = Integer.parseInt(keyStatements);
                     int countStatementsInCurrentMessage = 0;
-                    StringBuilder builder = new StringBuilder();
+
                     while (res.hasNext()) {
                         Statement st = res.next();
-                        convertStatementToNQString(builder, st);
+                        Rio.write(st, message, outputFormat);
                         countStatementsInCurrentMessage++;
+
                         if (countStatementsInCurrentMessage == numberOfStatementsPerKey) {
-                            sendMessage(keyName, builder.toString().getBytes());
+                            sendMessage(keyName, message.toByteArray());
+                            message = new ByteArrayOutputStream();
                             if ( (keyLine = keysReader.readLine()) != null) {
                                 keyName = keyLine.split("=")[1];
                                 keyStatements = keysReader.readLine().split("=")[1];
                                 numberOfStatementsPerKey = Integer.parseInt(keyStatements);
-                                builder = new StringBuilder();
                                 countStatementsInCurrentMessage = 0;
                             } else {
                                 break;
@@ -89,7 +99,7 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
                         }
                     }
                     if (keyName != null) {
-                        sendMessage(keyName, builder.toString().getBytes());
+                        sendMessage(keyName, message.toByteArray());
                     }
                 }
             } catch (IOException e) {
@@ -98,37 +108,38 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
         }
     }
 
-    private void convertStatementToNQString(StringBuilder builder, Statement st) {
-        String subj = "<" + st.getSubject().toString() + ">";
-        String pred = "<" + st.getPredicate().toString() + ">";
-        String obj = "<" + st.getObject().toString() + ">";
-        String context = "";
-
-        if (st.getSubject().isBNode()) {
-            subj = "_:" + ((BNode) st.getSubject()).getID();
+    private RDFFormat getOutputFormat(String prop) {
+        if (RDFFormat.RDFXML.getFileExtensions().contains(prop)) {
+            return RDFFormat.RDFXML;
+        } else if (RDFFormat.NTRIPLES.getFileExtensions().contains(prop)) {
+            return RDFFormat.NTRIPLES;
+        } else if (RDFFormat.TURTLE.getFileExtensions().contains(prop)) {
+            return RDFFormat.TURTLE;
+        } else if (RDFFormat.TURTLESTAR.getFileExtensions().contains(prop)) {
+            return RDFFormat.TURTLESTAR;
+        } else if (RDFFormat.N3.getFileExtensions().contains(prop)) {
+            return RDFFormat.N3;
+        } else if (RDFFormat.TRIX.getFileExtensions().contains(prop)) {
+            return RDFFormat.TRIX;
+        } else if (RDFFormat.TRIG.getFileExtensions().contains(prop)) {
+            return RDFFormat.TRIG;
+        } else if (RDFFormat.TRIGSTAR.getFileExtensions().contains(prop)) {
+            return RDFFormat.TRIGSTAR;
+        } else if (RDFFormat.BINARY.getFileExtensions().contains(prop)) {
+            return RDFFormat.BINARY;
+        } else if (RDFFormat.JSONLD.getFileExtensions().contains(prop)) {
+            return RDFFormat.JSONLD;
+        } else if (RDFFormat.NDJSONLD.getFileExtensions().contains(prop)) {
+            return RDFFormat.NDJSONLD;
+        } else if (RDFFormat.RDFJSON.getFileExtensions().contains(prop)) {
+            return RDFFormat.RDFJSON;
+        } else if (RDFFormat.RDFA.getFileExtensions().contains(prop)) {
+            return RDFFormat.RDFA;
+        } else if (RDFFormat.HDT.getFileExtensions().contains(prop)) {
+            return RDFFormat.HDT;
+        } else {
+            return RDFFormat.NQUADS;
         }
 
-        if (st.getPredicate().isBNode()) {
-            pred = "_:" + ((BNode) st.getPredicate()).getID();
-        }
-
-        if (st.getObject().isBNode()) {
-            obj = "_:" + ((BNode) st.getObject()).getID();
-        } else if (st.getObject().isLiteral()) {
-            obj = st.getObject().toString();
-        }
-
-        if (st.getContext() != null) {
-            if (st.getContext().isBNode()) {
-                context = "_:" + ((BNode) st.getContext()).getID();
-            } else {
-                context = "<" + st.getContext().toString() + ">";
-            }
-        }
-
-        builder.append(subj).append(" ")
-                .append(pred).append(" ")
-                .append(obj).append(" ").append(context)
-                .append(".").append("\n");
     }
 }
