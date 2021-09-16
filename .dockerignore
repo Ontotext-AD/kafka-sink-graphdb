@@ -1,0 +1,5 @@
+*
+!src/
+!pom.xml
+!graphdb-plugin.xml
+!Dockerfile
