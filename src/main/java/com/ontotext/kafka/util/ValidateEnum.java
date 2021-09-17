@@ -10,11 +10,7 @@ public class ValidateEnum implements ConfigDef.Validator {
 	final Set<String> validEnums;
 	final Class<?> enumClass;
 
-	public static ValidateEnum of(Class<?> enumClass) {
-		return new ValidateEnum(enumClass);
-	}
-
-	private ValidateEnum(Class<?> enumClass) {
+	public ValidateEnum(Class<?> enumClass) {
 		Set<String> validEnums = new LinkedHashSet<>();
 		for (Object o : enumClass.getEnumConstants()) {
 			String key = o.toString().toLowerCase();

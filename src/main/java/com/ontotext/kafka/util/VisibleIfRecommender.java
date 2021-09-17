@@ -10,11 +10,7 @@ public class VisibleIfRecommender implements ConfigDef.Recommender{
 	final String configKey;
     final Object value;
 
-	public static VisibleIfRecommender VisibleIf(String configKey, Object value) {
-		return new VisibleIfRecommender(configKey, value);
-	}
-
-	private VisibleIfRecommender(String configKey, Object value) {
+	public VisibleIfRecommender(String configKey, Object value) {
 		this.configKey = configKey;
 		this.value = value;
 	}

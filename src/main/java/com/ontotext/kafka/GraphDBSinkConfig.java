@@ -101,10 +101,10 @@ public class GraphDBSinkConfig extends AbstractConfig {
 				SERVER_IRI_DOC)
 			.define(REPOSITORY, ConfigDef.Type.STRING, ConfigDef.Importance.HIGH,
 				REPOSITORY_DOC)
-			.define(RDF_FORMAT, ConfigDef.Type.STRING, DEFAULT_RDF_TYPE, ValidateRDFFormat.of(),
+			.define(RDF_FORMAT, ConfigDef.Type.STRING, DEFAULT_RDF_TYPE, new ValidateRDFFormat(),
 				ConfigDef.Importance.HIGH, RDF_FORMAT_DOC)
 			.define(TRANSACTION_TYPE, ConfigDef.Type.STRING, DEFAULT_TRANSACTION_TYPE,
-				ValidateEnum.of(GraphDBSinkConfig.TransactionType.class),
+				new ValidateEnum(GraphDBSinkConfig.TransactionType.class),
 				ConfigDef.Importance.HIGH, TRANSACTION_TYPE_DOC)
 			.define(BATCH_SIZE, ConfigDef.Type.INT, DEFAULT_BATCH_SIZE, ConfigDef.Importance.HIGH,
 				BATCH_SIZE_DOC)
@@ -112,16 +112,16 @@ public class GraphDBSinkConfig extends AbstractConfig {
 				ConfigDef.Importance.HIGH,
 				BATCH_COMMIT_SCHEDULER_DOC)
 			.define(AUTH_TYPE, ConfigDef.Type.STRING, DEFAULT_AUTH_TYPE,
-				ValidateEnum.of(GraphDBSinkConfig.AuthenticationType.class),
+				new ValidateEnum(GraphDBSinkConfig.AuthenticationType.class),
 				ConfigDef.Importance.HIGH, AUTH_TYPE_DOC)
 			.define(AUTH_BASIC_USER, ConfigDef.Type.STRING, DEFAULT_AUTH_BASIC_USER,
 				ConfigDef.Importance.HIGH, AUTH_BASIC_USER_DOC,
 				null, -1, ConfigDef.Width.NONE, AUTH_BASIC_USER,
-				VisibleIfRecommender.VisibleIf(AUTH_TYPE, AuthenticationType.BASIC))
+				new VisibleIfRecommender(AUTH_TYPE, AuthenticationType.BASIC))
 			.define(AUTH_BASIC_PASS, ConfigDef.Type.PASSWORD, DEFAULT_AUTH_BASIC_PASS,
 				ConfigDef.Importance.HIGH, AUTH_BASIC_PASS_DOC,
 				null, -1, ConfigDef.Width.NONE, AUTH_BASIC_PASS,
-				VisibleIfRecommender.VisibleIf(AUTH_TYPE, AuthenticationType.BASIC))
+				new VisibleIfRecommender(AUTH_TYPE, AuthenticationType.BASIC))
 			.define(AUTH_HEADER_TOKEN, ConfigDef.Type.STRING, "", ConfigDef.Importance.LOW,
 				AUTH_HEADER_TOKEN_DOC);
 	}

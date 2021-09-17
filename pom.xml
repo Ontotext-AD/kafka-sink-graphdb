@@ -252,11 +252,6 @@
 <!--            <scope>provided</scope>-->
         </dependency>
 		<dependency>
-			<groupId>com.ontotext.graphdb</groupId>
-			<artifactId>graphdb-free-runtime</artifactId>
-			<version>9.9-SNAPSHOT</version>
-		</dependency>
-		<dependency>
 			<groupId>org.json</groupId>
 			<artifactId>json</artifactId>
 			<version>20210307</version>

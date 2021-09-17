@@ -4,10 +4,6 @@ import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigException;
 
 public class ValidateRDFFormat implements ConfigDef.Validator {
-
-	public static ValidateRDFFormat of() {
-		return new ValidateRDFFormat();
-	}
 	@Override
 	public void ensureValid(final String key, final Object value) {
 
