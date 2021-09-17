@@ -81,7 +81,7 @@ public class GraphDBSinkConnector extends SinkConnector {
 	@Override
 	public Config validate(final Map<String, String> connectorConfigs) {
 		var config = super.validate(connectorConfigs);
-		if (config.configValues().stream().anyMatch((cv) -> !cv.errorMessages().isEmpty())) {
+		if (config.configValues().stream().anyMatch(cv -> !cv.errorMessages().isEmpty())) {
 			return config;
 		}
 		return ValidateGraphDBConnection.validateGraphDBConnection(config);

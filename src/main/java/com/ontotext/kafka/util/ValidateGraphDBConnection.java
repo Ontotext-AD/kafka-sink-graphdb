@@ -76,7 +76,7 @@ public class ValidateGraphDBConnection {
 			int major = Integer.parseInt(version.split("\\.")[0]);
 			if (major < 10) {
 				int minor = Integer.parseInt(version.split("\\.")[1]);
-				if (major == 9 && minor < 9) {
+				if (major == 9 && minor < 10) {
 					throw new ConfigException(SERVER_IRI, serverIri.value(), "Kafka sink is supported on GraphDB 9.10 or newer. Please update your GraphDB");
 				}
 			}
