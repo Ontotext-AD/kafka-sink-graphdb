@@ -132,12 +132,12 @@
 	</repositories>
 
 	<dependencies>
-        <dependency>
-            <groupId>org.apache.kafka</groupId>
-            <artifactId>connect-api</artifactId>
-            <version>${kafka.version}</version>
-            <scope>provided</scope>
-        </dependency>
+		<dependency>
+			<groupId>org.apache.kafka</groupId>
+			<artifactId>connect-api</artifactId>
+			<version>${kafka.version}</version>
+			<scope>provided</scope>
+		</dependency>
 		<dependency>
 			<groupId>org.apache.kafka</groupId>
 			<artifactId>kafka-clients</artifactId>
@@ -252,9 +252,19 @@
 <!--            <scope>provided</scope>-->
         </dependency>
 		<dependency>
-			<groupId>com.ontotext.graphdb</groupId>
-			<artifactId>graphdb-free-runtime</artifactId>
-			<version>9.9-SNAPSHOT</version>
+			<groupId>org.json</groupId>
+			<artifactId>json</artifactId>
+			<version>20210307</version>
+		</dependency>
+		<dependency>
+			<groupId>org.mock-server</groupId>
+			<artifactId>mockserver-junit-jupiter</artifactId>
+			<version>5.11.2</version>
+		</dependency>
+		<dependency>
+			<groupId>org.sonatype.sisu</groupId>
+			<artifactId>sisu-guava</artifactId>
+			<version>0.11.1</version>
 		</dependency>
 	</dependencies>
 
