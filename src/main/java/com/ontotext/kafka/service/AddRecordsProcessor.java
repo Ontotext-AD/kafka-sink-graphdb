@@ -30,9 +30,7 @@ public class AddRecordsProcessor extends SinkRecordsProcessor {
 	@Override
 	protected void handleRecord(SinkRecord record, RepositoryConnection connection) {
 		try {
-			if (!failedRecords.contains(record)) {
 				connection.add(ValueUtil.convertRDFData(record.value()), format);
-			}
 		} catch (IOException e) {
 			throw new RetriableException(e.getMessage());
 		} catch (Exception e) {
