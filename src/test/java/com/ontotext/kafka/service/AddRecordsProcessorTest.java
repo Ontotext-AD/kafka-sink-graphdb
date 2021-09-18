@@ -1,7 +1,7 @@
 package com.ontotext.kafka.service;
 
 import com.ontotext.kafka.error.ErrorHandler;
-import com.ontotext.kafka.operators.GraphDBOperator;
+import com.ontotext.kafka.operations.GraphDBOperator;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryException;
@@ -27,9 +27,8 @@ class AddRecordsProcessorTest {
 	private Repository repository;
 	private AtomicBoolean shouldRun;
 	private Queue<Collection<SinkRecord>> sinkRecords;
-	private final ErrorHandler errorHandler = (r, e) -> {
-	};
-	private final GraphDBOperator operator = new GraphDBOperator();
+	private ErrorHandler errorHandler;
+	private GraphDBOperator operator;
 
 	@BeforeEach
 	public void setup() {
@@ -38,6 +37,9 @@ class AddRecordsProcessorTest {
 		repository = initRepository(streams, formats);
 		shouldRun = new AtomicBoolean(true);
 		sinkRecords = new LinkedBlockingQueue<>();
+		errorHandler = (r, e) -> {
+		};
+		operator = new GraphDBOperator();
 	}
 
 	@Test

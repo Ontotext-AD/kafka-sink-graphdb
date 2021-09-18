@@ -8,10 +8,11 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Properties;
 
+import static com.ontotext.kafka.util.PropertiesUtil.DEFAULT_BOOTSTRAP_SERVERS;
 import static com.ontotext.kafka.util.PropertiesUtil.getFromPropertyOrDefault;
 
 public class LogErrorHandler implements ErrorHandler {
-	public static final String DEFAULT_BOOTSTRAP_SERVERS = "localhost:9092";
+
 	private static final FailedProducer PRODUCER = new FailedRecordProducer(getProperties());
 	private static final Logger LOGGER = LoggerFactory.getLogger(LogErrorHandler.class);
 
@@ -29,5 +30,4 @@ public class LogErrorHandler implements ErrorHandler {
 		props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
 		return props;
 	}
-
 }

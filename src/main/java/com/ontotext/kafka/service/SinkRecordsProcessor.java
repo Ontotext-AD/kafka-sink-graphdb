@@ -1,7 +1,7 @@
 package com.ontotext.kafka.service;
 
 import com.ontotext.kafka.error.ErrorHandler;
-import com.ontotext.kafka.operators.GraphDBOperator;
+import com.ontotext.kafka.operations.GraphDBOperator;
 import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.runtime.errors.Operation;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -123,9 +123,7 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 		try (RepositoryConnection connection = repository.getConnection()) {
 			connection.begin();
 			for (SinkRecord record : recordsBatch) {
-				if (!failedRecords.contains(record)) {
-					handleRecord(record, connection);
-				}
+				handleRecord(record, connection);
 			}
 			connection.commit();
 			recordsBatch.clear();
@@ -138,11 +136,6 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 	}
 
 	protected abstract void handleRecord(SinkRecord record, RepositoryConnection connection) throws RetriableException;
-
-	protected void handleNonRetryable(SinkRecord record, Exception e) {
-		failedRecords.add(record);
-		errorHandler.handleFailingRecord(record, e);
-	}
 
 	public class ScheduleCommitter extends TimerTask {
 		@Override

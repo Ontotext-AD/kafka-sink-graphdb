@@ -1,7 +1,7 @@
 package com.ontotext.kafka.service;
 
 import com.ontotext.kafka.error.ErrorHandler;
-import com.ontotext.kafka.operators.GraphDBOperator;
+import com.ontotext.kafka.operations.GraphDBOperator;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.rio.RDFFormat;
@@ -30,9 +30,8 @@ public class ReplaceGraphProcessorTest {
 	private Queue<Collection<SinkRecord>> sinkRecords;
 	private Map<String, Reader> contextMap;
 	private Map<Reader, RDFFormat> formatMap;
-	private final ErrorHandler errorHandler = (r, e) -> {
-	};
-	private final GraphDBOperator operator = new GraphDBOperator();
+	private ErrorHandler errorHandler;
+	private GraphDBOperator operator;
 
 	@BeforeEach
 	public void setup() {
@@ -41,6 +40,10 @@ public class ReplaceGraphProcessorTest {
 		repository = initRepository(contextMap, formatMap);
 		shouldRun = new AtomicBoolean(true);
 		sinkRecords = new LinkedBlockingQueue<>();
+		errorHandler = (r, e) -> {
+		};
+		operator = new GraphDBOperator();
+
 	}
 
 	@Test
