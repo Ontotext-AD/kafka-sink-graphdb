@@ -43,6 +43,7 @@ public class ReplaceGraphProcessorTest {
 		errorHandler = (r, e) -> {
 		};
 		operator = new GraphDBOperator();
+
 	}
 
 	@Test
