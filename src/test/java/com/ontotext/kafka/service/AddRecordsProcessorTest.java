@@ -1,7 +1,7 @@
 package com.ontotext.kafka.service;
 
 import com.ontotext.kafka.error.ErrorHandler;
-import com.ontotext.kafka.error.LogErrorHandler;
+import com.ontotext.kafka.operations.GraphDBOperator;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryException;
@@ -28,6 +28,7 @@ class AddRecordsProcessorTest {
 	private AtomicBoolean shouldRun;
 	private Queue<Collection<SinkRecord>> sinkRecords;
 	private ErrorHandler errorHandler;
+	private GraphDBOperator operator;
 
 	@BeforeEach
 	public void setup() {
@@ -36,11 +37,9 @@ class AddRecordsProcessorTest {
 		repository = initRepository(streams, formats);
 		shouldRun = new AtomicBoolean(true);
 		sinkRecords = new LinkedBlockingQueue<>();
-		errorHandler = new LogErrorHandler() {
-			@Override
-			public void handleFailingRecord(SinkRecord record, Throwable ex) {
-			}
+		errorHandler = (r, e) -> {
 		};
+		operator = new GraphDBOperator();
 	}
 
 	@Test
@@ -277,7 +276,7 @@ class AddRecordsProcessorTest {
 		generateSinkRecords(sinkRecords, 1, 12);
 
 		AddRecordsProcessor processor = new AddRecordsProcessor(sinkRecords, shouldRun, repository, RDFFormat.NQUADS, batch,
-				50, errorHandler);
+				50, errorHandler, operator);
 		processor.recordsBatch.addAll(sinkRecords.poll());
 
 		Assertions.assertThrows(RuntimeException.class,
@@ -291,7 +290,7 @@ class AddRecordsProcessorTest {
 		int batch = 4;
 		int expectedSize = 4;
 
-		repository = initThrowingRepository(streams, formats, new IOException(), 3);
+		repository = initThrowingRepository(streams, formats, new IOException(), 4);
 		generateSinkRecords(sinkRecords, 4, 12);
 		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch, 50);
 		recordsProcessor.start();
@@ -317,7 +316,7 @@ class AddRecordsProcessorTest {
 										 Repository repository, int batchSize, long commitTimeout) {
 		Thread thread = new Thread(
 				new AddRecordsProcessor(sinkRecords, shouldRun, repository, RDFFormat.NQUADS, batchSize,
-						commitTimeout, errorHandler));
+						commitTimeout, errorHandler, operator));
 
 		thread.setDaemon(true);
 		return thread;

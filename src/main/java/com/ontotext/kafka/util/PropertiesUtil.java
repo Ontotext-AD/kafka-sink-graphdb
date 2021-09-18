@@ -28,8 +28,7 @@ public class PropertiesUtil {
 	public static final long DEFAULT_CONNECTION_RETRY_DEFERRED_TIME = 100L;
 	public static final String CONNECTION_NUMBER_OF_RETRIES = "connection.retry.number.of.times";
 	public static final int DEFAULT_CONNECTION_NUMBER_OF_RETRIES = 10;
-	public static final String BOOTSTRAP_SERVERS = "bootstrap.servers";
-	public static final String DEFAULT_BOOTSTRAP_SERVERS = "localhost:9092,localhost:9093,localhost:9094";
+	public static final String DEFAULT_BOOTSTRAP_SERVERS = "localhost:9092";
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(PropertiesUtil.class);
 

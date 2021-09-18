@@ -1,6 +1,5 @@
 package com.ontotext.kafka.error;
 
-import org.apache.kafka.connect.runtime.errors.Operation;
 import org.apache.kafka.connect.sink.SinkRecord;
 
 /**
@@ -9,8 +8,5 @@ import org.apache.kafka.connect.sink.SinkRecord;
  * @author Tomas Kovachev tomas.kovachev@ontotext.com
  */
 public interface ErrorHandler {
-
 	void handleFailingRecord(SinkRecord record, Throwable ex);
-
-	<E> E handleRetry(Operation<E> operation);
 }

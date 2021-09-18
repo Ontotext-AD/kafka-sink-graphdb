@@ -16,11 +16,10 @@ class FailedRecordProducer implements FailedProducer {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(FailedRecordProducer.class);
 	private static final String TOPIC_NAME = PropertiesUtil.getProperty(SinkConnectorConfig.DLQ_TOPIC_NAME_CONFIG);
-	private Properties properties;
-	private Producer<String, String> producer;
+	private final Producer<String, String> producer;
 
 	FailedRecordProducer(Properties properties) {
-		this.properties = properties;
+		producer = new KafkaProducer<>(properties);
 	}
 
 	@VisibleForTesting
@@ -32,29 +31,20 @@ class FailedRecordProducer implements FailedProducer {
 	public void returnFailed(SinkRecord record) {
 		String recordKey = record.key() == null ? "null" : record.key().toString();
 		String recordValue = record.value() == null ? "null" : record.value().toString();
-		if (producer == null)
-			producer = new KafkaProducer<>(properties);
-
 		try {
 			ProducerRecord<String, String> pr = new ProducerRecord<>(TOPIC_NAME, recordKey, recordValue);
 			producer.send(pr, (metadata, exception) -> {
-				String failedRecordInfo = String.format("Record (key=%s value=%s)\n" +
-								" meta(partition=%d, offset=%d)\n" +
-								" to kafka topic: %s\n",
-						recordKey, recordValue,
-						metadata == null ? 0 : metadata.partition(), metadata == null ? 0 : metadata.offset(),
-						TOPIC_NAME);
-
 				if (exception == null) {
-					LOGGER.info("Successfully returned failed record to kafka.\n" + failedRecordInfo);
+					LOGGER.info("Successfully returned failed record to kafka. Record (key={} value={}) meta(partition={}, offset={}) to kafka topic: {}",
+							recordKey, recordValue, metadata == null ? 0 : metadata.partition(), metadata == null ? 0 : metadata.offset(), TOPIC_NAME);
 				} else {
-					LOGGER.error("Returning failed record to kafka: UNSUCCESSFUL.\n" + failedRecordInfo,
+					LOGGER.error("Returning failed record to kafka: UNSUCCESSFUL. Record (key={} value={}) meta(partition={}, offset={}) to kafka topic: {}",
+							recordKey, recordValue, metadata == null ? 0 : metadata.partition(), metadata == null ? 0 : metadata.offset(), TOPIC_NAME,
 							exception);
 				}
 			});
 		} finally {
 			producer.flush();
-			producer.close();
 		}
 	}
 
