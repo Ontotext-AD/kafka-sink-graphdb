@@ -123,7 +123,9 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 		try (RepositoryConnection connection = repository.getConnection()) {
 			connection.begin();
 			for (SinkRecord record : recordsBatch) {
-				handleRecord(record, connection);
+				if (!failedRecords.contains(record)) {
+					handleRecord(record, connection);
+				}
 			}
 			connection.commit();
 			recordsBatch.clear();
