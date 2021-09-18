@@ -1,6 +1,7 @@
 package com.ontotext.kafka.service;
 
 import com.ontotext.kafka.error.ErrorHandler;
+import com.ontotext.kafka.operations.GraphDBOperator;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.rio.RDFFormat;
@@ -12,14 +13,16 @@ import org.junit.jupiter.api.Timeout;
 
 import java.io.IOException;
 import java.io.Reader;
-import java.util.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class ReplaceGraphProcessorTest {
 	private Repository repository;
@@ -28,6 +31,7 @@ public class ReplaceGraphProcessorTest {
 	private Map<String, Reader> contextMap;
 	private Map<Reader, RDFFormat> formatMap;
 	private ErrorHandler errorHandler;
+	private GraphDBOperator operator;
 
 	@BeforeEach
 	public void setup() {
@@ -36,8 +40,10 @@ public class ReplaceGraphProcessorTest {
 		repository = initRepository(contextMap, formatMap);
 		shouldRun = new AtomicBoolean(true);
 		sinkRecords = new LinkedBlockingQueue<>();
-		errorHandler = (record, ex) -> {
+		errorHandler = (r, e) -> {
 		};
+		operator = new GraphDBOperator();
+
 	}
 
 	@Test
@@ -178,7 +184,7 @@ public class ReplaceGraphProcessorTest {
 										 Repository repository, int batchSize, long commitTimeout) {
 		Thread thread = new Thread(
 				new ReplaceGraphProcessor(sinkRecords, shouldRun, repository, RDFFormat.NQUADS, batchSize,
-						commitTimeout, errorHandler));
+						commitTimeout, errorHandler, operator));
 		thread.setDaemon(true);
 		return thread;
 	}

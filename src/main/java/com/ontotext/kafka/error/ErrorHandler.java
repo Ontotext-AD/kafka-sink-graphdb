@@ -8,7 +8,5 @@ import org.apache.kafka.connect.sink.SinkRecord;
  * @author Tomas Kovachev tomas.kovachev@ontotext.com
  */
 public interface ErrorHandler {
-
 	void handleFailingRecord(SinkRecord record, Throwable ex);
-
 }
