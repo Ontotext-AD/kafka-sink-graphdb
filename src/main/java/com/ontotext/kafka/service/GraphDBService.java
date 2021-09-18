@@ -5,9 +5,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-
 import com.ontotext.kafka.error.LogErrorHandler;
-
+import org.apache.kafka.common.config.types.Password;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.http.HTTPRepository;
@@ -34,15 +33,13 @@ public class GraphDBService {
 
 	private GraphDBService() {}
 
-	public void initialize(Map<String, String> properties) {
-		if (repository.compareAndSet(null, fetchRepository(properties))) {
-			batchSize = Integer.parseInt(properties.get(GraphDBSinkConfig.BATCH_SIZE));
-			timeoutCommitMs = Long.parseLong(properties.get(GraphDBSinkConfig.BATCH_COMMIT_SCHEDULER));
+	public void initialize(Map<String, ?> properties) {
 			errorHandler = new LogErrorHandler();
-
+			batchSize = (int)properties.get(GraphDBSinkConfig.BATCH_SIZE);
+			timeoutCommitMs = (Long) properties.get(GraphDBSinkConfig.BATCH_COMMIT_SCHEDULER);
 			recordProcessor = new Thread(
-					fetchProcessor(properties.get(GraphDBSinkConfig.TRANSACTION_TYPE),
-							properties.get(GraphDBSinkConfig.RDF_FORMAT)));
+					fetchProcessor((String) properties.get(GraphDBSinkConfig.TRANSACTION_TYPE),
+							(String) properties.get(GraphDBSinkConfig.RDF_FORMAT)));
 			recordProcessor.start();
 		}
 	}
@@ -59,16 +56,17 @@ public class GraphDBService {
 		sinkRecords.add(records);
 	}
 
-	private static Repository fetchRepository(Map<String, String> properties) {
-		String address = properties.get(GraphDBSinkConfig.SERVER_IRI);
-		String repositoryId = properties.get(GraphDBSinkConfig.REPOSITORY);
+	private static Repository fetchRepository(Map<String, ?> properties) {
+		String address = (String) properties.get(GraphDBSinkConfig.SERVER_IRI);
+		String repositoryId = (String) properties.get(GraphDBSinkConfig.REPOSITORY);
 		var repository = new HTTPRepository(address, repositoryId);
-		switch (GraphDBSinkConfig.AuthenticationType.of(properties.get(GraphDBSinkConfig.AUTH_TYPE))) {
+		switch (GraphDBSinkConfig.AuthenticationType.of((String) properties.get(GraphDBSinkConfig.AUTH_TYPE))) {
 			case NONE:
 				return repository;
 			case BASIC:
-				repository.setUsernameAndPassword(properties.get(GraphDBSinkConfig.AUTH_BASIC_USER),
-						properties.get(GraphDBSinkConfig.AUTH_BASIC_PASS));
+				repository.setUsernameAndPassword(
+						(String) properties.get(GraphDBSinkConfig.AUTH_BASIC_USER),
+						((Password) properties.get(GraphDBSinkConfig.AUTH_BASIC_PASS)).value());
 				return repository;
 			case CUSTOM:
 			default:

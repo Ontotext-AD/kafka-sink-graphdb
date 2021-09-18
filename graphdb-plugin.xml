@@ -10,9 +10,9 @@
       <outputFileNameMapping>${artifact.artifactId}.${artifact.extension}</outputFileNameMapping>
       <outputDirectory>/</outputDirectory>
       <useProjectArtifact>true</useProjectArtifact>
-      <excludes>
-        <exclude>org.slf4j:*</exclude>
-      </excludes>
+<!--      <excludes>-->
+<!--        <exclude>org.slf4j:*</exclude>-->
+<!--      </excludes>-->
     </dependencySet>
   </dependencySets>
 </assembly>

@@ -16,6 +16,7 @@
 
 package com.ontotext.kafka;
 
+import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
@@ -27,6 +28,8 @@ import java.util.Map;
 
 import com.ontotext.kafka.service.GraphDBService;
 import com.ontotext.kafka.util.PropertiesUtil;
+import com.ontotext.kafka.util.ValidateGraphDBConnection;
+
 
 /**
  * {@link SinkConnector} implementation for streaming messages containing RDF data to GraphDB repositories
@@ -37,6 +40,7 @@ import com.ontotext.kafka.util.PropertiesUtil;
 public class GraphDBSinkConnector extends SinkConnector {
 
 	private Map<String, String> properties;
+	private AbstractConfig conf;
 
 	@Override
 	public String version() {
@@ -46,7 +50,8 @@ public class GraphDBSinkConnector extends SinkConnector {
 	@Override
 	public void start(Map<String, String> properties) {
 		this.properties = properties;
-		GraphDBService.connectorService().initialize(properties);
+		this.conf = new GraphDBSinkConfig(properties);
+		GraphDBService.connectorService().initialize(conf.values());
 	}
 
 	@Override
@@ -70,18 +75,15 @@ public class GraphDBSinkConnector extends SinkConnector {
 
 	@Override
 	public ConfigDef config() {
-		return GraphDBSinkConfig.createConfig();
+		return GraphDBSinkConfig.CONFIG;
 	}
 
 	@Override
 	public Config validate(final Map<String, String> connectorConfigs) {
 		var config = super.validate(connectorConfigs);
-		try {
-			GraphDBSinkConfig sinkConfig = new GraphDBSinkConfig(connectorConfigs);
-		} catch (Exception e) {
+		if (config.configValues().stream().anyMatch(cv -> !cv.errorMessages().isEmpty())) {
 			return config;
 		}
-		//todo implement connection check to GraphDB -> add also security check
-		return config;
+		return ValidateGraphDBConnection.validateGraphDBConnection(config);
 	}
 }
