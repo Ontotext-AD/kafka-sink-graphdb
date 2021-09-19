@@ -139,6 +139,11 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 
 	protected abstract void handleRecord(SinkRecord record, RepositoryConnection connection) throws RetriableException;
 
+	protected void handleFailedRecord(SinkRecord record, Exception e) {
+		failedRecords.add(record);
+		errorHandler.handleFailingRecord(record, e);
+	}
+
 	public class ScheduleCommitter extends TimerTask {
 		@Override
 		public void run() {

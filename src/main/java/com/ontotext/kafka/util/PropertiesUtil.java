@@ -23,17 +23,8 @@ import java.util.Properties;
 
 public class PropertiesUtil {
 
-	public static final String ERRORS_TOLERANCE = "errors.tolerance";
-	public static final String CONNECTION_RETRY_DEFERRED_TIME = "connection.retry.deferred.time";
-	public static final long DEFAULT_CONNECTION_RETRY_DEFERRED_TIME = 100L;
-	public static final String CONNECTION_NUMBER_OF_RETRIES = "connection.retry.number.of.times";
-	public static final int DEFAULT_CONNECTION_NUMBER_OF_RETRIES = 10;
-	public static final String DEFAULT_BOOTSTRAP_SERVERS = "localhost:9092";
-
 	private static final Logger LOGGER = LoggerFactory.getLogger(PropertiesUtil.class);
-
-	private static String version = "unknown";
-
+	private static String version = "0.0.1";
 	private static Properties properties;
 
 	private PropertiesUtil() {
