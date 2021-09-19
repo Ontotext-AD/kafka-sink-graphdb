@@ -1,11 +1,10 @@
 package com.ontotext.kafka.service;
 
 import com.ontotext.kafka.error.ErrorHandler;
-import com.ontotext.kafka.operations.GraphDBOperator;
+import com.ontotext.kafka.operation.GraphDBOperator;
 import com.ontotext.kafka.util.ValueUtil;
 import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.eclipse.jetty.util.IO;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
@@ -35,17 +34,15 @@ public class ReplaceGraphProcessor extends SinkRecordsProcessor {
 	@Override
 	protected void handleRecord(SinkRecord record, RepositoryConnection connection) {
 		try {
-			if (!failedRecords.contains(record)) {
-				Resource context = ValueUtil.convertIRIKey(record.key());
-				connection.clear(context);
-				connection.add(ValueUtil.convertRDFData(record.value()), format, context);
-			}
+			Resource context = ValueUtil.convertIRIKey(record.key());
+			connection.clear(context);
+			connection.add(ValueUtil.convertRDFData(record.value()), format, context);
+
 		} catch (IOException e) {
 			throw new RetriableException(e.getMessage());
 		} catch (Exception e) {
 			// Catch records that caused exceptions we can't recover from by retrying the connection
-			failedRecords.add(record);
-			errorHandler.handleFailingRecord(record, e);
+			handleFailedRecord(record, e);
 		}
 	}
 

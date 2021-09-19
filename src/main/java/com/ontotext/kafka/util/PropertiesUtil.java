@@ -16,6 +16,9 @@
 
 package com.ontotext.kafka.util;
 
+import org.apache.kafka.connect.errors.DataException;
+import org.apache.kafka.connect.runtime.ConnectorConfig;
+import org.apache.kafka.connect.runtime.errors.ToleranceType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,17 +26,8 @@ import java.util.Properties;
 
 public class PropertiesUtil {
 
-	public static final String ERRORS_TOLERANCE = "errors.tolerance";
-	public static final String CONNECTION_RETRY_DEFERRED_TIME = "connection.retry.deferred.time";
-	public static final long DEFAULT_CONNECTION_RETRY_DEFERRED_TIME = 100L;
-	public static final String CONNECTION_NUMBER_OF_RETRIES = "connection.retry.number.of.times";
-	public static final int DEFAULT_CONNECTION_NUMBER_OF_RETRIES = 10;
-	public static final String DEFAULT_BOOTSTRAP_SERVERS = "localhost:9092";
-
 	private static final Logger LOGGER = LoggerFactory.getLogger(PropertiesUtil.class);
-
-	private static String version = "unknown";
-
+	private static String version = "0.0.1";
 	private static Properties properties;
 
 	private PropertiesUtil() {
@@ -88,5 +82,16 @@ public class PropertiesUtil {
 	public static String getFromPropertyOrDefault(String propertyName, String defaultValue) {
 		String propertyValue = getProperty(propertyName);
 		return propertyValue != null ? propertyValue : defaultValue;
+	}
+
+	public static ToleranceType getTolerance() {
+		String tolerance = getProperty(ConnectorConfig.ERRORS_TOLERANCE_CONFIG);
+		if (tolerance == null || "none".equalsIgnoreCase(tolerance)) {
+			return ToleranceType.NONE;
+		} else if ("all".equalsIgnoreCase(tolerance)) {
+			return ToleranceType.ALL;
+		} else
+			throw new DataException("error: Tolerance can be \"none\" or \"all\". Not supported for - "
+				+ tolerance);
 	}
 }

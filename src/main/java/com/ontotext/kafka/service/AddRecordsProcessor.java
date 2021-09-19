@@ -1,13 +1,12 @@
 package com.ontotext.kafka.service;
 
 import com.ontotext.kafka.error.ErrorHandler;
-import com.ontotext.kafka.operations.GraphDBOperator;
+import com.ontotext.kafka.operation.GraphDBOperator;
 import com.ontotext.kafka.util.ValueUtil;
 import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
-import org.eclipse.rdf4j.repository.RepositoryException;
 import org.eclipse.rdf4j.rio.RDFFormat;
 
 import java.io.IOException;
@@ -30,13 +29,12 @@ public class AddRecordsProcessor extends SinkRecordsProcessor {
 	@Override
 	protected void handleRecord(SinkRecord record, RepositoryConnection connection) {
 		try {
-				connection.add(ValueUtil.convertRDFData(record.value()), format);
+			connection.add(ValueUtil.convertRDFData(record.value()), format);
 		} catch (IOException e) {
 			throw new RetriableException(e.getMessage());
 		} catch (Exception e) {
 			// Catch records that caused exceptions we can't recover from by retrying the connection
-			failedRecords.add(record);
-			errorHandler.handleFailingRecord(record, e);
+			handleFailedRecord(record, e);
 		}
 	}
 

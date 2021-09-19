@@ -1,4 +1,4 @@
-package com.ontotext.kafka.operators;
+package com.ontotext.kafka.operation;
 
 import org.apache.kafka.connect.runtime.errors.Operation;
 
