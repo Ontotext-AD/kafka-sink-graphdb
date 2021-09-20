@@ -5,6 +5,7 @@ import com.ontotext.kafka.error.ErrorHandler;
 import com.ontotext.kafka.error.LogErrorHandler;
 import com.ontotext.kafka.operation.GraphDBOperator;
 import com.ontotext.kafka.util.ValueUtil;
+
 import org.apache.kafka.common.config.types.Password;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
@@ -37,14 +38,16 @@ public class GraphDBService {
 	}
 
 	public void initialize(Map<String, ?> properties) {
+		if (repository.compareAndSet(null, fetchRepository(properties))) {
 			errorHandler = new LogErrorHandler();
 			operator = new GraphDBOperator();
-			batchSize = (int)properties.get(GraphDBSinkConfig.BATCH_SIZE);
+			batchSize = (int) properties.get(GraphDBSinkConfig.BATCH_SIZE);
 			timeoutCommitMs = (Long) properties.get(GraphDBSinkConfig.BATCH_COMMIT_SCHEDULER);
 			recordProcessor = new Thread(
-					fetchProcessor((String) properties.get(GraphDBSinkConfig.TRANSACTION_TYPE),
-							(String) properties.get(GraphDBSinkConfig.RDF_FORMAT)));
+				fetchProcessor((String) properties.get(GraphDBSinkConfig.TRANSACTION_TYPE),
+					(String) properties.get(GraphDBSinkConfig.RDF_FORMAT)));
 			recordProcessor.start();
+		}
 	}
 
 	public static GraphDBService connectorService() {
@@ -68,8 +71,8 @@ public class GraphDBService {
 				return repository;
 			case BASIC:
 				repository.setUsernameAndPassword(
-						(String) properties.get(GraphDBSinkConfig.AUTH_BASIC_USER),
-						((Password) properties.get(GraphDBSinkConfig.AUTH_BASIC_PASS)).value());
+					(String) properties.get(GraphDBSinkConfig.AUTH_BASIC_USER),
+					((Password) properties.get(GraphDBSinkConfig.AUTH_BASIC_PASS)).value());
 				return repository;
 			case CUSTOM:
 			default:
@@ -85,10 +88,10 @@ public class GraphDBService {
 		switch (type) {
 			case ADD:
 				return new AddRecordsProcessor(sinkRecords, shouldRun, repository.get(),
-						ValueUtil.getRDFFormat(rdfFormat), batchSize, timeoutCommitMs, errorHandler, operator);
+					ValueUtil.getRDFFormat(rdfFormat), batchSize, timeoutCommitMs, errorHandler, operator);
 			case REPLACE_GRAPH:
 				return new ReplaceGraphProcessor(sinkRecords, shouldRun, repository.get(),
-						ValueUtil.getRDFFormat(rdfFormat), batchSize, timeoutCommitMs, errorHandler, operator);
+					ValueUtil.getRDFFormat(rdfFormat), batchSize, timeoutCommitMs, errorHandler, operator);
 			case SMART_UPDATE:
 			default:
 				throw new UnsupportedOperationException("Not implemented yet");

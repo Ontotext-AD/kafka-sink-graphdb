@@ -53,8 +53,10 @@
 						<includes>
 							<include>org.slf4j:*</include>
 							<include>org.apache.kafka:kafka-clients:*</include>
+							<include>org.apache.httpcomponents:*</include>
 							<include>org.eclipse.rdf4j:* </include>
 							<include>commons-io:commons-io:* </include>
+							<include>org.json:*</include>
 						</includes>
 					</artifactSet>
 				</configuration>
@@ -138,6 +140,11 @@
             <version>${kafka.version}</version>
             <scope>provided</scope>
         </dependency>
+		<dependency>
+			<groupId>org.apache.httpcomponents</groupId>
+			<artifactId>httpclient-osgi</artifactId>
+			<version>4.5.13</version>
+		</dependency>
 		<dependency>
 			<groupId>org.apache.kafka</groupId>
 			<artifactId>connect-runtime</artifactId>

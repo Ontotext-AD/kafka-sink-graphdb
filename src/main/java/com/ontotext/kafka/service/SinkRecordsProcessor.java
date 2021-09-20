@@ -1,12 +1,17 @@
 package com.ontotext.kafka.service;
 
-import com.ontotext.kafka.error.ErrorHandler;
-import com.ontotext.kafka.error.UnToleratedException;
-import com.ontotext.kafka.operation.GraphDBOperator;
-import com.ontotext.kafka.util.PropertiesUtil;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Queue;
+import java.util.Set;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
+
 import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.runtime.errors.Operation;
-import org.apache.kafka.connect.runtime.errors.ToleranceType;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
@@ -15,10 +20,8 @@ import org.eclipse.rdf4j.rio.RDFFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.locks.ReentrantLock;
+import com.ontotext.kafka.error.ErrorHandler;
+import com.ontotext.kafka.operation.GraphDBOperator;
 
 /**
  * A processor which batches sink records and flushes the smart updates to a given
