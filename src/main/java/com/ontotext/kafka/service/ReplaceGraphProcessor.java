@@ -5,6 +5,7 @@ import com.ontotext.kafka.operations.GraphDBOperator;
 import com.ontotext.kafka.util.ValueUtil;
 import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.rio.RDFFormat;
@@ -15,21 +16,28 @@ import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * {@link SinkRecordsProcessor} implementation that directly flushes RDF data from {@link SinkRecord} values
+ * {@link SinkRecordsProcessor} implementation that directly replaces a graph from {@link SinkRecord} key which
+ * indicates the IRI of the named graph and value describing the new RDF contents of the named graph
  * through a {@link RepositoryConnection} to a GraphDB repository.
+ * <p>
  *
- * @author Tomas Kovachev tomas.kovachev@ontotext.com
+ * @author Denitsa Stoyanova denitsa.stoyanova@ontotext.com
  */
-public class AddRecordsProcessor extends SinkRecordsProcessor {
-	public AddRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun, Repository repository,
-							   RDFFormat format, int batchSize, long timeoutCommitMs, ErrorHandler errorHandler, GraphDBOperator operator) {
+public class ReplaceGraphProcessor extends SinkRecordsProcessor {
+
+	protected ReplaceGraphProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
+									Repository repository, RDFFormat format, int batchSize, long timeoutCommitMs,
+									ErrorHandler errorHandler, GraphDBOperator operator) {
 		super(sinkRecords, shouldRun, repository, format, batchSize, timeoutCommitMs, errorHandler, operator);
 	}
 
 	@Override
 	protected void handleRecord(SinkRecord record, RepositoryConnection connection) {
 		try {
-			connection.add(ValueUtil.convertRDFData(record.value()), format);
+			Resource context = ValueUtil.convertIRIKey(record.key());
+			connection.clear(context);
+			connection.add(ValueUtil.convertRDFData(record.value()), format, context);
+
 		} catch (IOException e) {
 			throw new RetriableException(e.getMessage());
 		} catch (Exception e) {
