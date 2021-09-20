@@ -16,6 +16,9 @@
 
 package com.ontotext.kafka.util;
 
+import org.apache.kafka.connect.errors.DataException;
+import org.apache.kafka.connect.runtime.ConnectorConfig;
+import org.apache.kafka.connect.runtime.errors.ToleranceType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -79,5 +82,16 @@ public class PropertiesUtil {
 	public static String getFromPropertyOrDefault(String propertyName, String defaultValue) {
 		String propertyValue = getProperty(propertyName);
 		return propertyValue != null ? propertyValue : defaultValue;
+	}
+
+	public static ToleranceType getTolerance() {
+		String tolerance = getProperty(ConnectorConfig.ERRORS_TOLERANCE_CONFIG);
+		if (tolerance == null || "none".equalsIgnoreCase(tolerance)) {
+			return ToleranceType.NONE;
+		} else if ("all".equalsIgnoreCase(tolerance)) {
+			return ToleranceType.ALL;
+		} else
+			throw new DataException("error: Tolerance can be \"none\" or \"all\". Not supported for - "
+				+ tolerance);
 	}
 }

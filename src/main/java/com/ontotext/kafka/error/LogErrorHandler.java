@@ -1,7 +1,10 @@
 package com.ontotext.kafka.error;
 
+import com.ontotext.kafka.util.PropertiesUtil;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.apache.kafka.connect.runtime.SinkConnectorConfig;
+import org.apache.kafka.connect.runtime.errors.ToleranceType;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,7 +21,12 @@ public class LogErrorHandler implements ErrorHandler {
 	@Override
 	public void handleFailingRecord(SinkRecord record, Throwable ex) {
 		LOGGER.warn("Record failed: {}", record, ex);
-		PRODUCER.returnFailed(record);
+		if(PropertiesUtil.getTolerance().equals(ToleranceType.NONE)){
+			throw new UnToleratedException("Record failed", ex);
+		}
+		if(PropertiesUtil.getProperty(SinkConnectorConfig.DLQ_TOPIC_NAME_CONFIG) != null) {
+			PRODUCER.returnFailed(record);
+		}
 	}
 
 	private static Properties getProperties() {

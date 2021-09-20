@@ -1,9 +1,12 @@
 package com.ontotext.kafka.service;
 
 import com.ontotext.kafka.error.ErrorHandler;
-import com.ontotext.kafka.operations.GraphDBOperator;
+import com.ontotext.kafka.error.UnToleratedException;
+import com.ontotext.kafka.operation.GraphDBOperator;
+import com.ontotext.kafka.util.PropertiesUtil;
 import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.runtime.errors.Operation;
+import org.apache.kafka.connect.runtime.errors.ToleranceType;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
@@ -113,7 +116,7 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 			if (operator.execAndRetry(this) == null) {
 				LOGGER.error("Flushing run out of attempts");
 				throw new RuntimeException("Flushing run out of attempts");
-				// if retrying doesn't solve the problem?
+				// if retrying doesn't solve the problem
 			}
 		}
 	}

@@ -1,7 +1,7 @@
 package com.ontotext.kafka.service;
 
 import com.ontotext.kafka.error.ErrorHandler;
-import com.ontotext.kafka.operations.GraphDBOperator;
+import com.ontotext.kafka.operation.GraphDBOperator;
 import com.ontotext.kafka.util.ValueUtil;
 import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.sink.SinkRecord;

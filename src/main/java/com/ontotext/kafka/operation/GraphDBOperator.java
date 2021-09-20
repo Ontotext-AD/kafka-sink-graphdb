@@ -1,15 +1,14 @@
-package com.ontotext.kafka.operations;
+package com.ontotext.kafka.operation;
 
+import com.ontotext.kafka.error.UnToleratedException;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.common.utils.SystemTime;
-import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.runtime.ConnectMetrics;
 import org.apache.kafka.connect.runtime.ConnectorConfig;
 import org.apache.kafka.connect.runtime.WorkerConfig;
 import org.apache.kafka.connect.runtime.errors.ErrorHandlingMetrics;
 import org.apache.kafka.connect.runtime.errors.Operation;
 import org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperator;
-import org.apache.kafka.connect.runtime.errors.ToleranceType;
 import org.apache.kafka.connect.runtime.standalone.StandaloneConfig;
 import org.apache.kafka.connect.storage.StringConverter;
 import org.apache.kafka.connect.util.ConnectorTaskId;
@@ -27,6 +26,7 @@ public class GraphDBOperator extends RetryWithToleranceOperator implements Opera
 	public static final int DEFAULT_CONNECTION_NUMBER_OF_RETRIES = 10;
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(GraphDBOperator.class);
+	//default needed for tests
 	private static final int RETRIES = getFromPropertyOrDefault(CommonClientConfigs.RETRIES_CONFIG, DEFAULT_CONNECTION_NUMBER_OF_RETRIES);
 	private static final long DELAY = getFromPropertyOrDefault(ConnectorConfig.ERRORS_RETRY_MAX_DELAY_CONFIG, DEFAULT_CONNECTION_RETRY_DEFERRED_TIME);
 	private static final ErrorHandlingMetrics METRICS = new GraphDBErrorHandlingMetrics();
@@ -40,21 +40,12 @@ public class GraphDBOperator extends RetryWithToleranceOperator implements Opera
 	public <E> E execAndRetry(Operation<E> operation) {
 		try {
 			return super.execAndRetry(operation);
-		} catch (Exception e) {
+		}catch (UnToleratedException e){
+			throw new RuntimeException(e);
+		}catch (Exception e) {
 			LOGGER.warn("Unexpected exception while executing operation: {}", operation, e);
 			return null;
 		}
-	}
-
-	private static ToleranceType getTolerance() {
-		String tolerance = getProperty(ConnectorConfig.ERRORS_TOLERANCE_CONFIG);
-		if (tolerance == null || "none".equalsIgnoreCase(tolerance)) {
-			return ToleranceType.NONE;
-		} else if ("all".equalsIgnoreCase(tolerance)) {
-			return ToleranceType.ALL;
-		} else
-			throw new DataException("error: Tolerance can be \"none\" or \"all\". Not supported for - "
-					+ tolerance);
 	}
 
 	private static class GraphDBErrorHandlingMetrics extends ErrorHandlingMetrics {

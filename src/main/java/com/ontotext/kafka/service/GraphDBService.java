@@ -3,7 +3,7 @@ package com.ontotext.kafka.service;
 import com.ontotext.kafka.GraphDBSinkConfig;
 import com.ontotext.kafka.error.ErrorHandler;
 import com.ontotext.kafka.error.LogErrorHandler;
-import com.ontotext.kafka.operations.GraphDBOperator;
+import com.ontotext.kafka.operation.GraphDBOperator;
 import com.ontotext.kafka.util.ValueUtil;
 import org.apache.kafka.common.config.types.Password;
 import org.apache.kafka.connect.sink.SinkRecord;
