@@ -1,16 +1,27 @@
 package com.ontotext.kafka.service;
 
-import org.apache.kafka.connect.sink.SinkRecord;
-import org.eclipse.rdf4j.repository.Repository;
-import org.eclipse.rdf4j.rio.RDFFormat;
-
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Queue;
+import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
+
+import org.apache.kafka.connect.errors.RetriableException;
+import org.apache.kafka.connect.runtime.errors.Operation;
+import org.apache.kafka.connect.sink.SinkRecord;
+import org.eclipse.rdf4j.repository.Repository;
+import org.eclipse.rdf4j.repository.RepositoryConnection;
+import org.eclipse.rdf4j.repository.RepositoryException;
+import org.eclipse.rdf4j.rio.RDFFormat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.ontotext.kafka.error.ErrorHandler;
+import com.ontotext.kafka.operation.GraphDBOperator;
 
 /**
  * A processor which batches sink records and flushes the smart updates to a given
@@ -21,7 +32,11 @@ import java.util.concurrent.locks.ReentrantLock;
  *
  * @author Tomas Kovachev tomas.kovachev@ontotext.com
  */
-public abstract class SinkRecordsProcessor implements Runnable {
+public abstract class SinkRecordsProcessor implements Runnable, Operation<Object> {
+
+	protected static final Logger LOGGER = LoggerFactory.getLogger(SinkRecordsProcessor.class);
+	private static final Object SUCCESSES = new Object();
+
 	protected final Queue<Collection<SinkRecord>> sinkRecords;
 	protected final LinkedBlockingQueue<SinkRecord> recordsBatch;
 	protected final Repository repository;
@@ -32,9 +47,14 @@ public abstract class SinkRecordsProcessor implements Runnable {
 	protected final ReentrantLock timeoutCommitLock;
 	protected final int batchSize;
 	protected final long timeoutCommitMs;
+	protected final ErrorHandler errorHandler;
+	protected final Set<SinkRecord> failedRecords;
+	protected final GraphDBOperator operator;
 
 	protected SinkRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
-			Repository repository, RDFFormat format, int batchSize, long timeoutCommitMs) {
+								   Repository repository, RDFFormat format, int batchSize, long timeoutCommitMs,
+								   ErrorHandler errorHandler, GraphDBOperator operator) {
+
 		this.recordsBatch = new LinkedBlockingQueue<>();
 		this.sinkRecords = sinkRecords;
 		this.shouldRun = shouldRun;
@@ -45,6 +65,9 @@ public abstract class SinkRecordsProcessor implements Runnable {
 		this.timeoutCommitLock = new ReentrantLock();
 		this.batchSize = batchSize;
 		this.timeoutCommitMs = timeoutCommitMs;
+		this.errorHandler = errorHandler;
+		this.failedRecords = new HashSet<>();
+		this.operator = operator;
 	}
 
 	@Override
@@ -83,17 +106,49 @@ public abstract class SinkRecordsProcessor implements Runnable {
 
 	protected void consumeRecords(Collection<SinkRecord> messages) {
 		for (SinkRecord message : messages) {
+			recordsBatch.add(message);
 			if (batchSize <= recordsBatch.size()) {
 				flushUpdates();
 			}
-			recordsBatch.add(message);
-		}
-		if (batchSize <= recordsBatch.size()) {
-			flushUpdates();
 		}
 	}
 
-	protected abstract void flushRecordUpdates();
+	protected void flushRecordUpdates() {
+		failedRecords.clear();
+		if (!recordsBatch.isEmpty()) {
+			if (operator.execAndRetry(this) == null) {
+				LOGGER.error("Flushing run out of attempts");
+				throw new RuntimeException("Flushing run out of attempts");
+				// if retrying doesn't solve the problem
+			}
+		}
+	}
+
+	@Override
+	public Object call() throws RetriableException {
+		try (RepositoryConnection connection = repository.getConnection()) {
+			connection.begin();
+			for (SinkRecord record : recordsBatch) {
+				if (!failedRecords.contains(record)) {
+					handleRecord(record, connection);
+				}
+			}
+			connection.commit();
+			recordsBatch.clear();
+			failedRecords.clear();
+			return SUCCESSES;
+
+		} catch (RepositoryException e) {
+			throw new RetriableException(e);
+		}
+	}
+
+	protected abstract void handleRecord(SinkRecord record, RepositoryConnection connection) throws RetriableException;
+
+	protected void handleFailedRecord(SinkRecord record, Exception e) {
+		failedRecords.add(record);
+		errorHandler.handleFailingRecord(record, e);
+	}
 
 	public class ScheduleCommitter extends TimerTask {
 		@Override

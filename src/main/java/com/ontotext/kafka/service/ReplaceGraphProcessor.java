@@ -1,6 +1,9 @@
 package com.ontotext.kafka.service;
 
+import com.ontotext.kafka.error.ErrorHandler;
+import com.ontotext.kafka.operation.GraphDBOperator;
 import com.ontotext.kafka.util.ValueUtil;
+import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.repository.Repository;
@@ -23,27 +26,24 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class ReplaceGraphProcessor extends SinkRecordsProcessor {
 
 	protected ReplaceGraphProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
-									Repository repository, RDFFormat format, int batchSize, long timeoutCommitMs) {
-		super(sinkRecords, shouldRun, repository, format, batchSize, timeoutCommitMs);
+									Repository repository, RDFFormat format, int batchSize, long timeoutCommitMs,
+									ErrorHandler errorHandler, GraphDBOperator operator) {
+		super(sinkRecords, shouldRun, repository, format, batchSize, timeoutCommitMs, errorHandler, operator);
 	}
 
-	protected void flushRecordUpdates() {
-		//no need to create connection if already empty
-		if (!recordsBatch.isEmpty()) {
-			try (RepositoryConnection connection = repository.getConnection()) {
-				connection.begin();
-				while (recordsBatch.peek() != null) {
-					SinkRecord record = recordsBatch.poll();
-					Resource context = ValueUtil.convertIRIKey(record.key());
-					connection.clear(context);
-					connection.add(ValueUtil.convertRDFData(record.value()), format, context);
-				}
-				connection.commit();
-			} catch (IOException e) {
-				throw new RuntimeException(e);
-				//todo first add retries
-				//todo inject error handler
-			}
+	@Override
+	protected void handleRecord(SinkRecord record, RepositoryConnection connection) {
+		try {
+			Resource context = ValueUtil.convertIRIKey(record.key());
+			connection.clear(context);
+			connection.add(ValueUtil.convertRDFData(record.value()), format, context);
+
+		} catch (IOException e) {
+			throw new RetriableException(e.getMessage());
+		} catch (Exception e) {
+			// Catch records that caused exceptions we can't recover from by retrying the connection
+			handleFailedRecord(record, e);
 		}
 	}
+
 }
