@@ -1,34 +1,38 @@
 package com.ontotext.kafka.producer;
 
-import org.apache.kafka.clients.producer.*;
-import org.apache.kafka.common.utils.ByteBufferOutputStream;
-import org.eclipse.rdf4j.model.BNode;
-import org.eclipse.rdf4j.model.Statement;
-import org.eclipse.rdf4j.query.GraphQueryResult;
-import org.eclipse.rdf4j.query.QueryResults;
-import org.eclipse.rdf4j.rio.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.*;
-import java.nio.ByteBuffer;
+import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.io.FileInputStream;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.eclipse.rdf4j.model.Statement;
+import org.eclipse.rdf4j.query.GraphQueryResult;
+import org.eclipse.rdf4j.query.QueryResults;
+import org.eclipse.rdf4j.rio.RDFFormat;
+import org.eclipse.rdf4j.rio.Rio;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.ontotext.kafka.util.ValueUtil;
+
 public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
     private final List<String> allFiles;
     private final String kafkaTopic;
-    private final Properties properties;
-    private Long updatesPauses = null;
+	private Long updatesPauses = null;
     private static final Logger LOG = LoggerFactory.getLogger(GraphDBProducer.class);
     private String outputMessageFormat = "nq";
 
 
     public GraphDBProducer(List<String> files, String kafkaTopic, Properties properties) {
         super(properties);
-        this.properties = properties;
-        this.allFiles = files;
+	    this.allFiles = files;
         this.kafkaTopic = kafkaTopic;
         if (properties.getProperty("graphdb.updates.time.pauses") != null) {
             this.updatesPauses = Long.parseLong(properties.getProperty("graphdb.updates.time.pauses"));
@@ -45,24 +49,22 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
         }
         final ProducerRecord<byte[], byte[]> producerRecord = new ProducerRecord<>(this.kafkaTopic, messageKey, data);
         try {
-            super.send((ProducerRecord<K, V>) producerRecord, new Callback() {
-                @Override
-                public void onCompletion(RecordMetadata recordMetadata, Exception e) {
-                    if(e != null) {
-                        LOG.error(e.getMessage());
-                    }
+            super.send((ProducerRecord<K, V>) producerRecord, (recordMetadata, e) -> {
+                if(e != null) {
+                    LOG.error(e.getMessage());
                 }
             }).get();
             if (updatesPauses != null) {
                 Thread.sleep(updatesPauses);
             }
         } catch (InterruptedException | ExecutionException e) {
-            LOG.error(e.getMessage());
+            Thread.currentThread().interrupt();
+        	LOG.error(e.getMessage());
         }
     }
 
     public void publish() {
-        RDFFormat outputFormat = getOutputFormat(this.outputMessageFormat);
+        var outputFormat = ValueUtil.getRDFFormat(this.outputMessageFormat);
         for (int i = 0; i < allFiles.size(); i += 2) {
             String dataFile = allFiles.get(i);
             String keysFile = allFiles.get(i + 1);
@@ -106,40 +108,5 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
                 LOG.error(e.getMessage());
             }
         }
-    }
-
-    private RDFFormat getOutputFormat(String prop) {
-        if (RDFFormat.RDFXML.getFileExtensions().contains(prop)) {
-            return RDFFormat.RDFXML;
-        } else if (RDFFormat.NTRIPLES.getFileExtensions().contains(prop)) {
-            return RDFFormat.NTRIPLES;
-        } else if (RDFFormat.TURTLE.getFileExtensions().contains(prop)) {
-            return RDFFormat.TURTLE;
-        } else if (RDFFormat.TURTLESTAR.getFileExtensions().contains(prop)) {
-            return RDFFormat.TURTLESTAR;
-        } else if (RDFFormat.N3.getFileExtensions().contains(prop)) {
-            return RDFFormat.N3;
-        } else if (RDFFormat.TRIX.getFileExtensions().contains(prop)) {
-            return RDFFormat.TRIX;
-        } else if (RDFFormat.TRIG.getFileExtensions().contains(prop)) {
-            return RDFFormat.TRIG;
-        } else if (RDFFormat.TRIGSTAR.getFileExtensions().contains(prop)) {
-            return RDFFormat.TRIGSTAR;
-        } else if (RDFFormat.BINARY.getFileExtensions().contains(prop)) {
-            return RDFFormat.BINARY;
-        } else if (RDFFormat.JSONLD.getFileExtensions().contains(prop)) {
-            return RDFFormat.JSONLD;
-        } else if (RDFFormat.NDJSONLD.getFileExtensions().contains(prop)) {
-            return RDFFormat.NDJSONLD;
-        } else if (RDFFormat.RDFJSON.getFileExtensions().contains(prop)) {
-            return RDFFormat.RDFJSON;
-        } else if (RDFFormat.RDFA.getFileExtensions().contains(prop)) {
-            return RDFFormat.RDFA;
-        } else if (RDFFormat.HDT.getFileExtensions().contains(prop)) {
-            return RDFFormat.HDT;
-        } else {
-            return RDFFormat.NQUADS;
-        }
-
     }
 }

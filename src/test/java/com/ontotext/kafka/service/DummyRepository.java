@@ -15,7 +15,8 @@ import java.util.function.Consumer;
 
 public class DummyRepository implements Repository {
 
-	private BiConsumer<Reader, RDFFormat> addFormatConsumer;
+
+	protected BiConsumer<Reader, RDFFormat> addFormatConsumer;
 	private BiConsumer<String, Reader> addContextConsumer;
 	private Consumer<String> removeConsumer;
 

@@ -1,7 +1,19 @@
 package com.ontotext.kafka;
 
+import static org.mockserver.model.HttpRequest.request;
+import static org.mockserver.model.HttpResponse.response;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+
 import org.apache.kafka.common.config.ConfigValue;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -9,12 +21,6 @@ import org.mockserver.client.MockServerClient;
 import org.mockserver.configuration.ConfigurationProperties;
 import org.mockserver.junit.jupiter.MockServerExtension;
 import org.mockserver.junit.jupiter.MockServerSettings;
-
-import java.util.*;
-
-import static org.mockserver.model.HttpRequest.request;
-import static org.mockserver.model.HttpResponse.response;
-
 
 @ExtendWith(MockServerExtension.class)
 @MockServerSettings(ports = 12345)
@@ -73,7 +79,8 @@ public class ConfigurationValidationTest {
 			};
 		results = sinkconnector.validate(configs).configValues();
 		mockedGraphDBClient.reset();
-		Assertions.assertTrue(results.stream().allMatch(cv -> cv.errorMessages().isEmpty()), "Got an error using default configs: " + getErrorMessages(results));
+		Assertions.assertTrue(results.stream().allMatch(cv -> cv.errorMessages().isEmpty()),
+			"Got an error using default configs: " + getErrorMessages(results));
 	}
 
 	@Test
@@ -94,7 +101,10 @@ public class ConfigurationValidationTest {
 			};
 		results = sinkconnector.validate(configs).configValues();
 		mockedGraphDBClient.reset();
-		Assertions.assertTrue(results.stream().filter(cv -> cv.name().equals("graphdb.auth.type")).noneMatch(cv -> cv.errorMessages().isEmpty()), "Didn't get an error for invalid credentials");
+		Assertions.assertTrue(results.stream()
+			                      .filter(cv -> cv.name().equals("graphdb.auth.type"))
+			                      .noneMatch(cv -> cv.errorMessages().isEmpty()),
+			"Didn't get an error for invalid credentials");
 	}
 
 	@Test
@@ -112,7 +122,10 @@ public class ConfigurationValidationTest {
 			};
 		results = sinkconnector.validate(configs).configValues();
 		mockedGraphDBClient.reset();
-		Assertions.assertTrue(results.stream().filter(cv -> cv.name().equals("graphdb.server.iri")).noneMatch(cv -> cv.errorMessages().isEmpty()), "Didn't get an error for GraphDB version");
+		Assertions.assertTrue(results.stream()
+			                      .filter(cv -> cv.name().equals("graphdb.server.iri"))
+			                      .noneMatch(cv -> cv.errorMessages().isEmpty()),
+			"Didn't get an error for GraphDB version");
 	}
 
 	@Test
@@ -127,15 +140,18 @@ public class ConfigurationValidationTest {
 				}
 			};
 		results = sinkconnector.validate(configs).configValues();
-		Assertions.assertTrue(results.stream().filter(cv -> cv.name().equals("graphdb.server.iri")).noneMatch(cv -> cv.errorMessages().isEmpty()), "Didn't get an error for missing GraphDB");
+		Assertions.assertTrue(results.stream()
+			                      .filter(cv -> cv.name().equals("graphdb.server.iri"))
+			                      .noneMatch(cv -> cv.errorMessages().isEmpty()),
+			"Didn't get an error for missing GraphDB");
 	}
 
 	@ParameterizedTest
-	@CsvSource({"graphdb.batch.size, 5a",
+	@CsvSource({ "graphdb.batch.size, 5a",
 		"graphdb.batch.commit.limit.ms, 3000a",
 		"graphdb.auth.type, noners",
 		"graphdb.transaction.type, ADDer",
-		"graphdb.transaction.rdf.format, nqq"})
+		"graphdb.transaction.rdf.format, nqq" })
 	@DisplayName("Test wrong configs")
 	@Timeout(5)
 	void testWithWrongValues(String key, String value) {
@@ -148,7 +164,9 @@ public class ConfigurationValidationTest {
 				}
 			};
 		results = sinkconnector.validate(configs).configValues();
-		Assertions.assertTrue(results.stream().filter(cv -> cv.name().equals(key)).noneMatch(cv -> cv.errorMessages().isEmpty()), "Didn't get an error for an invalid " + key);
+		Assertions.assertTrue(
+			results.stream().filter(cv -> cv.name().equals(key)).noneMatch(cv -> cv.errorMessages().isEmpty()),
+			"Didn't get an error for an invalid " + key);
 	}
 
 	private String getErrorMessages(List<ConfigValue> results) {
@@ -158,13 +176,14 @@ public class ConfigurationValidationTest {
 		return msg.toString();
 	}
 
-	private void setupMockClientResponses(MockServerClient mockedGraphDBClient, String authenticationType, String productVersion) {
+	private void setupMockClientResponses(MockServerClient mockedGraphDBClient, String authenticationType,
+		String productVersion) {
 
 		mockedGraphDBClient.when(
-				request()
-					.withMethod("GET")
-					.withPath("/rest/info/version")
-			)
+			request()
+				.withMethod("GET")
+				.withPath("/rest/info/version")
+		)
 			.respond(
 				response()
 					.withStatusCode(200)
@@ -175,10 +194,10 @@ public class ConfigurationValidationTest {
 			);
 
 		mockedGraphDBClient.when(
-				request()
-					.withMethod("GET")
-					.withPath("/protocol")
-			)
+			request()
+				.withMethod("GET")
+				.withPath("/protocol")
+		)
 			.respond(
 				response()
 					.withStatusCode(200)
@@ -188,10 +207,10 @@ public class ConfigurationValidationTest {
 
 		if (!Objects.equals(authenticationType, "basic")) {
 			mockedGraphDBClient.when(
-					request()
-						.withMethod("POST")
-						.withPath("/repositories/Test/transactions")
-				)
+				request()
+					.withMethod("POST")
+					.withPath("/repositories/Test/transactions")
+			)
 				.respond(
 					response()
 						.withStatusCode(201)
@@ -200,11 +219,11 @@ public class ConfigurationValidationTest {
 				);
 		} else {
 			mockedGraphDBClient.when(
-					request()
-						.withMethod("POST")
-						.withPath("/repositories/Test/transactions")
-						.withHeader("Authorization", "Basic am9obm55YXdlc29tZTpsdWJlbjE=")
-				)
+				request()
+					.withMethod("POST")
+					.withPath("/repositories/Test/transactions")
+					.withHeader("Authorization", "Basic am9obm55YXdlc29tZTpsdWJlbjE=")
+			)
 				.respond(
 					response()
 						.withStatusCode(201)
@@ -212,10 +231,10 @@ public class ConfigurationValidationTest {
 							"http://localhost:12345/repositories/Test/transactions/a7d5630a-4ef1-4028-897d-2dfc1ab804d1")
 				);
 			mockedGraphDBClient.when(
-					request()
-						.withMethod("POST")
-						.withPath("/repositories/Test/transactions")
-				)
+				request()
+					.withMethod("POST")
+					.withPath("/repositories/Test/transactions")
+			)
 				.respond(
 					response()
 						.withStatusCode(401)
@@ -224,10 +243,10 @@ public class ConfigurationValidationTest {
 		}
 
 		mockedGraphDBClient.when(
-				request()
-					.withMethod("DELETE")
-					.withPath("/repositories/Test/transactions/a7d5630a-4ef1-4028-897d-2dfc1ab804d1")
-			)
+			request()
+				.withMethod("DELETE")
+				.withPath("/repositories/Test/transactions/a7d5630a-4ef1-4028-897d-2dfc1ab804d1")
+		)
 			.respond(
 				response()
 					.withStatusCode(204)

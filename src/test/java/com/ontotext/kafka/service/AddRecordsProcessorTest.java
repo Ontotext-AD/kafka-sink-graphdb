@@ -1,8 +1,14 @@
 package com.ontotext.kafka.service;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import com.ontotext.kafka.error.ErrorHandler;
+import com.ontotext.kafka.operation.GraphDBOperator;
+import org.apache.kafka.connect.sink.SinkRecord;
+import org.eclipse.rdf4j.repository.Repository;
+import org.eclipse.rdf4j.repository.RepositoryException;
+import org.eclipse.rdf4j.rio.RDFFormat;
+import org.eclipse.rdf4j.rio.RDFParseException;
+import org.eclipse.rdf4j.rio.Rio;
+import org.junit.jupiter.api.*;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -13,14 +19,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
-import org.apache.kafka.connect.sink.SinkRecord;
-import org.eclipse.rdf4j.repository.Repository;
-import org.eclipse.rdf4j.rio.RDFFormat;
-import org.eclipse.rdf4j.rio.Rio;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
+import static org.junit.jupiter.api.Assertions.*;
 
 class AddRecordsProcessorTest {
 	private Queue<Reader> streams;
@@ -28,6 +27,8 @@ class AddRecordsProcessorTest {
 	private Repository repository;
 	private AtomicBoolean shouldRun;
 	private Queue<Collection<SinkRecord>> sinkRecords;
+	private ErrorHandler errorHandler;
+	private GraphDBOperator operator;
 
 	@BeforeEach
 	public void setup() {
@@ -36,6 +37,9 @@ class AddRecordsProcessorTest {
 		repository = initRepository(streams, formats);
 		shouldRun = new AtomicBoolean(true);
 		sinkRecords = new LinkedBlockingQueue<>();
+		errorHandler = (r, e) -> {
+		};
+		operator = new GraphDBOperator();
 	}
 
 	@Test
@@ -122,7 +126,7 @@ class AddRecordsProcessorTest {
 		generateSinkRecords(sinkRecords, 9, 12);
 		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch, 600);
 		recordsProcessor.start();
-		verifyForMilliseconds(()-> streams.size() < 9, 500);
+		verifyForMilliseconds(() -> streams.size() < 9, 500);
 		awaitEmptyCollection(sinkRecords);
 		awaitCollectionSizeReached(streams, 9);
 		shouldRun.set(false);
@@ -134,11 +138,186 @@ class AddRecordsProcessorTest {
 		}
 	}
 
+	@Test
+	@DisplayName("Test malformed records should get handled")
+	@Timeout(5)
+	void testHandleMalformed() throws InterruptedException, IOException {
+		int batch = 4;
+		int expectedSize = 4;
+
+		generateSinkRecords(sinkRecords, 2, 12);
+		addMalformedSinkRecord(sinkRecords);
+		generateSinkRecords(sinkRecords, 2, 12);
+		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch, 50);
+		recordsProcessor.start();
+		awaitEmptyCollection(sinkRecords);
+		awaitCollectionSizeReached(streams, expectedSize);
+		shouldRun.set(false);
+		awaitProcessorShutdown(recordsProcessor);
+
+		assertEquals(expectedSize, streams.size());
+		for (Reader reader : streams) {
+			assertEquals(12, Rio.parse(reader, RDFFormat.NQUADS).size());
+		}
+	}
+
+	@Test
+	@DisplayName("Test RDFParseException should get handled")
+	@Timeout(5)
+	void testHandleRDFParseException() throws InterruptedException, IOException {
+		int batch = 4;
+		int expectedSize = 3;
+
+		repository = initThrowingRepository(streams, formats, new RDFParseException("RDFParseException"));
+		generateSinkRecords(sinkRecords, 4, 12);
+		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch, 50);
+		recordsProcessor.start();
+		awaitEmptyCollection(sinkRecords);
+		awaitCollectionSizeReached(streams, expectedSize);
+		shouldRun.set(false);
+		awaitProcessorShutdown(recordsProcessor);
+
+		assertEquals(expectedSize, streams.size());
+		for (Reader reader : streams) {
+			assertEquals(12, Rio.parse(reader, RDFFormat.NQUADS).size());
+		}
+	}
+
+	@Test
+	@DisplayName("Test multiple RDFParseException should get handled")
+	@Timeout(5)
+	void testHandleMultipleRDFParseException() throws InterruptedException, IOException {
+		int batch = 4;
+		int expectedSize = 1;
+
+		repository = initThrowingRepository(streams, formats, new RDFParseException("RDFParseException"), 3);
+		generateSinkRecords(sinkRecords, 4, 12);
+		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch, 50);
+		recordsProcessor.start();
+		awaitEmptyCollection(sinkRecords);
+		shouldRun.set(false);
+		awaitProcessorShutdown(recordsProcessor);
+
+		assertEquals(expectedSize, streams.size());
+		for (Reader reader : streams) {
+			assertEquals(12, Rio.parse(reader, RDFFormat.NQUADS).size());
+		}
+	}
+
+	@Test
+	@DisplayName("Test all records are malformed RDFParseException")
+	@Timeout(5)
+	void testHandleAllRDFParseExceptionRecords() throws InterruptedException {
+		int batch = 4;
+		int expectedSize = 0;
+
+		repository = initThrowingRepository(streams, formats, new RDFParseException("RDFParseException"), 4);
+		generateSinkRecords(sinkRecords, 4, 12);
+		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch, 50);
+		recordsProcessor.start();
+		awaitEmptyCollection(sinkRecords);
+		shouldRun.set(false);
+		awaitProcessorShutdown(recordsProcessor);
+
+		assertEquals(expectedSize, streams.size());
+	}
+
+	@Test
+	@DisplayName("Test RepositoryException should get handled")
+	@Timeout(5)
+	void testHandleRepositoryException() throws InterruptedException, IOException {
+		int batch = 4;
+		int expectedSize = 3;
+
+		repository = initThrowingRepository(streams, formats, new RepositoryException());
+		generateSinkRecords(sinkRecords, 4, 12);
+		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch, 50);
+		recordsProcessor.start();
+		awaitEmptyCollection(sinkRecords);
+		awaitCollectionSizeReached(streams, expectedSize);
+		shouldRun.set(false);
+		awaitProcessorShutdown(recordsProcessor);
+
+		assertEquals(expectedSize, streams.size());
+		for (Reader reader : streams) {
+			assertEquals(12, Rio.parse(reader, RDFFormat.NQUADS).size());
+		}
+	}
+
+	@Test
+	@DisplayName("Test IOExceptions should get retried")
+	@Timeout(5)
+	void testHandleIOException() throws InterruptedException, IOException {
+		int batch = 4;
+		int expectedSize = 4;
+
+		repository = initThrowingRepository(streams, formats, new IOException());
+		generateSinkRecords(sinkRecords, 4, 12);
+		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch, 50);
+		recordsProcessor.start();
+		awaitEmptyCollection(sinkRecords);
+		awaitCollectionSizeReached(streams, expectedSize);
+		shouldRun.set(false);
+		awaitProcessorShutdown(recordsProcessor);
+
+		assertEquals(expectedSize, streams.size());
+		for (Reader reader : streams) {
+			assertEquals(12, Rio.parse(reader, RDFFormat.NQUADS).size());
+		}
+	}
+
+	@Test
+	@DisplayName("Test should throw when out of retries")
+	@Timeout(5)
+	void testThrowTimoutExceptionException() {
+		int batch = 1;
+
+		repository = initThrowingRepository(streams, formats, new IOException(), 320);
+		generateSinkRecords(sinkRecords, 1, 12);
+
+		AddRecordsProcessor processor = new AddRecordsProcessor(sinkRecords, shouldRun, repository, RDFFormat.NQUADS, batch,
+				50, errorHandler, operator);
+		processor.recordsBatch.addAll(sinkRecords.poll());
+
+		Assertions.assertThrows(RuntimeException.class,
+				processor::flushRecordUpdates);
+	}
+
+	@Test
+	@DisplayName("Test multiple IOExceptions should get retried")
+	@Timeout(5)
+	void testHandleMultipleIOException() throws InterruptedException, IOException {
+		int batch = 4;
+		int expectedSize = 4;
+
+		repository = initThrowingRepository(streams, formats, new IOException(), 4);
+		generateSinkRecords(sinkRecords, 4, 12);
+		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch, 50);
+		recordsProcessor.start();
+		awaitEmptyCollection(sinkRecords);
+		awaitCollectionSizeReached(streams, expectedSize);
+		shouldRun.set(false);
+		awaitProcessorShutdown(recordsProcessor);
+
+		assertEquals(expectedSize, streams.size());
+		for (Reader reader : streams) {
+			assertEquals(12, Rio.parse(reader, RDFFormat.NQUADS).size());
+		}
+	}
+
+	private void addMalformedSinkRecord(Queue<Collection<SinkRecord>> sinkRecords) {
+		SinkRecord sinkRecord = new SinkRecord("topic", 0, null, null, null,
+				null,
+				12);
+		sinkRecords.add(Collections.singleton(sinkRecord));
+	}
+
 	private Thread createProcessorThread(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
-			Repository repository, int batchSize, long commitTimeout) {
+										 Repository repository, int batchSize, long commitTimeout) {
 		Thread thread = new Thread(
 				new AddRecordsProcessor(sinkRecords, shouldRun, repository, RDFFormat.NQUADS, batchSize,
-						commitTimeout));
+						commitTimeout, errorHandler, operator));
+
 		thread.setDaemon(true);
 		return thread;
 	}
@@ -193,4 +372,19 @@ class AddRecordsProcessorTest {
 			formats.add(format);
 		});
 	}
+
+	private Repository initThrowingRepository(Queue<Reader> streams, Queue<RDFFormat> formats, Exception exception) {
+		return initThrowingRepository(streams, formats, exception, 1);
+	}
+
+	private Repository initThrowingRepository(Queue<Reader> streams, Queue<RDFFormat> formats, Exception exception, int numberOfThrows) {
+		return new ThrowingRepository(
+				(in, format) -> {
+					streams.add(in);
+					formats.add(format);
+				},
+				exception, numberOfThrows);
+	}
+
+
 }
