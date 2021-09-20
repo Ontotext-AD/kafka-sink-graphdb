@@ -10,6 +10,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 
+import com.ontotext.kafka.operation.OperationHandler;
 import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.runtime.errors.Operation;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -21,7 +22,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.ontotext.kafka.error.ErrorHandler;
-import com.ontotext.kafka.operation.GraphDBOperator;
 
 /**
  * A processor which batches sink records and flushes the smart updates to a given
@@ -49,11 +49,11 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 	protected final long timeoutCommitMs;
 	protected final ErrorHandler errorHandler;
 	protected final Set<SinkRecord> failedRecords;
-	protected final GraphDBOperator operator;
+	protected final OperationHandler operator;
 
 	protected SinkRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
 								   Repository repository, RDFFormat format, int batchSize, long timeoutCommitMs,
-								   ErrorHandler errorHandler, GraphDBOperator operator) {
+								   ErrorHandler errorHandler, OperationHandler operator) {
 
 		this.recordsBatch = new LinkedBlockingQueue<>();
 		this.sinkRecords = sinkRecords;

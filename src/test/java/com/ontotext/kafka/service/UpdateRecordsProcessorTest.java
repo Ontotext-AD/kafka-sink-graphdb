@@ -1,13 +1,13 @@
 package com.ontotext.kafka.service;
 
+import com.ontotext.kafka.error.ErrorHandler;
+import com.ontotext.kafka.operation.GraphDBOperator;
+import com.ontotext.kafka.operation.OperationHandler;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.Rio;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.*;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -16,9 +16,7 @@ import java.util.Collections;
 import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Supplier;
 
-import static java.lang.System.setProperty;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -29,6 +27,9 @@ public class UpdateRecordsProcessorTest {
 	private Repository repository;
 	private AtomicBoolean shouldRun;
 	private Queue<Collection<SinkRecord>> sinkRecords;
+	private final ErrorHandler errorHandler = (r, e) -> {
+	};
+	private final OperationHandler operator = new GraphDBOperator();
 
 	@BeforeEach
 	public void setup() {
@@ -46,7 +47,6 @@ public class UpdateRecordsProcessorTest {
 		int batch = 4;
 		generateValidSinkRecords(sinkRecords, 3, 15);
 		addInValidSinkRecord(sinkRecords);
-		setProperty("graphdb.template.id", "value");
 		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch, 5000);
 		recordsProcessor.start();
 		awaitEmptyCollection(sinkRecords);
@@ -62,11 +62,21 @@ public class UpdateRecordsProcessorTest {
 		}
 	}
 
+	@Test
+	@DisplayName("Test should throw when templateId property is missing")
+	@Timeout(5)
+	public void testShouldThrowWithNullTemplateIdProperty(){
+		Assertions.assertThrows(NullPointerException.class,
+			()-> new UpdateRecordsProcessor(sinkRecords, shouldRun, repository, RDFFormat.NQUADS, 2,
+					1234, errorHandler, operator));
+	}
+
 	private Thread createProcessorThread(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
 										 Repository repository, int batchSize, long commitTimeout) {
+		UpdateRecordsProcessor.setTemplateId("templateId");
 		Thread thread = new Thread(
 			new UpdateRecordsProcessor(sinkRecords, shouldRun, repository, RDFFormat.NQUADS, batchSize,
-				commitTimeout));
+				commitTimeout, errorHandler, operator));
 		thread.setDaemon(true);
 		return thread;
 	}
@@ -101,20 +111,8 @@ public class UpdateRecordsProcessorTest {
 		return builder.toString();
 	}
 
-	private void verifyForMilliseconds(Supplier<Boolean> supplier, long ms) {
-		long timeUntilSchedule = System.currentTimeMillis() + ms;
-		while (System.currentTimeMillis() < timeUntilSchedule) {
-			assertTrue(supplier.get());
-		}
-	}
-
 	private void awaitEmptyCollection(Collection collection) {
 		while (!collection.isEmpty()) {
-		}
-	}
-
-	private void awaitCollectionSizeReached(Collection collection, int size) {
-		while (collection.size() < size) {
 		}
 	}
 

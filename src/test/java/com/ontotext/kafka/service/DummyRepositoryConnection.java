@@ -2,6 +2,7 @@ package com.ontotext.kafka.service;
 
 import org.eclipse.rdf4j.IsolationLevel;
 import org.eclipse.rdf4j.common.iteration.Iteration;
+import org.eclipse.rdf4j.http.client.query.AbstractHTTPUpdate;
 import org.eclipse.rdf4j.model.*;
 import org.eclipse.rdf4j.query.*;
 import org.eclipse.rdf4j.repository.*;
@@ -99,7 +100,12 @@ public class DummyRepositoryConnection implements RepositoryConnection {
 
 	@Override
 	public Update prepareUpdate(QueryLanguage ql, String update) throws RepositoryException, MalformedQueryException {
-		return null;
+		return new AbstractHTTPUpdate(null,null,null, null) {
+			@Override
+			public void execute() throws UpdateExecutionException {
+
+			}
+		};
 	}
 
 	@Override
