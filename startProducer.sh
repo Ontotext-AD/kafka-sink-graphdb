@@ -4,6 +4,6 @@ if [ $# -lt 4 ]
     exit 1
 fi
 
-cd "target/"
+mvn clean install -DskipTests
 
-java -cp graphdb-kafka-plugin.jar com.ontotext.kafka.producer.RunProducer $@
+java -cp target/graphdb-kafka-plugin.jar com.ontotext.kafka.producer.RunProducer $@
