@@ -6,8 +6,4 @@ fi
 
 mvn clean install -DskipTests
 
-CURR_DIR=$(pwd)
-
-echo ${CURR_DIR}
-
-java -cp ${CURR_DIR}/target/graphdb-kafka-plugin.jar com.ontotext.kafka.producer.RunProducer $@
+java -cp target/graphdb-kafka-plugin.jar com.ontotext.kafka.producer.RunProducer $@
