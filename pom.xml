@@ -53,6 +53,7 @@
 						<includes>
 							<include>org.slf4j:*</include>
 							<include>org.apache.kafka:kafka-clients:*</include>
+							<include>org.apache.kafka:connect-api:*</include>
 							<include>org.apache.httpcomponents:*</include>
 							<include>org.eclipse.rdf4j:* </include>
 							<include>commons-io:commons-io:* </include>
@@ -138,7 +139,6 @@
             <groupId>org.apache.kafka</groupId>
             <artifactId>connect-api</artifactId>
             <version>${kafka.version}</version>
-            <scope>provided</scope>
         </dependency>
 		<dependency>
 			<groupId>org.apache.httpcomponents</groupId>
