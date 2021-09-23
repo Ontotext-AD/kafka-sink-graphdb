@@ -1,13 +1,14 @@
 package com.ontotext.kafka;
 
-import java.util.*;
-
 import com.ontotext.kafka.util.ValidateEnum;
 import com.ontotext.kafka.util.ValidateRDFFormat;
 import com.ontotext.kafka.util.VisibleIfRecommender;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigValue;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Config implementation used to store and validate main Connector properties including Authentication and Transaction Type.
@@ -91,6 +92,9 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	public static final long DEFAULT_BATCH_COMMIT_SCHEDULER = 3000;
 	public static final String BATCH_COMMIT_SCHEDULER_DOC = "The timeout applied per batch that is not full before it is committed";
 
+	public static final String TEMPLATE_ID = "graphdb.template.id";
+	public static final String TEMPLATE_ID_DOC = "The id of GraphDB Template to be used by an Update processor";
+
 	public GraphDBSinkConfig(Map<?, ?> originals) {
 		super(CONFIG, originals);
 	}
@@ -123,7 +127,9 @@ public class GraphDBSinkConfig extends AbstractConfig {
 				null, -1, ConfigDef.Width.NONE, AUTH_BASIC_PASS,
 				new VisibleIfRecommender(AUTH_TYPE, AuthenticationType.BASIC))
 			.define(AUTH_HEADER_TOKEN, ConfigDef.Type.STRING, "", ConfigDef.Importance.LOW,
-				AUTH_HEADER_TOKEN_DOC);
+				AUTH_HEADER_TOKEN_DOC)
+			.define(TEMPLATE_ID, ConfigDef.Type.STRING, null, ConfigDef.Importance.MEDIUM,
+				TEMPLATE_ID_DOC);
 	}
 
 	public static class GraphDBConfigDef extends ConfigDef {

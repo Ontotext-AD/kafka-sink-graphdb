@@ -5,7 +5,6 @@ import com.ontotext.kafka.error.ErrorHandler;
 import com.ontotext.kafka.error.LogErrorHandler;
 import com.ontotext.kafka.operation.GraphDBOperator;
 import com.ontotext.kafka.util.ValueUtil;
-
 import org.apache.kafka.common.config.types.Password;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
@@ -45,7 +44,7 @@ public class GraphDBService {
 			timeoutCommitMs = (Long) properties.get(GraphDBSinkConfig.BATCH_COMMIT_SCHEDULER);
 			recordProcessor = new Thread(
 				fetchProcessor((String) properties.get(GraphDBSinkConfig.TRANSACTION_TYPE),
-					(String) properties.get(GraphDBSinkConfig.RDF_FORMAT)));
+					(String) properties.get(GraphDBSinkConfig.RDF_FORMAT), (String) properties.get(GraphDBSinkConfig.TEMPLATE_ID)));
 			recordProcessor.start();
 		}
 	}
@@ -80,7 +79,7 @@ public class GraphDBService {
 		}
 	}
 
-	private SinkRecordsProcessor fetchProcessor(String transactionType, String rdfFormat) {
+	private SinkRecordsProcessor fetchProcessor(String transactionType, String rdfFormat, String templateId) {
 		GraphDBSinkConfig.TransactionType type = GraphDBSinkConfig.TransactionType.of(transactionType);
 		if (type == null) {
 			throw new IllegalArgumentException("Invalid transaction type: " + transactionType);
@@ -94,7 +93,7 @@ public class GraphDBService {
 					ValueUtil.getRDFFormat(rdfFormat), batchSize, timeoutCommitMs, errorHandler, operator);
 			case SMART_UPDATE:
 				return new UpdateRecordsProcessor(sinkRecords, shouldRun, repository.get(),
-					ValueUtil.getRDFFormat(rdfFormat), batchSize, timeoutCommitMs, errorHandler, operator);
+					ValueUtil.getRDFFormat(rdfFormat), batchSize, timeoutCommitMs, errorHandler, operator, templateId);
 			default:
 				throw new UnsupportedOperationException("Not implemented yet");
 		}

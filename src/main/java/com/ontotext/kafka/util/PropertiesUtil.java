@@ -26,8 +26,6 @@ import java.util.Properties;
 
 public class PropertiesUtil {
 
-	public static final String TEMPLATE_ID = "graphdb.template.id";
-
 	private static final Logger LOGGER = LoggerFactory.getLogger(PropertiesUtil.class);
 	private static String version = "0.0.1";
 	private static Properties properties;
@@ -61,11 +59,10 @@ public class PropertiesUtil {
 
 		} catch (NumberFormatException e) {
 			LOGGER.error("Property: " + propertyName +
-					" has incorrect value :" + propertyValue +
-					". Using default: " + defaultValue);
+				" has incorrect value :" + propertyValue +
+				". Using default: " + defaultValue);
 			return defaultValue;
 		}
-
 	}
 
 	public static int getFromPropertyOrDefault(String propertyName, Integer defaultValue) {
@@ -75,8 +72,8 @@ public class PropertiesUtil {
 
 		} catch (NumberFormatException e) {
 			LOGGER.error("Property: " + propertyName +
-					" has incorrect value :" + propertyValue +
-					". Using default: " + defaultValue);
+				" has incorrect value :" + propertyValue +
+				". Using default: " + defaultValue);
 			return defaultValue;
 		}
 	}
