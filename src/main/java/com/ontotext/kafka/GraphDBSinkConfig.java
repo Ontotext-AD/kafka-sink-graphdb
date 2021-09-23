@@ -1,13 +1,21 @@
 package com.ontotext.kafka;
 
-import java.util.*;
-
 import com.ontotext.kafka.util.ValidateEnum;
 import com.ontotext.kafka.util.ValidateRDFFormat;
 import com.ontotext.kafka.util.VisibleIfRecommender;
+import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigValue;
+import org.apache.kafka.connect.runtime.WorkerConfig;
+import org.apache.kafka.connect.runtime.errors.ToleranceType;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
+import static org.apache.kafka.common.config.ConfigDef.ValidString.in;
+import static org.apache.kafka.connect.runtime.SinkConnectorConfig.*;
 
 /**
  * Config implementation used to store and validate main Connector properties including Authentication and Transaction Type.
@@ -91,11 +99,19 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	public static final long DEFAULT_BATCH_COMMIT_SCHEDULER = 3000;
 	public static final String BATCH_COMMIT_SCHEDULER_DOC = "The timeout applied per batch that is not full before it is committed";
 
+	public static final String TEMPLATE_ID = "graphdb.template.id";
+	public static final String TEMPLATE_ID_DOC = "The id(IRI) of GraphDB Template to be used by in SPARQL Update";
+
+	public static final String ERROR_GROUP = "Error Handling";
+	public static final String DLQ_TOPIC_DISPLAY = "Dead Letter Queue Topic Name";
+
+
 	public GraphDBSinkConfig(Map<?, ?> originals) {
 		super(CONFIG, originals);
 	}
 
 	public static ConfigDef createConfig() {
+		int orderInErrorGroup = 0;
 		return new GraphDBConfigDef()
 			.define(SERVER_IRI, ConfigDef.Type.STRING, ConfigDef.Importance.HIGH,
 				SERVER_IRI_DOC)
@@ -123,7 +139,22 @@ public class GraphDBSinkConfig extends AbstractConfig {
 				null, -1, ConfigDef.Width.NONE, AUTH_BASIC_PASS,
 				new VisibleIfRecommender(AUTH_TYPE, AuthenticationType.BASIC))
 			.define(AUTH_HEADER_TOKEN, ConfigDef.Type.STRING, "", ConfigDef.Importance.LOW,
-				AUTH_HEADER_TOKEN_DOC);
+				AUTH_HEADER_TOKEN_DOC)
+			.define(TEMPLATE_ID, ConfigDef.Type.STRING, null, ConfigDef.Importance.MEDIUM,
+				TEMPLATE_ID_DOC)
+			//error handling
+			.define(DLQ_TOPIC_NAME_CONFIG, ConfigDef.Type.STRING, DLQ_TOPIC_DEFAULT, ConfigDef.Importance.MEDIUM,
+				DLQ_TOPIC_NAME_DOC, ERROR_GROUP, ++orderInErrorGroup, ConfigDef.Width.MEDIUM, DLQ_TOPIC_DISPLAY)
+			.define(ERRORS_RETRY_TIMEOUT_CONFIG, ConfigDef.Type.LONG, ERRORS_RETRY_TIMEOUT_DEFAULT, ConfigDef.Importance.MEDIUM,
+				ERRORS_RETRY_TIMEOUT_DOC, ERROR_GROUP, ++orderInErrorGroup, ConfigDef.Width.MEDIUM, ERRORS_RETRY_TIMEOUT_DISPLAY)
+			.define(ERRORS_RETRY_MAX_DELAY_CONFIG, ConfigDef.Type.LONG, ERRORS_RETRY_MAX_DELAY_DEFAULT, ConfigDef.Importance.MEDIUM,
+				ERRORS_RETRY_MAX_DELAY_DOC, ERROR_GROUP, ++orderInErrorGroup, ConfigDef.Width.MEDIUM, ERRORS_RETRY_MAX_DELAY_DISPLAY)
+			.define(ERRORS_TOLERANCE_CONFIG, ConfigDef.Type.STRING, ERRORS_TOLERANCE_DEFAULT.value(),
+				in(ToleranceType.NONE.value(), ToleranceType.ALL.value()), ConfigDef.Importance.MEDIUM,
+				ERRORS_TOLERANCE_DOC, ERROR_GROUP, ++orderInErrorGroup, ConfigDef.Width.SHORT, ERRORS_TOLERANCE_DISPLAY)
+			.define(WorkerConfig.BOOTSTRAP_SERVERS_CONFIG, ConfigDef.Type.LIST, Collections.emptyList(), new ConfigDef.NonNullValidator(),
+				ConfigDef.Importance.HIGH, CommonClientConfigs.BOOTSTRAP_SERVERS_DOC)
+			;
 	}
 
 	public static class GraphDBConfigDef extends ConfigDef {

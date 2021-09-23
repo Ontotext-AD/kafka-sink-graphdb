@@ -290,7 +290,7 @@ class AddRecordsProcessorTest {
 		int batch = 4;
 		int expectedSize = 4;
 
-		repository = initThrowingRepository(streams, formats, new IOException(), 4);
+		repository = initThrowingRepository(streams, formats, new IOException(), 3);
 		generateSinkRecords(sinkRecords, 4, 12);
 		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch, 50);
 		recordsProcessor.start();

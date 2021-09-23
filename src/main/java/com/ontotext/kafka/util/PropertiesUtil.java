@@ -22,11 +22,10 @@ import org.apache.kafka.connect.runtime.errors.ToleranceType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Map;
 import java.util.Properties;
 
 public class PropertiesUtil {
-
-	public static final String TEMPLATE_ID = "graphdb.template.id";
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(PropertiesUtil.class);
 	private static String version = "0.0.1";
@@ -54,40 +53,8 @@ public class PropertiesUtil {
 		return properties.getProperty(key);
 	}
 
-	public static long getFromPropertyOrDefault(String propertyName, Long defaultValue) {
-		String propertyValue = getProperty(propertyName);
-		try {
-			return Long.parseLong(propertyValue);
-
-		} catch (NumberFormatException e) {
-			LOGGER.error("Property: " + propertyName +
-					" has incorrect value :" + propertyValue +
-					". Using default: " + defaultValue);
-			return defaultValue;
-		}
-
-	}
-
-	public static int getFromPropertyOrDefault(String propertyName, Integer defaultValue) {
-		String propertyValue = getProperty(propertyName);
-		try {
-			return Integer.parseInt(propertyValue);
-
-		} catch (NumberFormatException e) {
-			LOGGER.error("Property: " + propertyName +
-					" has incorrect value :" + propertyValue +
-					". Using default: " + defaultValue);
-			return defaultValue;
-		}
-	}
-
-	public static String getFromPropertyOrDefault(String propertyName, String defaultValue) {
-		String propertyValue = getProperty(propertyName);
-		return propertyValue != null ? propertyValue : defaultValue;
-	}
-
-	public static ToleranceType getTolerance() {
-		String tolerance = getProperty(ConnectorConfig.ERRORS_TOLERANCE_CONFIG);
+	public static ToleranceType getTolerance(Map<String, ?> properties) {
+		String tolerance = (String) properties.get(ConnectorConfig.ERRORS_TOLERANCE_CONFIG);
 		if (tolerance == null || "none".equalsIgnoreCase(tolerance)) {
 			return ToleranceType.NONE;
 		} else if ("all".equalsIgnoreCase(tolerance)) {

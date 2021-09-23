@@ -1,19 +1,13 @@
 package com.ontotext.kafka.operation;
 
-import static com.ontotext.kafka.util.PropertiesUtil.getFromPropertyOrDefault;
-import static com.ontotext.kafka.util.PropertiesUtil.getTolerance;
-
-import java.util.HashMap;
-import java.util.Map;
-
-import org.apache.kafka.clients.CommonClientConfigs;
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.kafka.common.utils.SystemTime;
 import org.apache.kafka.connect.runtime.ConnectMetrics;
 import org.apache.kafka.connect.runtime.ConnectorConfig;
-import org.apache.kafka.connect.runtime.WorkerConfig;
 import org.apache.kafka.connect.runtime.errors.ErrorHandlingMetrics;
 import org.apache.kafka.connect.runtime.errors.Operation;
 import org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperator;
+import org.apache.kafka.connect.runtime.errors.ToleranceType;
 import org.apache.kafka.connect.runtime.standalone.StandaloneConfig;
 import org.apache.kafka.connect.storage.StringConverter;
 import org.apache.kafka.connect.util.ConnectorTaskId;
@@ -21,21 +15,29 @@ import org.eclipse.rdf4j.query.UpdateExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
+import java.util.Map;
+
+import static com.ontotext.kafka.util.PropertiesUtil.getTolerance;
+
 public class GraphDBOperator extends RetryWithToleranceOperator implements OperationHandler {
 
 	public static final long DEFAULT_CONNECTION_RETRY_DEFERRED_TIME = 100L;
 	public static final int DEFAULT_CONNECTION_NUMBER_OF_RETRIES = 10;
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(GraphDBOperator.class);
-	//default needed for tests
-	private static final int RETRIES = getFromPropertyOrDefault(CommonClientConfigs.RETRIES_CONFIG,
-		DEFAULT_CONNECTION_NUMBER_OF_RETRIES);
-	private static final long DELAY = getFromPropertyOrDefault(ConnectorConfig.ERRORS_RETRY_MAX_DELAY_CONFIG,
-		DEFAULT_CONNECTION_RETRY_DEFERRED_TIME);
 	private static final ErrorHandlingMetrics METRICS = new GraphDBErrorHandlingMetrics();
 
+	@VisibleForTesting
 	public GraphDBOperator() {
-		super(DELAY, RETRIES * DELAY, getTolerance(), new SystemTime());
+		super(DEFAULT_CONNECTION_RETRY_DEFERRED_TIME, DEFAULT_CONNECTION_NUMBER_OF_RETRIES * DEFAULT_CONNECTION_RETRY_DEFERRED_TIME,
+			ToleranceType.ALL, new SystemTime());
+		metrics(METRICS);
+	}
+
+	public GraphDBOperator(Map<String, ?> properties) {
+		super((Long) properties.get(ConnectorConfig.ERRORS_RETRY_TIMEOUT_CONFIG),
+			(Long) properties.get(ConnectorConfig.ERRORS_RETRY_MAX_DELAY_CONFIG), getTolerance(properties), new SystemTime());
 		metrics(METRICS);
 	}
 
@@ -74,8 +76,8 @@ public class GraphDBOperator extends RetryWithToleranceOperator implements Opera
 
 		private static Map<String, String> getBasicProperties() {
 			Map<String, String> props = new HashMap<>();
-			props.put(WorkerConfig.KEY_CONVERTER_CLASS_CONFIG, StringConverter.class.getName());
-			props.put(WorkerConfig.VALUE_CONVERTER_CLASS_CONFIG, StringConverter.class.getName());
+			props.put(ConnectorConfig.KEY_CONVERTER_CLASS_CONFIG, StringConverter.class.getName());
+			props.put(ConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG, StringConverter.class.getName());
 			props.put(StandaloneConfig.OFFSET_STORAGE_FILE_FILENAME_CONFIG, "/tmp/connect.offsets");
 			return props;
 		}
