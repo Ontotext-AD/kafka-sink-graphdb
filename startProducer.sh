@@ -1,6 +1,6 @@
 if [ $# -lt 4 ]
   then
-    echo "./startProducer.sh <producer config properties file path> <kafka topic> <files to add data from> <file with keys>..."
+    echo "./startProducer.sh <producer config properties file path> <kafka topic> <file to add data from> <file with keys>..."
     exit 1
 fi
 
