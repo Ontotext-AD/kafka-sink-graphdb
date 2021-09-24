@@ -1,9 +1,9 @@
 if [ $# -lt 4 ]
   then
-    echo "./startProducer.sh <producer config properties file path> <kafka topic> <file with keys> <files to add data from> ..."
+    echo "./startProducer.sh <producer config properties file path> <kafka topic> <file to add data from> <file with keys>..."
     exit 1
 fi
 
-cd "target/"
+mvn clean package -DskipTests
 
-java -cp graphdb-kafka-plugin.jar com.ontotext.kafka.producer.RunProducer $@
+java -cp target/graphdb-kafka-plugin.jar com.ontotext.kafka.producer.RunProducer $@
