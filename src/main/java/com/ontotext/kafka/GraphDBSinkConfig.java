@@ -105,7 +105,6 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	public static final String ERROR_GROUP = "Error Handling";
 	public static final String DLQ_TOPIC_DISPLAY = "Dead Letter Queue Topic Name";
 
-
 	public GraphDBSinkConfig(Map<?, ?> originals) {
 		super(CONFIG, originals);
 	}

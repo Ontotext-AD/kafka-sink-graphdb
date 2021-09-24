@@ -30,24 +30,22 @@ class FailedRecordProducer implements FailedProducer {
 
 	@Override
 	public void returnFailed(SinkRecord record) {
-		if (topicName != null && !topicName.isBlank()) {
-			String recordKey = record.key() == null ? "null" : record.key().toString();
-			String recordValue = record.value() == null ? "null" : record.value().toString();
-			try {
-				ProducerRecord<String, String> pr = new ProducerRecord<>(topicName, recordKey, recordValue);
-				producer.send(pr, (metadata, exception) -> {
-					if (exception == null) {
-						LOGGER.info("Successfully returned failed record to kafka. Record (key={} value={}) meta(partition={}, offset={}) to kafka topic: {}",
-							recordKey, recordValue, metadata == null ? 0 : metadata.partition(), metadata == null ? 0 : metadata.offset(), topicName);
-					} else {
-						LOGGER.error("Returning failed record to kafka: UNSUCCESSFUL. Record (key={} value={}) meta(partition={}, offset={}) to kafka topic: {}",
-							recordKey, recordValue, metadata == null ? 0 : metadata.partition(), metadata == null ? 0 : metadata.offset(), topicName,
-							exception);
-					}
-				});
-			} finally {
-				producer.flush();
-			}
+		String recordKey = record.key() == null ? "null" : record.key().toString();
+		String recordValue = record.value() == null ? "null" : record.value().toString();
+		try {
+			ProducerRecord<String, String> pr = new ProducerRecord<>(topicName, recordKey, recordValue);
+			producer.send(pr, (metadata, exception) -> {
+				if (exception == null) {
+					LOGGER.info("Successfully returned failed record to kafka. Record (key={} value={}) meta(partition={}, offset={}) to kafka topic: {}",
+						recordKey, recordValue, metadata == null ? 0 : metadata.partition(), metadata == null ? 0 : metadata.offset(), topicName);
+				} else {
+					LOGGER.error("Returning failed record to kafka: UNSUCCESSFUL. Record (key={} value={}) meta(partition={}, offset={}) to kafka topic: {}",
+						recordKey, recordValue, metadata == null ? 0 : metadata.partition(), metadata == null ? 0 : metadata.offset(), topicName,
+						exception);
+				}
+			});
+		} finally {
+			producer.flush();
 		}
 	}
 

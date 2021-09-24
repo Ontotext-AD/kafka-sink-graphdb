@@ -21,7 +21,7 @@ public class LogErrorHandler implements ErrorHandler {
 
 	public LogErrorHandler(Map<String, ?> properties) {
 		this.tolerance = PropertiesUtil.getTolerance(properties);
-		this.producer = new FailedRecordProducer(getProperties(properties));
+		this.producer = fetchProducer(properties);
 	}
 
 	@Override
@@ -29,13 +29,30 @@ public class LogErrorHandler implements ErrorHandler {
 		LOGGER.warn("Record failed: {}", record, ex);
 		switch (tolerance) {
 			case NONE: {
-				LOGGER.warn("An exception={} occurred in record={} running in Tolerance.NONE configuration", ex, record);
+				LOGGER.warn("An exception={} occurred in record={} running in ToleranceType.NONE configuration", ex, record);
 				throw new UpdateExecutionException("Record failed", ex);
 			}
 			case ALL: {
-				producer.returnFailed(record);
+				if (producer != null) {
+					producer.returnFailed(record);
+				}
 			}
 		}
+	}
+
+	private FailedRecordProducer fetchProducer(Map<String, ?> properties) {
+		String topicName = (String) properties.get(SinkConnectorConfig.DLQ_TOPIC_NAME_CONFIG);
+		if (tolerance.equals(ToleranceType.NONE) || !isValid(topicName)) {
+			return null;
+		}
+		return new FailedRecordProducer(getProperties(properties));
+	}
+
+	private boolean isValid(String topicName) {
+		if (topicName == null) {
+			return false;
+		}
+		return !topicName.isBlank();
 	}
 
 	private Properties getProperties(Map<String, ?> properties) {
