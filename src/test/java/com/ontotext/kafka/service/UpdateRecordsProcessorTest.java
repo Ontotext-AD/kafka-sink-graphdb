@@ -18,7 +18,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class UpdateRecordsProcessorTest {
 
@@ -65,18 +64,17 @@ public class UpdateRecordsProcessorTest {
 	@Test
 	@DisplayName("Test should throw when templateId property is missing")
 	@Timeout(5)
-	public void testShouldThrowWithNullTemplateIdProperty(){
+	public void testShouldThrowWithNullTemplateIdProperty() {
 		Assertions.assertThrows(NullPointerException.class,
-			()-> new UpdateRecordsProcessor(sinkRecords, shouldRun, repository, RDFFormat.NQUADS, 2,
-					1234, errorHandler, operator));
+			() -> new UpdateRecordsProcessor(sinkRecords, shouldRun, repository, RDFFormat.NQUADS, 2,
+				1234, errorHandler, operator, null));
 	}
 
 	private Thread createProcessorThread(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
 										 Repository repository, int batchSize, long commitTimeout) {
-		UpdateRecordsProcessor.setTemplateId("templateId");
 		Thread thread = new Thread(
 			new UpdateRecordsProcessor(sinkRecords, shouldRun, repository, RDFFormat.NQUADS, batchSize,
-				commitTimeout, errorHandler, operator));
+				commitTimeout, errorHandler, operator, "templateId"));
 		thread.setDaemon(true);
 		return thread;
 	}
