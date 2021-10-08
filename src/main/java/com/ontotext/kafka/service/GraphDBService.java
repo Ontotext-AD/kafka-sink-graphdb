@@ -82,7 +82,7 @@ public class GraphDBService {
 	private SinkRecordsProcessor fetchProcessor(String transactionType, String rdfFormat, String templateId) {
 		GraphDBSinkConfig.TransactionType type = GraphDBSinkConfig.TransactionType.of(transactionType);
 		if (type == null) {
-			throw new IllegalArgumentException("Invalid transaction type: " + transactionType);
+			throw new IllegalArgumentException("Invalid update type: " + transactionType);
 		}
 		switch (type) {
 			case ADD:

@@ -33,13 +33,13 @@ function create_kafka_sink_connector {
 				"topics":"test",
 				"tasks.max":"1",
 				"offset.storage.file.filename": "/tmp/storage",
-				"graphdb.server.iri": "http://graphdb:7200",
+				"graphdb.server.url": "http://graphdb:7200",
 				"graphdb.server.repository": "test",
 				"graphdb.batch.size": 64,
 				"graphdb.batch.commit.limit.ms": 1000,
 				"graphdb.auth.type": "NONE",
-				"graphdb.transaction.type": "ADD",
-				"graphdb.transaction.rdf.format": "nq"
+				"graphdb.update.type": "ADD",
+				"graphdb.update.rdf.format": "nq"
 			}
 		}' http://localhost:8083/connectors -w "\n"
 	fi

@@ -94,7 +94,7 @@ public class ValidateGraphDBConnection {
 					                                                 .getContent(), StandardCharsets.UTF_8)).getString("productVersion");
 			} catch (JSONException e) {
 				throw new ConfigException(SERVER_IRI, serverIri.value(),
-					"No GraphDB running on the provided GraphDB server iri");
+					"No GraphDB running on the provided GraphDB server URL");
 			}
 			String[] versionSplits = version.split("[.\\-]");
 			if (Integer.parseInt(versionSplits[0]) < 10 && Integer.parseInt(versionSplits[1]) < 10) {
@@ -104,7 +104,7 @@ public class ValidateGraphDBConnection {
 			}
 		} catch (IOException e) {
 			throw new ConfigException(SERVER_IRI, serverIri.value(),
-				"No GraphDB running on the provided GraphDB server iri");
+				"No GraphDB running on the provided GraphDB server URL");
 		}
 	}
 
