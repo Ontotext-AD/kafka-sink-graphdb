@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory;
 import com.ontotext.kafka.error.ErrorHandler;
 
 /**
- * A processor which batches sink records and flushes the smart updates to a given
+ * A processor which batches sink records and flushes the updates to a given
  * GraphDB {@link org.eclipse.rdf4j.repository.http.HTTPRepository}.
  * <p>
  * Batches that do not meet the {@link com.ontotext.kafka.GraphDBSinkConfig#BATCH_SIZE} are flushed

@@ -52,9 +52,9 @@ public class ConfigurationValidationTest {
 					put("graphdb.auth.type", "basic");
 					put("graphdb.auth.basic.username", "johnnyawesome");
 					put("graphdb.auth.basic.password", "luben1");
-					put("graphdb.transaction.type", "ADD");
-					put("graphdb.transaction.rdf.format", "nq");
-					put("graphdb.server.iri", "http://localhost:12345/");
+					put("graphdb.update.type", "ADD");
+					put("graphdb.update.rdf.format", "nq");
+					put("graphdb.server.url", "http://localhost:12345/");
 					put("graphdb.server.repository", "Test");
 				}
 			};
@@ -73,7 +73,7 @@ public class ConfigurationValidationTest {
 		configs =
 			new HashMap<>() {
 				{
-					put("graphdb.server.iri", "http://localhost:12345/");
+					put("graphdb.server.url", "http://localhost:12345/");
 					put("graphdb.server.repository", "Test");
 				}
 			};
@@ -92,7 +92,7 @@ public class ConfigurationValidationTest {
 		configs =
 			new HashMap<>() {
 				{
-					put("graphdb.server.iri", "http://localhost:12345/");
+					put("graphdb.server.url", "http://localhost:12345/");
 					put("graphdb.server.repository", "Test");
 					put("graphdb.auth.type", "basic");
 					put("graphdb.auth.basic.username", "invalid");
@@ -116,14 +116,14 @@ public class ConfigurationValidationTest {
 		configs =
 			new HashMap<>() {
 				{
-					put("graphdb.server.iri", "http://localhost:12345/");
+					put("graphdb.server.url", "http://localhost:12345/");
 					put("graphdb.server.repository", "Test");
 				}
 			};
 		results = sinkconnector.validate(configs).configValues();
 		mockedGraphDBClient.reset();
 		Assertions.assertTrue(results.stream()
-			                      .filter(cv -> cv.name().equals("graphdb.server.iri"))
+			                      .filter(cv -> cv.name().equals("graphdb.server.url"))
 			                      .noneMatch(cv -> cv.errorMessages().isEmpty()),
 			"Didn't get an error for GraphDB version");
 	}
@@ -135,13 +135,13 @@ public class ConfigurationValidationTest {
 		configs =
 			new HashMap<>() {
 				{
-					put("graphdb.server.iri", "http://localhost:12345/");
+					put("graphdb.server.url", "http://localhost:12345/");
 					put("graphdb.server.repository", "Test");
 				}
 			};
 		results = sinkconnector.validate(configs).configValues();
 		Assertions.assertTrue(results.stream()
-			                      .filter(cv -> cv.name().equals("graphdb.server.iri"))
+			                      .filter(cv -> cv.name().equals("graphdb.server.url"))
 			                      .noneMatch(cv -> cv.errorMessages().isEmpty()),
 			"Didn't get an error for missing GraphDB");
 	}
@@ -150,8 +150,8 @@ public class ConfigurationValidationTest {
 	@CsvSource({ "graphdb.batch.size, 5a",
 		"graphdb.batch.commit.limit.ms, 3000a",
 		"graphdb.auth.type, noners",
-		"graphdb.transaction.type, ADDer",
-		"graphdb.transaction.rdf.format, nqq" })
+		"graphdb.update.type, ADDer",
+		"graphdb.update.rdf.format, nqq" })
 	@DisplayName("Test wrong configs")
 	@Timeout(5)
 	void testWithWrongValues(String key, String value) {
@@ -159,7 +159,7 @@ public class ConfigurationValidationTest {
 			new HashMap<>() {
 				{
 					put(key, value);
-					put("graphdb.server.iri", "1");
+					put("graphdb.server.url", "1");
 					put("graphdb.server.repository", "2");
 				}
 			};

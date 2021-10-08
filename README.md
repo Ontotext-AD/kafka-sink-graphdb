@@ -1,14 +1,14 @@
 # kafka-sink-graphdb
-Kafka Sink Connector for Smart Update streaming to GraphDB
+Kafka Sink Connector for RDF update streaming to GraphDB
 
 # Docker & Docker Compose
 
 A [Dockerfile](./Dockerfile) is available for building the sink connector as a docker image.
 It is a multistage dockerfile which builds, tests and in the final stage copies the connector on the `plugin.path`.
 
-The image is based on confluent kafka connect [confluentinc/cp-kafka-connect](https://hub.docker.com/r/confluentinc/cp-kafka-connect) image.
+The image is based on Confluent Kafka Connect [confluentinc/cp-kafka-connect](https://hub.docker.com/r/confluentinc/cp-kafka-connect) image.
 
-Inside the [docker-compose](./docker-compose) directory there is an example compose file which sets everything up - zookeeper, kafka, graphdb and kafka connect.
+Inside the [docker-compose](./docker-compose) directory there is an example compose file that sets everything up - ZooKeeper, Kafka, GraphDB and Kafka Connect.
 In the same directory the [run.sh](./docker-compose/run.sh) script can be used to quickly test the sink connector.
 
 The script will do the following:
@@ -18,7 +18,7 @@ The script will do the following:
 1. wait for GraphDB and kafka connect to start
 2. create a GraphDB repository named "test"
 3. create the kafka-sink-graphdb connector
-4. using the kafka console producer - produce a simple triple (<urn:a> <urn:b> <urn:c> ) to the test topic
+4. using the Kafka console producer - produce a simple triple (<urn:a> <urn:b> <urn:c> ) to the test topic
 
 If all goes well you should see the triple in GraphDB:
 1. open http://localhost:7200/sparql

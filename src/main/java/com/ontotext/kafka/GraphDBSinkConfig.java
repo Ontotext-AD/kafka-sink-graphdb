@@ -62,8 +62,8 @@ public class GraphDBSinkConfig extends AbstractConfig {
 		}
 	}
 
-	public static final String SERVER_IRI = "graphdb.server.iri";
-	public static final String SERVER_IRI_DOC = "GraphDB Server connection IRI";
+	public static final String SERVER_IRI = "graphdb.server.url";
+	public static final String SERVER_IRI_DOC = "GraphDB Server connection URL";
 
 	public static final String REPOSITORY = "graphdb.server.repository";
 	public static final String REPOSITORY_DOC = "Repository to which data is streamed";
@@ -73,22 +73,22 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	public static final String DEFAULT_AUTH_TYPE = "NONE";
 
 	public static final String AUTH_BASIC_USER = "graphdb.auth.basic.username";
-	public static final String AUTH_BASIC_USER_DOC = "GraphDB basic security username";
+	public static final String AUTH_BASIC_USER_DOC = "GraphDB basic authentication username";
 	public static final String DEFAULT_AUTH_BASIC_USER = "admin";
 
 	public static final String AUTH_BASIC_PASS = "graphdb.auth.basic.password";
-	public static final String AUTH_BASIC_PASS_DOC = "GraphDB basic security password";
+	public static final String AUTH_BASIC_PASS_DOC = "GraphDB basic authentication password";
 	public static final String DEFAULT_AUTH_BASIC_PASS = "root";
 
 	public static final String AUTH_HEADER_TOKEN = "graphdb.auth.header.token";
 	public static final String AUTH_HEADER_TOKEN_DOC = "GraphDB custom header token";
 
-	public static final String RDF_FORMAT = "graphdb.transaction.rdf.format";
+	public static final String RDF_FORMAT = "graphdb.update.rdf.format";
 	public static final String DEFAULT_RDF_TYPE = "ttl";
 	public static final String RDF_FORMAT_DOC = "The RDF format for streaming data to GraphDB";
 
-	public static final String TRANSACTION_TYPE = "graphdb.transaction.type";
-	public static final String TRANSACTION_TYPE_DOC = "The RDF update transaction type";
+	public static final String TRANSACTION_TYPE = "graphdb.update.type";
+	public static final String TRANSACTION_TYPE_DOC = "The RDF update type";
 	public static final String DEFAULT_TRANSACTION_TYPE = "ADD";
 
 	public static final String BATCH_SIZE = "graphdb.batch.size";
