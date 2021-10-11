@@ -75,8 +75,7 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
 
 	private boolean couldWriteDirectlyInMessage(RDFFormat outputFormat) {
 		return outputFormat != RDFFormat.JSONLD && outputFormat != RDFFormat.RDFXML && outputFormat != RDFFormat.TRIX
-			&& outputFormat != RDFFormat.BINARY && outputFormat != RDFFormat.NDJSONLD && outputFormat != RDFFormat.RDFJSON
-			&& outputFormat != RDFFormat.RDFA;
+			&& outputFormat != RDFFormat.BINARY && outputFormat != RDFFormat.NDJSONLD && outputFormat != RDFFormat.RDFJSON;
 	}
 
     public void publish() {
