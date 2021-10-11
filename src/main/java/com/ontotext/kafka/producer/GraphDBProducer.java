@@ -32,6 +32,7 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
     private static final Logger LOG = LoggerFactory.getLogger(GraphDBProducer.class);
     private String outputMessageFormat = "nq";
 
+
     public GraphDBProducer(List<String> files, String kafkaTopic, Properties properties) {
         super(properties);
 	    this.allFiles = files;
@@ -131,5 +132,4 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
             }
         }
     }
-
 }
