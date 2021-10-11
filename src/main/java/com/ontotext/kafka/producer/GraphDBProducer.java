@@ -93,13 +93,12 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
                         countStatementsInCurrentMessage++;
 
                         if (countStatementsInCurrentMessage == numberOfStatementsPerKey) {
-
+							Rio.write(model, message, outputFormat);
 							sendMessage(keyName, message.toByteArray());
-                            message = new ByteArrayOutputStream();
-                            if ( (keyLine = keysReader.readLine()) != null) {
-								Rio.write(model, message, outputFormat);
-                    			model.clear();
-                                keyName = keyLine.split("=")[1];
+							model.clear();
+							message = new ByteArrayOutputStream();
+                            if ( (keyLine = keysReader.readLine()) != null && !(keyLine.startsWith("#"))) {
+                    			keyName = keyLine.split("=")[1];
                                 keyStatements = keysReader.readLine().split("=")[1];
                                 numberOfStatementsPerKey = Integer.parseInt(keyStatements);
                                 countStatementsInCurrentMessage = 0;
