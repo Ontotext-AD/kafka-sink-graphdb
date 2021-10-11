@@ -10,8 +10,11 @@ import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 
+import com.ontotext.load.GraphDBRDFFormatUtils;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.codehaus.plexus.interpolation.util.ValueSourceUtils;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.query.GraphQueryResult;
 import org.eclipse.rdf4j.query.QueryResults;
@@ -69,8 +72,10 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
             String dataFile = allFiles.get(i);
             String keysFile = allFiles.get(i + 1);
             try {
-                InputStream dataStream = new FileInputStream(dataFile);
-                RDFFormat inputFormat = Rio.getParserFormatForFileName(dataFile).orElse(RDFFormat.TURTLE);
+				InputStream dataStream = new FileInputStream(dataFile);
+
+				String ext = FilenameUtils.getExtension(dataFile);
+				var inputFormat = ValueUtil.getRDFFormat(ext);
 
                 ByteArrayOutputStream message = new ByteArrayOutputStream();
 
