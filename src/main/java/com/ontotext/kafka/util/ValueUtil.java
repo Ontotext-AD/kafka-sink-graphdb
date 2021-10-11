@@ -8,6 +8,7 @@ import java.io.StringReader;
 import java.util.Objects;
 
 import org.apache.kafka.connect.errors.DataException;
+import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.rio.RDFFormat;
@@ -81,6 +82,22 @@ public class ValueUtil {
 			throw new DataException("error: no value converter present due to unexpected object type "
 					+ value.getClass().getName());
 		}
+	}
+
+	public static String recordInfo(SinkRecord record) {
+		return String.format("Record: {topic='%s', kafkaPartition=%d, key=%s, keySchema=%s, value=%s, valueSchema=%s, timestamp=%d}",
+			record.topic(),
+			record.kafkaPartition(),
+			convertValueToStringNullable(record.key()),
+			record.keySchema(),
+			convertValueToStringNullable(record.value()),
+			record.valueSchema(),
+			record.timestamp()
+		);
+	}
+
+	public static String convertValueToStringNullable(Object obj) {
+		return obj == null ? "null" : convertValueToString(obj);
 	}
 
 }

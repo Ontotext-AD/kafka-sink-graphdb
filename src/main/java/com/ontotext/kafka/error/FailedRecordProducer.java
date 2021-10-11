@@ -1,6 +1,7 @@
 package com.ontotext.kafka.error;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.ontotext.kafka.util.ValueUtil;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -30,17 +31,15 @@ class FailedRecordProducer implements FailedProducer {
 
 	@Override
 	public void returnFailed(SinkRecord record) {
-		String recordKey = record.key() == null ? "null" : record.key().toString();
-		String recordValue = record.value() == null ? "null" : record.value().toString();
+		String recordKey = ValueUtil.convertValueToStringNullable(record.key());
+		String recordValue = ValueUtil.convertValueToStringNullable(record.value());
 		try {
 			ProducerRecord<String, String> pr = new ProducerRecord<>(topicName, recordKey, recordValue);
 			producer.send(pr, (metadata, exception) -> {
 				if (exception == null) {
-					LOGGER.info("Successfully returned failed record to kafka. Record (key={} value={}) meta(partition={}, offset={}) to kafka topic: {}",
-						recordKey, recordValue, metadata == null ? 0 : metadata.partition(), metadata == null ? 0 : metadata.offset(), topicName);
+					LOGGER.info("Successfully returned failed record to Kafka. {}", ValueUtil.recordInfo(record));
 				} else {
-					LOGGER.error("Returning failed record to kafka: UNSUCCESSFUL. Record (key={} value={}) meta(partition={}, offset={}) to kafka topic: {}",
-						recordKey, recordValue, metadata == null ? 0 : metadata.partition(), metadata == null ? 0 : metadata.offset(), topicName,
+					LOGGER.error("Returning failed record to kafka: UNSUCCESSFUL. {}", ValueUtil.recordInfo(record),
 						exception);
 				}
 			});
