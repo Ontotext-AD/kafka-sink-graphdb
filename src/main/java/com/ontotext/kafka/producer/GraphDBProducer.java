@@ -10,9 +10,12 @@ import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 
+import org.apache.commons.io.FilenameUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.Statement;
+import org.eclipse.rdf4j.model.impl.TreeModel;
 import org.eclipse.rdf4j.query.GraphQueryResult;
 import org.eclipse.rdf4j.query.QueryResults;
 import org.eclipse.rdf4j.rio.RDFFormat;
@@ -63,14 +66,29 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
         }
     }
 
+	private void sendMessage(RDFFormat outputFormat, ByteArrayOutputStream message, String keyName, Model model) {
+		if (!couldWriteDirectlyInMessage(outputFormat)) {
+			Rio.write(model, message, outputFormat);
+			model.clear();
+		}
+		sendMessage(keyName, message.toByteArray());
+	}
+
+	private boolean couldWriteDirectlyInMessage(RDFFormat outputFormat) {
+		return outputFormat != RDFFormat.JSONLD && outputFormat != RDFFormat.RDFXML && outputFormat != RDFFormat.TRIX
+			&& outputFormat != RDFFormat.BINARY && outputFormat != RDFFormat.NDJSONLD && outputFormat != RDFFormat.RDFJSON;
+	}
+
     public void publish() {
         var outputFormat = ValueUtil.getRDFFormat(this.outputMessageFormat);
         for (int i = 0; i < allFiles.size(); i += 2) {
             String dataFile = allFiles.get(i);
             String keysFile = allFiles.get(i + 1);
             try {
-                InputStream dataStream = new FileInputStream(dataFile);
-                RDFFormat inputFormat = Rio.getParserFormatForFileName(dataFile).orElse(RDFFormat.TURTLE);
+				InputStream dataStream = new FileInputStream(dataFile);
+
+				String ext = FilenameUtils.getExtension(dataFile);
+				var inputFormat = ValueUtil.getRDFFormat(ext);
 
                 ByteArrayOutputStream message = new ByteArrayOutputStream();
 
@@ -81,17 +99,22 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
                     String keyStatements = keysReader.readLine().split("=")[1];
                     int numberOfStatementsPerKey = Integer.parseInt(keyStatements);
                     int countStatementsInCurrentMessage = 0;
+					Model model = new TreeModel();
 
                     while (res.hasNext()) {
                         Statement st = res.next();
-                        Rio.write(st, message, outputFormat);
+						if (!couldWriteDirectlyInMessage(outputFormat)) {
+							model.add(st);
+						} else {
+							Rio.write(st, message, outputFormat);
+						}
                         countStatementsInCurrentMessage++;
 
                         if (countStatementsInCurrentMessage == numberOfStatementsPerKey) {
-                            sendMessage(keyName, message.toByteArray());
-                            message = new ByteArrayOutputStream();
-                            if ( (keyLine = keysReader.readLine()) != null) {
-                                keyName = keyLine.split("=")[1];
+							sendMessage(outputFormat, message, keyName, model);
+							message = new ByteArrayOutputStream();
+                            if ( (keyLine = keysReader.readLine()) != null && !(keyLine.startsWith("#"))) {
+                    			keyName = keyLine.split("=")[1];
                                 keyStatements = keysReader.readLine().split("=")[1];
                                 numberOfStatementsPerKey = Integer.parseInt(keyStatements);
                                 countStatementsInCurrentMessage = 0;
@@ -101,7 +124,7 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
                         }
                     }
                     if (keyName != null) {
-                        sendMessage(keyName, message.toByteArray());
+						sendMessage(outputFormat, message, keyName, model);
                     }
                 }
             } catch (IOException e) {
