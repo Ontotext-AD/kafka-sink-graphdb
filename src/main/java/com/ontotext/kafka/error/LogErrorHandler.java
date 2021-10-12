@@ -1,6 +1,7 @@
 package com.ontotext.kafka.error;
 
 import com.ontotext.kafka.util.PropertiesUtil;
+import com.ontotext.kafka.util.ValueUtil;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.kafka.connect.runtime.SinkConnectorConfig;
@@ -26,10 +27,10 @@ public class LogErrorHandler implements ErrorHandler {
 
 	@Override
 	public void handleFailingRecord(SinkRecord record, Throwable ex) {
-		LOGGER.warn("Record failed: {}", record, ex);
+		LOGGER.warn("Record failed: {}", ValueUtil.recordInfo(record), ex);
 		switch (tolerance) {
 			case NONE: {
-				LOGGER.warn("An exception={} occurred in record={} running in ToleranceType.NONE configuration", ex, record);
+				LOGGER.warn("An Exception={} occurred in {} running in ToleranceType.NONE configuration", ex, ValueUtil.recordInfo(record));
 				throw new UpdateExecutionException("Record failed", ex);
 			}
 			case ALL: {
