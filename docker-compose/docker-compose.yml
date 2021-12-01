@@ -36,7 +36,7 @@ services:
       CONFLUENT_SUPPORT_CUSTOMER_ID: anonymous
 
   graphdb:
-    image: docker-registry.ontotext.com/graphdb-free:9.9.0-adoptopenjdk11
+    image: docker-registry.ontotext.com/graphdb-free:9.10.1-adoptopenjdk11
     hostname: graphdb
     container_name: graphdb
     ports:
@@ -45,7 +45,7 @@ services:
   connect-1:
     build:
       context: ../
-    image: kafka-sink-graphdb:1.0-SNAPSHOT
+    image: kafka-sink-graphdb:1.1-SNAPSHOT
     hostname: connect-1
     container_name: connect-1
     depends_on:
@@ -76,7 +76,7 @@ services:
   connect-2:
     build:
       context: ../
-    image: kafka-sink-graphdb:1.0-SNAPSHOT
+    image: kafka-sink-graphdb:1.1-SNAPSHOT
     hostname: connect-2
     container_name: connect-2
     depends_on:
@@ -107,7 +107,7 @@ services:
   connect-3:
     build:
       context: ../
-    image: kafka-sink-graphdb:1.0-SNAPSHOT
+    image: kafka-sink-graphdb:1.1-SNAPSHOT
     hostname: connect-3
     container_name: connect-3
     depends_on:

@@ -8,6 +8,8 @@ It is a multistage dockerfile which builds, tests and in the final stage copies 
 
 The image is based on Confluent Kafka Connect [confluentinc/cp-kafka-connect](https://hub.docker.com/r/confluentinc/cp-kafka-connect) image.
 
+To build the image navigate to the project root directory and execute `docker build -t kafka-sink-graphdb .`
+
 Inside the [docker-compose](./docker-compose) directory there is an example compose file that sets everything up - ZooKeeper, Kafka, GraphDB and Kafka Connect.
 In the same directory the [run.sh](./docker-compose/run.sh) script can be used to quickly test the sink connector.
 
