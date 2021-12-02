@@ -45,7 +45,7 @@ services:
   connect-1:
     build:
       context: ../
-    image: kafka-sink-graphdb:1.1-SNAPSHOT
+    image: kafka-sink-graphdb
     hostname: connect-1
     container_name: connect-1
     depends_on:
@@ -76,7 +76,7 @@ services:
   connect-2:
     build:
       context: ../
-    image: kafka-sink-graphdb:1.1-SNAPSHOT
+    image: kafka-sink-graphdb
     hostname: connect-2
     container_name: connect-2
     depends_on:
@@ -107,7 +107,7 @@ services:
   connect-3:
     build:
       context: ../
-    image: kafka-sink-graphdb:1.1-SNAPSHOT
+    image: kafka-sink-graphdb
     hostname: connect-3
     container_name: connect-3
     depends_on:

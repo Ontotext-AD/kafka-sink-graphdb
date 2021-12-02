@@ -5,12 +5,12 @@
 
 	<groupId>com.ontotext.graphdb.kafka</groupId>
 	<artifactId>kafka-sink-graphdb</artifactId>
-	<version>1.1.0-SNAPSHOT</version>
+	<version>1.0.0-SNAPSHOT</version>
 	<name>GraphDB Kafka Sink Connector</name>
 	<description>Kafka Sink Connector for RDF update streaming to GraphDB</description>
 
 	<properties>
-		<graphdb.version>9.9.0</graphdb.version>
+		<graphdb.version>9.10.1</graphdb.version>
         <kafka.version>2.8.0</kafka.version>
 		<slf4j.version>1.7.30</slf4j.version>
         <jackson.version>2.10.1</jackson.version>
@@ -93,6 +93,7 @@
 				<version>2.5.3</version>
 				<configuration>
 					<tagNameFormat>@{project.version}</tagNameFormat>
+					<arguments>-Dmaven.javadoc.skip=true</arguments>
 				</configuration>
 			</plugin>
 
