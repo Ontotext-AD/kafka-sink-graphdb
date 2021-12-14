@@ -1,4 +1,4 @@
-package com.ontotext.kafka.service;
+package com.ontotext.kafka.mocks;
 
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.repository.RepositoryException;

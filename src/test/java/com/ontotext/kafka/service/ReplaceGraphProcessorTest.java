@@ -1,6 +1,9 @@
 package com.ontotext.kafka.service;
 
 import com.ontotext.kafka.error.ErrorHandler;
+import com.ontotext.kafka.mocks.DummyErrorHandler;
+import com.ontotext.kafka.mocks.DummyOperator;
+import com.ontotext.kafka.mocks.DummyRepository;
 import com.ontotext.kafka.operation.GraphDBOperator;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
@@ -20,9 +23,10 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Supplier;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static com.ontotext.kafka.Utils.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 public class ReplaceGraphProcessorTest {
 	private Repository repository;
@@ -40,9 +44,8 @@ public class ReplaceGraphProcessorTest {
 		repository = initRepository(contextMap, formatMap);
 		shouldRun = new AtomicBoolean(true);
 		sinkRecords = new LinkedBlockingQueue<>();
-		errorHandler = (r, e) -> {
-		};
-		operator = new GraphDBOperator();
+		errorHandler = new DummyErrorHandler();
+		operator = new DummyOperator();
 
 	}
 
@@ -139,7 +142,7 @@ public class ReplaceGraphProcessorTest {
 		int batch = 2;
 		String[] contexts = constructGraphIri(3);
 		generateSinkRecordsContexts(sinkRecords, new String[]{"http://example1/", "http://example2/", "http://example3/",
-				"http://example2/", "http://example3/"});
+			"http://example2/", "http://example3/"});
 		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch, 20);
 		recordsProcessor.start();
 
@@ -183,8 +186,8 @@ public class ReplaceGraphProcessorTest {
 	private Thread createProcessorThread(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
 										 Repository repository, int batchSize, long commitTimeout) {
 		Thread thread = new Thread(
-				new ReplaceGraphProcessor(sinkRecords, shouldRun, repository, RDFFormat.NQUADS, batchSize,
-						commitTimeout, errorHandler, operator));
+			new ReplaceGraphProcessor(sinkRecords, shouldRun, repository, RDFFormat.NQUADS, batchSize,
+				commitTimeout, errorHandler, operator));
 		thread.setDaemon(true);
 		return thread;
 	}
@@ -192,24 +195,24 @@ public class ReplaceGraphProcessorTest {
 	private void generateSinkRecordsContexts(Queue<Collection<SinkRecord>> sinkRecords, String[] contexts) {
 		for (int i = 0; i < contexts.length; i++) {
 			SinkRecord sinkRecord = new SinkRecord("topic", 0, null, contexts[i].getBytes(),
-					null, generateRDFStatementsWithContexts(i)
-					.getBytes(), 12);
+				null, generateRDFStatementsWithContexts(i)
+				.getBytes(), 12);
 			sinkRecords.add(Collections.singleton(sinkRecord));
 		}
 	}
 
 	private String generateRDFStatementsWithContexts(int graphArrayIndex) {
 		return "<urn:one" + graphArrayIndex +
-				"> <urn:two" + graphArrayIndex +
-				"> <urn:three" + graphArrayIndex +
-				"> . ";
+			"> <urn:two" + graphArrayIndex +
+			"> <urn:three" + graphArrayIndex +
+			"> . ";
 	}
 
 	private String checkRDFStatementsWithContexts(int graphArrayIndex) {
 		return "[(urn:one" + graphArrayIndex +
-				", urn:two" + graphArrayIndex +
-				", urn:three" + graphArrayIndex +
-				")]";
+			", urn:two" + graphArrayIndex +
+			", urn:three" + graphArrayIndex +
+			")]";
 	}
 
 	private String[] constructGraphIri(int contextsSize) {
@@ -224,22 +227,6 @@ public class ReplaceGraphProcessorTest {
 		for (int i = 0; i < contexts.length; i++) {
 			assertEquals(checkRDFStatementsWithContexts(i), Rio.parse(contextMap.get(contexts[i]), RDFFormat.NQUADS).toString());
 		}
-	}
-
-	private void verifyForMilliseconds(Supplier<Boolean> supplier, long ms) {
-		long timeUntilSchedule = System.currentTimeMillis() + ms;
-		while (System.currentTimeMillis() < timeUntilSchedule) {
-			assertTrue(supplier.get());
-		}
-	}
-
-	private void awaitEmptyCollection(Collection collection) {
-		while (!collection.isEmpty()) {
-		}
-	}
-
-	private void awaitProcessorShutdown(Thread processor) throws InterruptedException {
-		processor.join();
 	}
 
 	private void awaitCollectionSizeReached(Map collection, int size) {

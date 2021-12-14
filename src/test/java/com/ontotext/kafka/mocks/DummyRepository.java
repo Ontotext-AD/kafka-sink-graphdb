@@ -1,6 +1,5 @@
-package com.ontotext.kafka.service;
+package com.ontotext.kafka.mocks;
 
-import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.repository.Repository;
@@ -32,7 +31,8 @@ public class DummyRepository implements Repository {
 	}
 
 	@Override
-	public void setDataDir(File dataDir) {}
+	public void setDataDir(File dataDir) {
+	}
 
 	@Override
 	public File getDataDir() {
@@ -40,10 +40,12 @@ public class DummyRepository implements Repository {
 	}
 
 	@Override
-	public void initialize() throws RepositoryException {}
+	public void initialize() throws RepositoryException {
+	}
 
 	@Override
-	public void init() throws RepositoryException {}
+	public void init() throws RepositoryException {
+	}
 
 	@Override
 	public boolean isInitialized() {
@@ -51,7 +53,8 @@ public class DummyRepository implements Repository {
 	}
 
 	@Override
-	public void shutDown() throws RepositoryException {}
+	public void shutDown() throws RepositoryException {
+	}
 
 	@Override
 	public boolean isWritable() throws RepositoryException {

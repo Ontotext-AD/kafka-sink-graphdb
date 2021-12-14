@@ -1,11 +1,14 @@
-package com.ontotext.kafka.service;
+package com.ontotext.kafka.mocks;
 
 import org.eclipse.rdf4j.IsolationLevel;
 import org.eclipse.rdf4j.common.iteration.Iteration;
 import org.eclipse.rdf4j.http.client.query.AbstractHTTPUpdate;
 import org.eclipse.rdf4j.model.*;
 import org.eclipse.rdf4j.query.*;
-import org.eclipse.rdf4j.repository.*;
+import org.eclipse.rdf4j.repository.Repository;
+import org.eclipse.rdf4j.repository.RepositoryConnection;
+import org.eclipse.rdf4j.repository.RepositoryException;
+import org.eclipse.rdf4j.repository.RepositoryResult;
 import org.eclipse.rdf4j.rio.*;
 
 import java.io.File;
@@ -14,11 +17,8 @@ import java.io.InputStream;
 import java.io.Reader;
 import java.net.URL;
 import java.util.Arrays;
-import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public class DummyRepositoryConnection implements RepositoryConnection {
 
@@ -100,7 +100,7 @@ public class DummyRepositoryConnection implements RepositoryConnection {
 
 	@Override
 	public Update prepareUpdate(QueryLanguage ql, String update) throws RepositoryException, MalformedQueryException {
-		return new AbstractHTTPUpdate(null,null,null, null) {
+		return new AbstractHTTPUpdate(null, null, null, null) {
 			@Override
 			public void execute() throws UpdateExecutionException {
 

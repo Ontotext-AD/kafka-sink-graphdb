@@ -1,4 +1,4 @@
-package com.ontotext.kafka.error;
+package com.ontotext.kafka.mocks;
 
 import org.apache.kafka.clients.consumer.ConsumerGroupMetadata;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;

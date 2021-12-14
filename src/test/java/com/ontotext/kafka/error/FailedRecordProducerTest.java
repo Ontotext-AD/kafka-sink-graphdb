@@ -1,5 +1,6 @@
 package com.ontotext.kafka.error;
 
+import com.ontotext.kafka.mocks.DummyProducer;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
