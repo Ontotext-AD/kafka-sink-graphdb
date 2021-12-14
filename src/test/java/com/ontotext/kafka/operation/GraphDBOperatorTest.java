@@ -36,8 +36,6 @@ public class GraphDBOperatorTest {
 
 	private static final Map<String, Object> property = new HashMap<>();
 
-	private Queue<Reader> streams;
-	private Queue<RDFFormat> formats;
 	private Repository repository;
 	private AtomicBoolean shouldRun;
 	private Queue<Collection<SinkRecord>> sinkRecords;
@@ -51,8 +49,8 @@ public class GraphDBOperatorTest {
 		property.put(SLEEP_NAME, 100L);
 		property.put(TOLERANCE_NAME, "all");
 
-		streams = new LinkedBlockingQueue<>();
-		formats = new LinkedBlockingQueue<>();
+		Queue<Reader> streams = new LinkedBlockingQueue<>();
+		Queue<RDFFormat> formats = new LinkedBlockingQueue<>();
 		repository = initRepository(streams, formats);
 		shouldRun = new AtomicBoolean(true);
 		sinkRecords = new LinkedBlockingQueue<>();
@@ -70,18 +68,16 @@ public class GraphDBOperatorTest {
 	public void should_initialize_testingProcessor() {
 		int batch = 4;
 		op = new GraphDBOperator(DummyOperator.getProperty());
-		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch, 500);
+		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch);
 
 		Assertions.assertNotNull(recordsProcessor);
 	}
 
 	@Test
 	public void should_run_throwingProcessor() {
-		int batch = 4;
 		op = new GraphDBOperator(property);
 		generateSinkRecords(sinkRecords, 1, 15);
-		Operation<Object> o = new ThrowingProcessor(sinkRecords, shouldRun, repository, RDFFormat.NQUADS, batch,
-			500, errorHandler, op)
+		Operation<Object> o = getThrowingProcessor()
 			.setNumberOfThrows(1);
 
 		Assertions.assertNotNull(op.execAndHandleError(o));
@@ -89,15 +85,13 @@ public class GraphDBOperatorTest {
 
 	@Test
 	public void should_handle_toleranceNone() {
-		int batch = 4;
 		property.put(TOTAL_RETRY_PERIOD_NAME, NO_RETRY);
 		property.put(SLEEP_NAME, NO_DELAY);
 		property.put(TOLERANCE_NAME, "none");
 		generateSinkRecords(sinkRecords, 1, 15);
 
 		op = new GraphDBOperator(property);
-		Operation<Object> o = new ThrowingProcessor(sinkRecords, shouldRun, repository, RDFFormat.NQUADS, batch,
-			500, errorHandler, op)
+		Operation<Object> o = getThrowingProcessor()
 			.setNumberOfThrows(10);
 
 		Assertions.assertNull(op.execAndHandleError(o));
@@ -105,42 +99,57 @@ public class GraphDBOperatorTest {
 
 	@Test
 	public void should_handle_infiniteRetry() {
-		int batch = 4;
 		property.put(TOTAL_RETRY_PERIOD_NAME, INFINITE_RETRY);
 		property.put(SLEEP_NAME, NO_DELAY);
 		generateSinkRecords(sinkRecords, 1, 15);
 
 		op = new GraphDBOperator(property);
-		Operation<Object> o = new ThrowingProcessor(sinkRecords, shouldRun, repository, RDFFormat.NQUADS, batch,
-			500, errorHandler, op)
+		Operation<Object> o = getThrowingProcessor()
 			.setNumberOfThrows(3);
 
 		Assertions.assertNotNull(op.execAndHandleError(o));
 	}
 
 	@Test
+	public void should_handle_noRetry() {
+		property.put(TOTAL_RETRY_PERIOD_NAME, NO_RETRY);
+		property.put(SLEEP_NAME, NO_DELAY);
+		generateSinkRecords(sinkRecords, 1, 15);
+
+		op = new GraphDBOperator(property);
+		Operation<Object> o = getThrowingProcessor()
+			.setNumberOfThrows(1);
+
+		Assertions.assertNull(op.execAndHandleError(o));
+	}
+
+	@Test
 	public void should_handle_longSleep() {
-		int batch = 4;
 		property.put(TOTAL_RETRY_PERIOD_NAME, INFINITE_RETRY);
 		property.put(SLEEP_NAME, 1000L);
 		generateSinkRecords(sinkRecords, 1, 15);
 
 		op = new GraphDBOperator(property);
-		Operation<Object> o = new ThrowingProcessor(sinkRecords, shouldRun, repository, RDFFormat.NQUADS, batch,
-			500, errorHandler, op)
+		Operation<Object> o = getThrowingProcessor()
 			.setNumberOfThrows(2);
 
 		Assertions.assertNotNull(op.execAndHandleError(o));
 	}
 
 	private Thread createProcessorThread(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
-										 Repository repository, int batchSize, long commitTimeout) {
+										 Repository repository, int batchSize) {
 		Thread thread = new Thread(
 			new ThrowingProcessor(sinkRecords, shouldRun, repository, RDFFormat.NQUADS, batchSize,
-				commitTimeout, errorHandler, op));
+				500, errorHandler, op));
 
 		thread.setDaemon(true);
 		return thread;
+	}
+
+	private ThrowingProcessor getThrowingProcessor() {
+		int batch = 4;
+		return new ThrowingProcessor(sinkRecords, shouldRun, repository, RDFFormat.NQUADS, batch,
+			500, errorHandler, op);
 	}
 
 }
