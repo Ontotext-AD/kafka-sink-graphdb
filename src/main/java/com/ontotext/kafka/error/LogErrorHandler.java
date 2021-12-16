@@ -65,4 +65,9 @@ public class LogErrorHandler implements ErrorHandler {
 		props.put(ProducerConfig.CLIENT_ID_CONFIG, FailedRecordProducer.class.getSimpleName());
 		return props;
 	}
+
+	@Override
+	public boolean isTolerable() {
+		return tolerance == ToleranceType.ALL;
+	}
 }

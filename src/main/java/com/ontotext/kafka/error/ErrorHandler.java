@@ -9,4 +9,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
  */
 public interface ErrorHandler {
 	void handleFailingRecord(SinkRecord record, Throwable ex);
+
+	boolean isTolerable();
+
 }

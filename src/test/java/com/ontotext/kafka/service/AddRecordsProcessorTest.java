@@ -1,6 +1,9 @@
 package com.ontotext.kafka.service;
 
 import com.ontotext.kafka.error.ErrorHandler;
+import com.ontotext.kafka.mocks.DummyErrorHandler;
+import com.ontotext.kafka.mocks.DummyOperator;
+import com.ontotext.kafka.mocks.ThrowingRepository;
 import com.ontotext.kafka.operation.GraphDBOperator;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
@@ -17,8 +20,8 @@ import java.util.Collections;
 import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Supplier;
 
+import static com.ontotext.kafka.Utils.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class AddRecordsProcessorTest {
@@ -27,7 +30,7 @@ class AddRecordsProcessorTest {
 	private Repository repository;
 	private AtomicBoolean shouldRun;
 	private Queue<Collection<SinkRecord>> sinkRecords;
-	private ErrorHandler errorHandler;
+	private DummyErrorHandler errorHandler;
 	private GraphDBOperator operator;
 
 	@BeforeEach
@@ -37,9 +40,8 @@ class AddRecordsProcessorTest {
 		repository = initRepository(streams, formats);
 		shouldRun = new AtomicBoolean(true);
 		sinkRecords = new LinkedBlockingQueue<>();
-		errorHandler = (r, e) -> {
-		};
-		operator = new GraphDBOperator();
+		errorHandler = new DummyErrorHandler();
+		operator = new DummyOperator();
 	}
 
 	@Test
@@ -276,11 +278,11 @@ class AddRecordsProcessorTest {
 		generateSinkRecords(sinkRecords, 1, 12);
 
 		AddRecordsProcessor processor = new AddRecordsProcessor(sinkRecords, shouldRun, repository, RDFFormat.NQUADS, batch,
-				50, errorHandler, operator);
+			50, errorHandler, operator);
 		processor.recordsBatch.addAll(sinkRecords.poll());
 
 		Assertions.assertThrows(RuntimeException.class,
-				processor::flushRecordUpdates);
+			processor::flushRecordUpdates);
 	}
 
 	@Test
@@ -307,70 +309,19 @@ class AddRecordsProcessorTest {
 
 	private void addMalformedSinkRecord(Queue<Collection<SinkRecord>> sinkRecords) {
 		SinkRecord sinkRecord = new SinkRecord("topic", 0, null, null, null,
-				null,
-				12);
+			null,
+			12);
 		sinkRecords.add(Collections.singleton(sinkRecord));
 	}
 
 	private Thread createProcessorThread(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
 										 Repository repository, int batchSize, long commitTimeout) {
 		Thread thread = new Thread(
-				new AddRecordsProcessor(sinkRecords, shouldRun, repository, RDFFormat.NQUADS, batchSize,
-						commitTimeout, errorHandler, operator));
+			new AddRecordsProcessor(sinkRecords, shouldRun, repository, RDFFormat.NQUADS, batchSize,
+				commitTimeout, errorHandler, operator));
 
 		thread.setDaemon(true);
 		return thread;
-	}
-
-	private void generateSinkRecords(Queue<Collection<SinkRecord>> sinkRecords, int recordsSize, int statementsSize) {
-		for (int i = 0; i < recordsSize; i++) {
-			SinkRecord sinkRecord = new SinkRecord("topic", 0, null, null, null,
-					generateRDFStatements(statementsSize).getBytes(),
-					12);
-			sinkRecords.add(Collections.singleton(sinkRecord));
-		}
-	}
-
-	private String generateRDFStatements(int quantity) {
-		StringBuilder builder = new StringBuilder();
-		for (int i = 0; i < quantity; i++) {
-			builder.append("<urn:one")
-					.append(i)
-					.append("> <urn:two")
-					.append(i)
-					.append("> <urn:three")
-					.append(i)
-					.append("> . \n");
-		}
-		return builder.toString();
-	}
-
-	private void verifyForMilliseconds(Supplier<Boolean> supplier, long ms) {
-		long timeUntilSchedule = System.currentTimeMillis() + ms;
-		while (System.currentTimeMillis() < timeUntilSchedule) {
-			assertTrue(supplier.get());
-		}
-	}
-
-	private void awaitEmptyCollection(Collection collection) {
-		while (!collection.isEmpty()) {
-		}
-	}
-
-	private void awaitCollectionSizeReached(Collection collection, int size) {
-		while (collection.size() < size) {
-		}
-	}
-
-	private void awaitProcessorShutdown(Thread processor) throws InterruptedException {
-		processor.join();
-	}
-
-	private Repository initRepository(Queue<Reader> streams, Queue<RDFFormat> formats) {
-		return new DummyRepository((in, format) -> {
-			streams.add(in);
-			formats.add(format);
-		});
 	}
 
 	private Repository initThrowingRepository(Queue<Reader> streams, Queue<RDFFormat> formats, Exception exception) {
@@ -379,12 +330,11 @@ class AddRecordsProcessorTest {
 
 	private Repository initThrowingRepository(Queue<Reader> streams, Queue<RDFFormat> formats, Exception exception, int numberOfThrows) {
 		return new ThrowingRepository(
-				(in, format) -> {
-					streams.add(in);
-					formats.add(format);
-				},
-				exception, numberOfThrows);
+			(in, format) -> {
+				streams.add(in);
+				formats.add(format);
+			},
+			exception, numberOfThrows);
 	}
-
 
 }

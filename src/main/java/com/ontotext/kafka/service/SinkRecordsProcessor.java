@@ -1,15 +1,6 @@
 package com.ontotext.kafka.service;
 
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Queue;
-import java.util.Set;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.locks.ReentrantLock;
-
+import com.ontotext.kafka.error.ErrorHandler;
 import com.ontotext.kafka.operation.OperationHandler;
 import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.runtime.errors.Operation;
@@ -21,7 +12,10 @@ import org.eclipse.rdf4j.rio.RDFFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.ontotext.kafka.error.ErrorHandler;
+import java.util.*;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * A processor which batches sink records and flushes the updates to a given
@@ -114,12 +108,17 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 	}
 
 	protected void flushRecordUpdates() {
-		failedRecords.clear();
 		if (!recordsBatch.isEmpty()) {
-			if (operator.execAndRetry(this) == null) {
-				LOGGER.error("Flushing run out of attempts");
-				throw new RuntimeException("Flushing run out of attempts");
-				// if retrying doesn't solve the problem
+			failedRecords.clear();
+			if (operator.execAndHandleError(this) == null) {
+				LOGGER.warn("Flushing failed to execute the update");
+				if (!errorHandler.isTolerable()) {
+					LOGGER.error("Errors are not tolerated in ErrorTolerance.NONE");
+					throw new RuntimeException("Flushing failed to execute the update");
+					// if retrying doesn't solve the problem
+				} else {
+					LOGGER.warn("ERROR is TOLERATED the operation continues...");
+				}
 			}
 		}
 	}
