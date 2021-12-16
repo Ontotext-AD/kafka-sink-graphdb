@@ -39,7 +39,7 @@ public class GraphDBOperatorTest {
 	private Repository repository;
 	private AtomicBoolean shouldRun;
 	private Queue<Collection<SinkRecord>> sinkRecords;
-	private ErrorHandler errorHandler;
+	private DummyErrorHandler errorHandler;
 	private GraphDBOperator op;
 
 

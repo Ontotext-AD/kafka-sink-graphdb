@@ -1,6 +1,5 @@
 package com.ontotext.kafka.service;
 
-import com.ontotext.kafka.error.ErrorHandler;
 import com.ontotext.kafka.mocks.DummyErrorHandler;
 import com.ontotext.kafka.mocks.DummyOperator;
 import com.ontotext.kafka.mocks.DummyRepository;
@@ -34,7 +33,7 @@ public class ReplaceGraphProcessorTest {
 	private Queue<Collection<SinkRecord>> sinkRecords;
 	private Map<String, Reader> contextMap;
 	private Map<Reader, RDFFormat> formatMap;
-	private ErrorHandler errorHandler;
+	private DummyErrorHandler errorHandler;
 	private GraphDBOperator operator;
 
 	@BeforeEach
@@ -229,7 +228,7 @@ public class ReplaceGraphProcessorTest {
 		}
 	}
 
-	private void awaitCollectionSizeReached(Map collection, int size) {
+	private <K, V> void awaitCollectionSizeReached(Map<K, V> collection, int size) {
 		while (collection.size() < size) {
 		}
 	}

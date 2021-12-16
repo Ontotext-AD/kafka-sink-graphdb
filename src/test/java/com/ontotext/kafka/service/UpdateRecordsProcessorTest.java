@@ -1,6 +1,5 @@
 package com.ontotext.kafka.service;
 
-import com.ontotext.kafka.error.ErrorHandler;
 import com.ontotext.kafka.mocks.DummyErrorHandler;
 import com.ontotext.kafka.mocks.DummyOperator;
 import com.ontotext.kafka.operation.OperationHandler;
@@ -28,8 +27,8 @@ public class UpdateRecordsProcessorTest {
 	private Repository repository;
 	private AtomicBoolean shouldRun;
 	private Queue<Collection<SinkRecord>> sinkRecords;
-	private final ErrorHandler errorHandler = new DummyErrorHandler();
-	private final OperationHandler operator = new DummyOperator();
+	private DummyErrorHandler errorHandler;
+	private OperationHandler operator;
 
 	@BeforeEach
 	public void setup() {
@@ -38,12 +37,14 @@ public class UpdateRecordsProcessorTest {
 		repository = initRepository(streams, formats);
 		shouldRun = new AtomicBoolean(true);
 		sinkRecords = new LinkedBlockingQueue<>();
+		errorHandler = new DummyErrorHandler();
+		operator = new DummyOperator();
 	}
 
 	@Test
-	@DisplayName("Test should skip records with null key")
+	@DisplayName("Test should skip record with null key")
 	@Timeout(5)
-	void testShutdownWriteRawBatchedMessage() throws InterruptedException, IOException {
+	void testShouldSkipInvalidRecord() throws InterruptedException, IOException {
 		int batch = 4;
 		generateValidSinkRecords(sinkRecords, 3, 15);
 		addInValidSinkRecord(sinkRecords);
@@ -60,6 +61,34 @@ public class UpdateRecordsProcessorTest {
 		for (Reader reader : streams) {
 			assertEquals(15, Rio.parse(reader, RDFFormat.NQUADS).size());
 		}
+		assertTrue(errorHandler.hasHandled(NullPointerException.class));
+	}
+
+	@Test
+	@DisplayName("Test should skip multiple invalid records")
+	@Timeout(5)
+	void testShouldSkipMultipleInvalidRecords() throws InterruptedException, IOException {
+		int batch = 5;
+		generateValidSinkRecords(sinkRecords, 2, 15);
+		addInValidSinkRecord(sinkRecords);
+		generateValidSinkRecords(sinkRecords, 1, 15);
+		addInValidSinkRecord(sinkRecords);
+		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch, 5000);
+		recordsProcessor.start();
+		awaitEmptyCollection(sinkRecords);
+
+		assertTrue(formats.isEmpty());
+		assertTrue(streams.isEmpty());
+		shouldRun.set(false);
+		awaitProcessorShutdown(recordsProcessor);
+		assertFalse(recordsProcessor.isAlive());
+
+		assertEquals(3, streams.size());
+		for (Reader reader : streams) {
+			assertEquals(15, Rio.parse(reader, RDFFormat.NQUADS).size());
+		}
+		assertTrue(errorHandler.hasHandled(NullPointerException.class));
+		assertEquals(2, errorHandler.numberOfHandled());
 	}
 
 	@Test

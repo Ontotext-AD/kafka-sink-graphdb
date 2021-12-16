@@ -15,6 +15,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class Utils {
 
+	private Utils() {
+	}
+
 	public static void awaitProcessorShutdown(Thread processor) throws InterruptedException {
 		processor.join();
 	}
@@ -26,12 +29,12 @@ public class Utils {
 		});
 	}
 
-	public static void awaitCollectionSizeReached(Collection collection, int size) {
+	public static <E> void awaitCollectionSizeReached(Collection<E> collection, int size) {
 		while (collection.size() < size) {
 		}
 	}
 
-	public static void awaitEmptyCollection(Collection collection) {
+	public static <E> void awaitEmptyCollection(Collection<E> collection) {
 		while (!collection.isEmpty()) {
 		}
 	}
