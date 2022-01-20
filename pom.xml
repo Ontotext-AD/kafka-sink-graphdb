@@ -9,7 +9,7 @@
 	<description>Kafka Sink Connector for RDF update streaming to GraphDB</description>
 
 	<properties>
-		<graphdb.version>9.10.1</graphdb.version>
+		<graphdb.version>10.0.0-RDF4J4-BOOTSTRAP1</graphdb.version>
         <kafka.version>2.8.0</kafka.version>
 		<slf4j.version>1.7.30</slf4j.version>
         <jackson.version>2.10.1</jackson.version>
