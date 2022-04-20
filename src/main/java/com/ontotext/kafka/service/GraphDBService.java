@@ -37,7 +37,7 @@ public class GraphDBService {
 	}
 
 	public void initialize(Map<String, ?> properties) {
-		if (repository.compareAndSet(null, fetchRepository(properties))) {
+		if (repository.getAndUpdate(present -> initializeRepository(present, properties)) == null) {
 			errorHandler = new LogErrorHandler(properties);
 			operator = new GraphDBOperator(properties);
 			batchSize = (int) properties.get(GraphDBSinkConfig.BATCH_SIZE);
@@ -45,6 +45,7 @@ public class GraphDBService {
 			recordProcessor = new Thread(
 				fetchProcessor((String) properties.get(GraphDBSinkConfig.TRANSACTION_TYPE),
 					(String) properties.get(GraphDBSinkConfig.RDF_FORMAT), (String) properties.get(GraphDBSinkConfig.TEMPLATE_ID)));
+			shouldRun.set(true);
 			recordProcessor.start();
 		}
 	}
@@ -54,11 +55,20 @@ public class GraphDBService {
 	}
 
 	public void shutDown() {
-		shouldRun.set(false);
+		try {
+			repository.get().shutDown();
+		} finally {
+			repository.set(null);
+			shouldRun.set(false);
+		}
 	}
 
 	public void addData(Collection<SinkRecord> records) {
 		sinkRecords.add(records);
+	}
+
+	private Repository initializeRepository(Repository repository, Map<String, ?> properties) {
+		return repository == null ? fetchRepository(properties) : repository;
 	}
 
 	private static Repository fetchRepository(Map<String, ?> properties) {

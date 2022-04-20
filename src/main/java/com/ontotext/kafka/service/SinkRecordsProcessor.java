@@ -2,6 +2,12 @@ package com.ontotext.kafka.service;
 
 import com.ontotext.kafka.error.ErrorHandler;
 import com.ontotext.kafka.operation.OperationHandler;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Queue;
+import java.util.Set;
+import java.util.Timer;
+import java.util.TimerTask;
 import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.runtime.errors.Operation;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -12,7 +18,6 @@ import org.eclipse.rdf4j.rio.RDFFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
@@ -127,13 +132,13 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 	public Object call() throws RetriableException {
 		try (RepositoryConnection connection = repository.getConnection()) {
 			connection.begin();
-			for (SinkRecord record : recordsBatch) {
+			while (!recordsBatch.isEmpty()) {
+				SinkRecord record = recordsBatch.remove();
 				if (!failedRecords.contains(record)) {
 					handleRecord(record, connection);
 				}
 			}
 			connection.commit();
-			recordsBatch.clear();
 			failedRecords.clear();
 			return SUCCESSES;
 
