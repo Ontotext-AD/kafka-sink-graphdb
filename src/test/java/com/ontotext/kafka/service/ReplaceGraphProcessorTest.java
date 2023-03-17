@@ -112,6 +112,36 @@ public class ReplaceGraphProcessorTest {
 	}
 
 	@Test
+	@DisplayName("Test write batched null message")
+	@Timeout(5)
+	void testWriteRawNullMessage() throws InterruptedException, IOException {
+		int batch = 3;
+		generateSinkRecordsContexts(sinkRecords,
+			new String[]{"http://example1/", "http://example2/", "http://example1/",
+				"http://example2/"});
+		String recordKey = "http://example1/";
+		SinkRecord deleteRecord = new SinkRecord("topic", 0, null, recordKey.getBytes(),
+			null, null, 20);
+		sinkRecords.add(Collections.singleton(deleteRecord));
+
+		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch,
+			5000);
+		recordsProcessor.start();
+
+		awaitEmptyCollection(sinkRecords);
+		awaitCollectionSizeReached(contextMap, 1);
+		shouldRun.set(false);
+		awaitProcessorShutdown(recordsProcessor);
+		assertFalse(recordsProcessor.isAlive());
+
+		assertEquals(1, contextMap.size());
+		assertEquals(1, formatMap.size());
+
+		assertEquals(checkRDFStatementsWithContexts(3),
+			Rio.parse(contextMap.get("http://example2/"), RDFFormat.NQUADS).toString());
+	}
+
+	@Test
 	@DisplayName("Test write batched raw messages with messages left for shutdown processing")
 	@Timeout(5)
 	void testWriteRawBatchedMessageWithRemaining() throws InterruptedException, IOException {
