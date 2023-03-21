@@ -36,7 +36,9 @@ public class ReplaceGraphProcessor extends SinkRecordsProcessor {
 		try {
 			Resource context = ValueUtil.convertIRIKey(record.key());
 			connection.clear(context);
-			connection.add(ValueUtil.convertRDFData(record.value()), format, context);
+			if (record.value() != null) {
+				connection.add(ValueUtil.convertRDFData(record.value()), format, context);
+			}
 
 		} catch (IOException e) {
 			throw new RetriableException(e.getMessage());
