@@ -16,7 +16,7 @@ function create_graphdb_repo {
 		curl 'http://localhost:7200/rest/repositories' \
 			-H 'Accept: application/json, text/plain, */*' \
 			-H 'Content-Type: application/json;charset=UTF-8' \
-			-d '{"id":"test", "type":"free", "title": "Kafka connect sink test repository", "params": {}}'
+			-d '{"id": "test", "params": {"imports": {"name": "imports", "label": "Imported RDF files('\'';'\'' delimited)", "value": ""}, "defaultNS": {"name": "defaultNS", "label": "Default namespaces for imports('\'';'\'' delimited)", "value": ""}}, "title": "", "type": "graphdb", "location": ""}'
 	fi
 }
 
