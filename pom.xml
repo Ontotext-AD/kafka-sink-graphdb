@@ -20,8 +20,8 @@
 		<confluent.connect.plugin.version>0.11.1</confluent.connect.plugin.version>
         <avro.version>1.9.1</avro.version>
 
-		<internal.repo>http://maven.ontotext.com/content/repositories/owlim-releases</internal.repo>
-		<snapshots.repo>http://maven.ontotext.com/content/repositories/owlim-snapshots</snapshots.repo>
+		<internal.repo>https://maven.ontotext.com/content/repositories/owlim-releases</internal.repo>
+		<snapshots.repo>https://maven.ontotext.com/content/repositories/owlim-snapshots</snapshots.repo>
 
 		<!-- Empty defaults to keep things happy, argLine can be overridden on command line,
             extraArgLine may be overridden by one of the profiles. -->
