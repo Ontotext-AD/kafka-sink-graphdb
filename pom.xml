@@ -156,7 +156,7 @@
 									<nocache>true</nocache>
 									<pull>true</pull>
 								</buildOptions>
-								<dockerFile>${project.basedir}/Dockerfile</dockerFile>
+								<dockerFile>${project.basedir}/docker-release/Dockerfile</dockerFile>
 								<args>
 									<version>${project.version}</version>
 									<mavenDir>maven/</mavenDir>
