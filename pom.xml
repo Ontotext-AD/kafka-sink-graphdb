@@ -19,6 +19,9 @@
 		<rdf4j.version>3.7.2</rdf4j.version>
 		<confluent.connect.plugin.version>0.11.1</confluent.connect.plugin.version>
         <avro.version>1.9.1</avro.version>
+		<dependency.check.version>7.4.4</dependency.check.version>
+		<docker.maven.version>0.40.2</docker.maven.version>
+		<dockerImageTag>${project.version}</dockerImageTag>
 
 		<internal.repo>https://maven.ontotext.com/content/repositories/owlim-releases</internal.repo>
 		<snapshots.repo>https://maven.ontotext.com/content/repositories/owlim-snapshots</snapshots.repo>
@@ -121,6 +124,47 @@
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-javadoc-plugin</artifactId>
 				<version>3.1.1</version>
+			</plugin>
+			<plugin>
+				<groupId>org.owasp</groupId>
+				<artifactId>dependency-check-maven</artifactId>
+				<version>${dependency.check.version}</version>
+				<configuration>
+					<failBuildOnCVSS>7</failBuildOnCVSS>
+					<skipProvidedScope>true</skipProvidedScope>
+				</configuration>
+				<executions>
+					<execution>
+						<phase>none</phase>
+						<goals>
+							<goal>aggregate</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>io.fabric8</groupId>
+				<artifactId>docker-maven-plugin</artifactId>
+				<version>${docker.maven.version}</version>
+				<configuration>
+					<images>
+						<image>
+							<alias>${project.artifactId}-container</alias>
+							<name>docker-registry.ontotext.com/${project.artifactId}:${dockerImageTag}</name>
+							<build>
+								<buildOptions>
+									<nocache>true</nocache>
+									<pull>true</pull>
+								</buildOptions>
+								<dockerFile>${project.basedir}/Dockerfile</dockerFile>
+								<args>
+									<version>${project.version}</version>
+									<mavenDir>maven/</mavenDir>
+								</args>
+							</build>
+						</image>
+					</images>
+				</configuration>
 			</plugin>
 		</plugins>
 	</build>
