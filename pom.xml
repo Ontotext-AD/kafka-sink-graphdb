@@ -174,7 +174,7 @@
 		<repository>
 			<id>owlim-releases</id>
 			<name>GraphDB Releases</name>
-			<url>http://maven.ontotext.com/repository/owlim-releases</url>
+			<url>https://maven.ontotext.com/repository/owlim-releases</url>
 			<snapshots>
 				<enabled>false</enabled>
 			</snapshots>

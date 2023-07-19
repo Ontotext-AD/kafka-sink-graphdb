@@ -62,7 +62,7 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
             }
         } catch (InterruptedException | ExecutionException e) {
             Thread.currentThread().interrupt();
-        	LOG.error(e.getMessage());
+        	LOG.error(e.getMessage(), e);
         }
     }
 
@@ -93,7 +93,7 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
                 ByteArrayOutputStream message = new ByteArrayOutputStream();
 
                 try (GraphQueryResult res = QueryResults.parseGraphBackground(dataStream,dataFile, inputFormat);
-                     BufferedReader keysReader = new BufferedReader(new FileReader(keysFile))) {
+                    BufferedReader keysReader = new BufferedReader(new FileReader(keysFile))) {
                     String keyLine = keysReader.readLine();
                     String keyName = keyLine.split("=")[1];
                     String keyStatements = keysReader.readLine().split("=")[1];
@@ -114,7 +114,7 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
 							sendMessage(outputFormat, message, keyName, model);
 							message = new ByteArrayOutputStream();
                             if ( (keyLine = keysReader.readLine()) != null && !(keyLine.startsWith("#"))) {
-                    			keyName = keyLine.split("=")[1];
+                                keyName = keyLine.split("=")[1];
                                 keyStatements = keysReader.readLine().split("=")[1];
                                 numberOfStatementsPerKey = Integer.parseInt(keyStatements);
                                 countStatementsInCurrentMessage = 0;
@@ -128,7 +128,7 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
                     }
                 }
             } catch (IOException e) {
-                LOG.error(e.getMessage());
+                LOG.error(e.getMessage(), e);
             }
         }
     }
