@@ -29,6 +29,8 @@ import java.util.Map;
 import com.ontotext.kafka.service.GraphDBService;
 import com.ontotext.kafka.util.PropertiesUtil;
 import com.ontotext.kafka.util.ValidateGraphDBConnection;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
@@ -39,6 +41,7 @@ import com.ontotext.kafka.util.ValidateGraphDBConnection;
  */
 public class GraphDBSinkConnector extends SinkConnector {
 
+	private static final Logger LOG = LoggerFactory.getLogger(GraphDBSinkConnector.class);
 	private Map<String, String> properties;
 	private AbstractConfig conf;
 
@@ -49,6 +52,7 @@ public class GraphDBSinkConnector extends SinkConnector {
 
 	@Override
 	public void start(Map<String, String> properties) {
+		LOG.info("Starting the GraphDB SINK Connector ... ");
 		this.properties = properties;
 		this.conf = new GraphDBSinkConfig(properties);
 		GraphDBService.connectorService().initialize(conf.values());
@@ -70,6 +74,7 @@ public class GraphDBSinkConnector extends SinkConnector {
 
 	@Override
 	public void stop() {
+		LOG.info("Stopping the GraphDB SINK Connector ... ");
 		GraphDBService.connectorService().shutDown();
 	}
 

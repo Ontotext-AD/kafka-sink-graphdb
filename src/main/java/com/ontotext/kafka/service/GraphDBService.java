@@ -9,6 +9,8 @@ import org.apache.kafka.common.config.types.Password;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.http.HTTPRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 import java.util.Map;
@@ -23,6 +25,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * @author Tomas Kovachev tomas.kovachev@ontotext.com
  */
 public class GraphDBService {
+	private static final Logger LOG = LoggerFactory.getLogger(GraphDBService.class);
 	private static final GraphDBService INSTANCE = new GraphDBService();
 	private final AtomicBoolean shouldRun = new AtomicBoolean(true);
 	private final AtomicReference<Repository> repository = new AtomicReference<>(null);
@@ -47,6 +50,7 @@ public class GraphDBService {
 					(String) properties.get(GraphDBSinkConfig.RDF_FORMAT), (String) properties.get(GraphDBSinkConfig.TEMPLATE_ID)));
 			shouldRun.set(true);
 			recordProcessor.start();
+			LOG.debug("Started the GraphDB Repository connection.");
 		}
 	}
 
@@ -60,6 +64,7 @@ public class GraphDBService {
 		} finally {
 			repository.set(null);
 			shouldRun.set(false);
+			LOG.debug("The GraphDB Repository connection has been terminated.");
 		}
 	}
 

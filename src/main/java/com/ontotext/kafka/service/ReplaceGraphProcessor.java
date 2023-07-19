@@ -9,6 +9,8 @@ import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.rio.RDFFormat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -25,6 +27,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class ReplaceGraphProcessor extends SinkRecordsProcessor {
 
+	private static final Logger LOG = LoggerFactory.getLogger(ReplaceGraphProcessor.class);
+
 	protected ReplaceGraphProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
 									Repository repository, RDFFormat format, int batchSize, long timeoutCommitMs,
 									ErrorHandler errorHandler, OperationHandler operator) {
@@ -37,9 +41,11 @@ public class ReplaceGraphProcessor extends SinkRecordsProcessor {
 			Resource context = ValueUtil.convertIRIKey(record.key());
 			connection.clear(context);
 			if (record.value() != null) {
+				long start = System.currentTimeMillis();
 				connection.add(ValueUtil.convertRDFData(record.value()), format, context);
+				long finish = System.currentTimeMillis();
+				LOG.trace("Converted the record and added it to the RDF4J connection for {} ms", finish - start);
 			}
-
 		} catch (IOException e) {
 			throw new RetriableException(e.getMessage());
 		} catch (Exception e) {

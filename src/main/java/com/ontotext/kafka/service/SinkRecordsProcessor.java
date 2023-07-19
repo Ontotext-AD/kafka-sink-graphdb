@@ -13,7 +13,6 @@ import org.apache.kafka.connect.runtime.errors.Operation;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
-import org.eclipse.rdf4j.repository.RepositoryException;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,7 +52,6 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 	protected SinkRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
 								   Repository repository, RDFFormat format, int batchSize, long timeoutCommitMs,
 								   ErrorHandler errorHandler, OperationHandler operator) {
-
 		this.recordsBatch = new LinkedBlockingQueue<>();
 		this.sinkRecords = sinkRecords;
 		this.shouldRun = shouldRun;
@@ -83,7 +81,7 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 			while (sinkRecords.peek() != null) {
 				consumeRecords(sinkRecords.poll());
 			}
-			//final flush after all messages have been batched
+			// final flush after all messages have been batched
 			flushUpdates();
 		} finally {
 			// stop the scheduled committer
@@ -114,6 +112,7 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 
 	protected void flushRecordUpdates() {
 		if (!recordsBatch.isEmpty()) {
+			LOGGER.debug("Cleared {} filed records.", failedRecords.size());
 			failedRecords.clear();
 			if (operator.execAndHandleError(this) == null) {
 				LOGGER.warn("Flushing failed to execute the update");
@@ -130,6 +129,7 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 
 	@Override
 	public Object call() throws RetriableException {
+		long start = System.currentTimeMillis();
 		try (RepositoryConnection connection = repository.getConnection()) {
 			connection.begin();
 			while (!recordsBatch.isEmpty()) {
@@ -140,9 +140,10 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 			}
 			connection.commit();
 			failedRecords.clear();
+			long finish = System.currentTimeMillis();
+			LOGGER.trace("Finished batch processing for {} ms", finish - start);
 			return SUCCESSES;
-
-		} catch (RepositoryException e) {
+		} catch (Exception e) {
 			throw new RetriableException(e);
 		}
 	}

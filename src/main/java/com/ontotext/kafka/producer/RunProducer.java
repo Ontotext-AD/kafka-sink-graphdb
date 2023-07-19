@@ -12,6 +12,7 @@ import java.util.*;
 public class RunProducer {
     private static final Logger LOG = LoggerFactory.getLogger(RunProducer.class);
 
+	// FIXME: what is this class?! Is this the entry point? Either document or remove it.
     public static void main(String[] args) {
         if (args.length < 3) {
             LOG.error("Please provide command line arguments: configPath topic filesToReadFrom...");
@@ -26,8 +27,9 @@ public class RunProducer {
         try {
             props = config.loadConfig(configFile);
         } catch (IOException e) {
-            LOG.error(e.getMessage());
+            LOG.error(e.getMessage(), e);
         }
+		// FIXME: this is auto closable and has to be used in try with resources
         GraphDBProducer<String, String> producer = new GraphDBProducer<>(allFiles, kafkaTopic, props);
         producer.publish();
     }
