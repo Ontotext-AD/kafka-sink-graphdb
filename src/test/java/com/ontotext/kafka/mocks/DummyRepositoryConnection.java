@@ -1,6 +1,6 @@
 package com.ontotext.kafka.mocks;
 
-import org.eclipse.rdf4j.IsolationLevel;
+import org.eclipse.rdf4j.common.transaction.IsolationLevel;
 import org.eclipse.rdf4j.common.iteration.Iteration;
 import org.eclipse.rdf4j.http.client.query.AbstractHTTPUpdate;
 import org.eclipse.rdf4j.model.*;

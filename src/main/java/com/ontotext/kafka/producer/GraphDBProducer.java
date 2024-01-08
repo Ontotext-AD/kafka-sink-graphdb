@@ -92,7 +92,7 @@ public class GraphDBProducer<K,V> extends KafkaProducer<K,V>{
 
                 ByteArrayOutputStream message = new ByteArrayOutputStream();
 
-                try (GraphQueryResult res = QueryResults.parseGraphBackground(dataStream,dataFile, inputFormat);
+                try (GraphQueryResult res = QueryResults.parseGraphBackground(dataStream, dataFile, inputFormat, null);
                     BufferedReader keysReader = new BufferedReader(new FileReader(keysFile))) {
                     String keyLine = keysReader.readLine();
                     String keyName = keyLine.split("=")[1];

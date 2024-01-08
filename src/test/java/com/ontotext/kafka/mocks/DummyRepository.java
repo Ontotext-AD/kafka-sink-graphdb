@@ -40,10 +40,6 @@ public class DummyRepository implements Repository {
 	}
 
 	@Override
-	public void initialize() throws RepositoryException {
-	}
-
-	@Override
 	public void init() throws RepositoryException {
 	}
 
