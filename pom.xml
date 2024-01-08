@@ -9,17 +9,17 @@
 	<description>Kafka Sink Connector for RDF update streaming to GraphDB</description>
 
 	<properties>
-		<graphdb.version>10.5.0</graphdb.version>
         <kafka.version>3.5.2</kafka.version>
-		<slf4j.version>1.7.36</slf4j.version>
-        <jackson.version>2.10.1</jackson.version>
+		<slf4j.version>2.0.5</slf4j.version>
+        <jackson.version>2.15.3</jackson.version>
         <java.level>11</java.level>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <confluent.serializer.version>7.5.3</confluent.serializer.version>
 		<rdf4j.version>4.3.8</rdf4j.version>
 		<confluent.connect.plugin.version>0.12.0</confluent.connect.plugin.version>
         <avro.version>1.11.3</avro.version>
-		<dependency.check.version>7.4.4</dependency.check.version>
+		<dependency.check.version>8.4.3</dependency.check.version>
+		<jetty.version>9.4.53.v20231009</jetty.version>
+		<apache.maven.version>3.9.6</apache.maven.version>
 		<docker.maven.version>0.40.2</docker.maven.version>
 		<dockerImageTag>${project.version}</dockerImageTag>
 
@@ -181,6 +181,68 @@
 		</repository>
 	</repositories>
 
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>com.fasterxml.jackson</groupId>
+				<artifactId>jackson-bom</artifactId>
+				<version>${jackson.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.maven</groupId>
+				<artifactId>maven-core</artifactId>
+				<version>${apache.maven.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.maven</groupId>
+				<artifactId>maven-settings</artifactId>
+				<version>${apache.maven.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.maven</groupId>
+				<artifactId>maven-compat</artifactId>
+				<version>${apache.maven.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.maven.shared</groupId>
+				<artifactId>maven-shared-utils</artifactId>
+				<version>3.4.2</version>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.maven.shared</groupId>
+				<artifactId>maven-artifact-transfer</artifactId>
+				<version>0.13.1</version>
+			</dependency>
+			<dependency>
+				<groupId>org.eclipse.jetty</groupId>
+				<artifactId>jetty-server</artifactId>
+				<version>${jetty.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.eclipse.jetty</groupId>
+				<artifactId>jetty-io</artifactId>
+				<version>${jetty.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.eclipse.jetty</groupId>
+				<artifactId>jetty-servlet</artifactId>
+				<version>${jetty.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.eclipse.jetty</groupId>
+				<artifactId>jetty-servlets</artifactId>
+				<version>${jetty.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.eclipse.jetty</groupId>
+				<artifactId>jetty-client</artifactId>
+				<version>${jetty.version}</version>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+
 	<dependencies>
         <dependency>
             <groupId>org.apache.kafka</groupId>
@@ -202,11 +264,6 @@
                     <artifactId>slf4j-log4j12</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-		<dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-core</artifactId>
-            <version>${jackson.version}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
@@ -365,11 +422,13 @@
 			<groupId>org.mock-server</groupId>
 			<artifactId>mockserver-junit-jupiter</artifactId>
 			<version>5.15.0</version>
+			<scope>test</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.sonatype.sisu</groupId>
 			<artifactId>sisu-guava</artifactId>
 			<version>0.11.1</version>
+			<scope>test</scope>
 		</dependency>
 	</dependencies>
 
