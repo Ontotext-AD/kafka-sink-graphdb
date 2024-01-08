@@ -20,6 +20,22 @@
 		<dependency.check.version>8.4.3</dependency.check.version>
 		<jetty.version>9.4.53.v20231009</jetty.version>
 		<apache.maven.version>3.9.6</apache.maven.version>
+		<eclipse.collections.version>11.1.0</eclipse.collections.version>
+		<junit.jupiter.version>5.10.1</junit.jupiter.version>
+		<maven.shared.utils.version>3.4.2</maven.shared.utils.version>
+		<maven.artifact.transfer.version>0.13.1</maven.artifact.transfer.version>
+		<httpclient.osgi.version>4.5.14</httpclient.osgi.version>
+		<commons.logging.version>1.2</commons.logging.version>
+		<junit.version>4.13.2</junit.version>
+		<json.version>20231013</json.version>
+		<mockserver.junit.jupiter.version>5.15.0</mockserver.junit.jupiter.version>
+		<sisu.guava.version>0.11.1</sisu.guava.version>
+		<apache.maven.plugins.version>3.1.1</apache.maven.plugins.version>
+		<maven.release.plugin.version>2.5.3</maven.release.plugin.version>
+		<maven.compiler.plugin.version>3.8.1</maven.compiler.plugin.version>
+		<maven.shade.plugin.version>3.0.0</maven.shade.plugin.version>
+		<maven.surefire.plugin.version>3.0.0-M3</maven.surefire.plugin.version>
+
 		<docker.maven.version>0.40.2</docker.maven.version>
 		<dockerImageTag>${project.version}</dockerImageTag>
 
@@ -40,7 +56,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
-				<version>3.8.1</version>
+				<version>${maven.compiler.plugin.version}</version>
 				<configuration>
 					<source>${java.level}</source>
 					<target>${java.level}</target>
@@ -50,7 +66,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-shade-plugin</artifactId>
-				<version>3.0.0</version>
+				<version>${maven.shade.plugin.version}</version>
 				<configuration>
 					<artifactSet>
 						<includes>
@@ -83,7 +99,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
-				<version>3.0.0-M3</version>
+				<version>${maven.surefire.plugin.version}</version>
 				<configuration>
 					<argLine>${argLine} ${extraArgLine}</argLine>
 				</configuration>
@@ -92,7 +108,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-release-plugin</artifactId>
-				<version>2.5.3</version>
+				<version>${maven.release.plugin.version}</version>
 				<configuration>
 					<tagNameFormat>@{project.version}</tagNameFormat>
 					<arguments>-Dmaven.javadoc.skip=true</arguments>
@@ -102,7 +118,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-assembly-plugin</artifactId>
-				<version>3.1.1</version>
+				<version>${apache.maven.plugins.version}</version>
 				<configuration>
 					<finalName>${project.artifactId}</finalName>
 					<descriptors>
@@ -123,7 +139,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-javadoc-plugin</artifactId>
-				<version>3.1.1</version>
+				<version>${apache.maven.plugins.version}</version>
 			</plugin>
 			<plugin>
 				<groupId>org.owasp</groupId>
@@ -208,12 +224,12 @@
 			<dependency>
 				<groupId>org.apache.maven.shared</groupId>
 				<artifactId>maven-shared-utils</artifactId>
-				<version>3.4.2</version>
+				<version>${maven.shared.utils.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.maven.shared</groupId>
 				<artifactId>maven-artifact-transfer</artifactId>
-				<version>0.13.1</version>
+				<version>${maven.artifact.transfer.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.eclipse.jetty</groupId>
@@ -252,7 +268,7 @@
 		<dependency>
 			<groupId>org.apache.httpcomponents</groupId>
 			<artifactId>httpclient-osgi</artifactId>
-			<version>4.5.13</version>
+			<version>${httpclient.osgi.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.kafka</groupId>
@@ -304,7 +320,7 @@
 		<dependency>
             <groupId>commons-logging</groupId>
             <artifactId>commons-logging</artifactId>
-            <version>1.1.1</version>
+            <version>${commons.logging.version}</version>
         </dependency>
         <dependency>
             <groupId>org.eclipse.rdf4j</groupId>
@@ -375,13 +391,13 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>5.7.2</version>
+            <version>${junit.jupiter.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <version>4.13.2</version>
+            <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
 		<!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-api -->
@@ -403,31 +419,29 @@
         <dependency>
             <groupId>org.eclipse.collections</groupId>
             <artifactId>eclipse-collections-api</artifactId>
-            <version>11.0.0.M2</version>
-<!--            <scope>provided</scope>-->
+            <version>${eclipse.collections.version}</version>
         </dependency>
 
         <dependency>
             <groupId>org.eclipse.collections</groupId>
             <artifactId>eclipse-collections</artifactId>
-            <version>11.0.0.M2</version>
-<!--            <scope>provided</scope>-->
+            <version>${eclipse.collections.version}</version>
         </dependency>
 		<dependency>
 			<groupId>org.json</groupId>
 			<artifactId>json</artifactId>
-			<version>20231013</version>
+			<version>${json.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.mock-server</groupId>
 			<artifactId>mockserver-junit-jupiter</artifactId>
-			<version>5.15.0</version>
+			<version>${mockserver.junit.jupiter.version}</version>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.sonatype.sisu</groupId>
 			<artifactId>sisu-guava</artifactId>
-			<version>0.11.1</version>
+			<version>${sisu.guava.version}</version>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
@@ -471,7 +485,7 @@
 						<plugin>
 							<groupId>org.apache.maven.plugins</groupId>
 							<artifactId>maven-surefire-plugin</artifactId>
-							<version>3.0.0-M3</version>
+							<version>${maven.surefire.plugin.version}</version>
 							<configuration>
 								<jvm>${test.java}/bin/java</jvm>
 							</configuration>
