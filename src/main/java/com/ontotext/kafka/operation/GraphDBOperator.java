@@ -32,8 +32,7 @@ public class GraphDBOperator extends RetryWithToleranceOperator implements Opera
 
 	public GraphDBOperator(Map<String, ?> properties) {
 		super((Long) properties.get(ConnectorConfig.ERRORS_RETRY_TIMEOUT_CONFIG),
-			(Long) properties.get(ConnectorConfig.ERRORS_RETRY_MAX_DELAY_CONFIG), getTolerance(properties), new SystemTime());
-		metrics(METRICS);
+			(Long) properties.get(ConnectorConfig.ERRORS_RETRY_MAX_DELAY_CONFIG), getTolerance(properties), new SystemTime(), METRICS);
 		errorRetryTimeout = (Long) properties.get(ConnectorConfig.ERRORS_RETRY_TIMEOUT_CONFIG);
 		errorMaxDelayInMillis = (Long) properties.get(ConnectorConfig.ERRORS_RETRY_MAX_DELAY_CONFIG);
 		tolerance = getTolerance(properties);
