@@ -2,6 +2,7 @@ package com.ontotext.kafka.util;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.StringReader;
@@ -12,11 +13,12 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.rio.RDFFormat;
-
-import java.io.*;
-import java.util.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ValueUtil {
+
+	private static final Logger LOG = LoggerFactory.getLogger(ValueUtil.class);
 
 	private ValueUtil() {
 	}
@@ -60,9 +62,32 @@ public class ValueUtil {
 	public static Reader convertRDFData(Object obj) {
 		Objects.requireNonNull(obj, "Cannot parse null objects");
 		if (obj instanceof byte[]) {
-			return new BufferedReader(new InputStreamReader(new ByteArrayInputStream((byte[]) obj)));
+			var inputStream = new ByteArrayInputStream((byte[]) obj);
+			var reader = new BufferedReader(new InputStreamReader(inputStream));
+			StringBuilder content = new StringBuilder();
+			String line;
+
+			// Read each line from the BufferedReader
+			try {
+				var supportsMark = inputStream.markSupported();
+				if (supportsMark) {
+					inputStream.mark(1024);
+				}
+				while ((line = reader.readLine()) != null) {
+					content.append(line).append("\n");
+				}
+				if (supportsMark) {
+					inputStream.reset();
+				}
+			} catch (IOException e) {
+				throw new RuntimeException("Could not read line\n" + e.getMessage());
+			}
+			LOG.warn("The byte array record value is\n {}", content);
+			return reader;
 		} else {
-			return new StringReader(convertValueToString(obj));
+			var stringValue = convertValueToString(obj);
+			LOG.warn("The record value is\n {}", stringValue);
+			return new StringReader(stringValue);
 		}
 	}
 

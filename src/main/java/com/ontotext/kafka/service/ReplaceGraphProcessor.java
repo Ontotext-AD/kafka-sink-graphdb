@@ -41,6 +41,8 @@ public class ReplaceGraphProcessor extends SinkRecordsProcessor {
 			Resource context = ValueUtil.convertIRIKey(record.key());
 			connection.clear(context);
 			if (record.value() != null) {
+				LOG.warn("Key value is '{}'", context.stringValue());
+				LOG.warn("Format value is '{}'", format.toString());
 				long start = System.currentTimeMillis();
 				connection.add(ValueUtil.convertRDFData(record.value()), format, context);
 				long finish = System.currentTimeMillis();
