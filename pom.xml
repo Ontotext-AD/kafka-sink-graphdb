@@ -35,6 +35,8 @@
 		<maven.compiler.plugin.version>3.8.1</maven.compiler.plugin.version>
 		<maven.shade.plugin.version>3.0.0</maven.shade.plugin.version>
 		<maven.surefire.plugin.version>3.0.0-M3</maven.surefire.plugin.version>
+		<mockito.version>5.2.0</mockito.version>
+		<system-stubs-jupiter.version>2.1.3</system-stubs-jupiter.version>
 
 		<docker.maven.version>0.40.2</docker.maven.version>
 		<dockerImageTag>${project.version}</dockerImageTag>
@@ -442,6 +444,18 @@
 			<groupId>org.sonatype.sisu</groupId>
 			<artifactId>sisu-guava</artifactId>
 			<version>${sisu.guava.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>uk.org.webcompere</groupId>
+			<artifactId>system-stubs-jupiter</artifactId>
+			<version>${system-stubs-jupiter.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.mockito</groupId>
+			<artifactId>mockito-core</artifactId>
+			<version>${mockito.version}</version>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
