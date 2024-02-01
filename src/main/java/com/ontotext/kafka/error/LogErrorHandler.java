@@ -17,8 +17,13 @@ import org.slf4j.LoggerFactory;
 import java.util.Map;
 import java.util.Properties;
 
+/**
+ * Tailored DLQ (Dead Letter Queue) producer featuring a specialized error handler, designed to replace the default mechanism.
+ * This custom error handler not only takes charge of error management but also enhances logging capabilities for improved diagnostics.
+ */
+
 public class LogErrorHandler implements ErrorHandler {
-	public static final String PRODUCER_OVERRIDE_PROPERTY = "producer.override.";
+	public static final String PRODUCER_OVERRIDE_PREFIX = "producer.override.";
 	public static final String CONNECT_ENV_PREFIX = "CONNECT_";
 	private static final Logger LOGGER = LoggerFactory.getLogger(LogErrorHandler.class);
 
@@ -84,8 +89,7 @@ public class LogErrorHandler implements ErrorHandler {
 					.replaceFirst("^CONNECT_PRODUCER_", "")
 					.replaceFirst("^" + CONNECT_ENV_PREFIX, "").replace("_", ".").toLowerCase();
 				var entryValue = entry.getValue();
-				entryValue = entryValue.replace("\\" + System.getProperty("line.separator", "\n"), "");
-				props.put(key, entryValue);
+				props.put(key, escapeNewLinesFromString(entryValue));
 			}
 		}
 	}
@@ -94,9 +98,9 @@ public class LogErrorHandler implements ErrorHandler {
 		boolean producerPropertiesResolvedFromPassed = false;
 		for (Map.Entry<String, ?> entry : properties.entrySet()) {
 			var key = entry.getKey();
-			if (key.startsWith(PRODUCER_OVERRIDE_PROPERTY)) {
+			if (key.startsWith(PRODUCER_OVERRIDE_PREFIX)) {
 				producerPropertiesResolvedFromPassed = true;
-				props.put(key.substring(PRODUCER_OVERRIDE_PROPERTY.length()), entry.getValue());
+				props.put(key.substring(PRODUCER_OVERRIDE_PREFIX.length()), entry.getValue());
 			}
 		}
 		if (producerPropertiesResolvedFromPassed) {
@@ -109,7 +113,7 @@ public class LogErrorHandler implements ErrorHandler {
 	}
 
 	@VisibleForTesting
-	public String escapeNewLinesFromString(String value) {
-		return value.replace("\\" + System.getProperty("line.separator", "\n"), "");
+	public static String escapeNewLinesFromString(String value) {
+		return value.replace("\\" + System.lineSeparator(), "");
 	}
 }

@@ -2,7 +2,8 @@ package com.ontotext.kafka.error;
 
 import static com.ontotext.kafka.GraphDBSinkConfig.SERVER_IRI;
 import static com.ontotext.kafka.error.LogErrorHandler.CONNECT_ENV_PREFIX;
-import static com.ontotext.kafka.error.LogErrorHandler.PRODUCER_OVERRIDE_PROPERTY;
+import static com.ontotext.kafka.error.LogErrorHandler.PRODUCER_OVERRIDE_PREFIX;
+import static com.ontotext.kafka.error.LogErrorHandler.escapeNewLinesFromString;
 import static java.util.Map.entry;
 import static org.apache.kafka.clients.producer.ProducerConfig.BOOTSTRAP_SERVERS_CONFIG;
 import static org.apache.kafka.clients.producer.ProducerConfig.CLIENT_ID_CONFIG;
@@ -16,9 +17,7 @@ import static org.apache.kafka.connect.runtime.ConnectorConfig.ERRORS_TOLERANCE_
 import static org.apache.kafka.connect.runtime.SinkConnectorConfig.DLQ_TOPIC_NAME_CONFIG;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -88,12 +87,12 @@ class LogErrorHandlerTest {
 			SERVER_IRI, "http://localhost:7200",
 			DLQ_TOPIC_NAME_CONFIG, "error_topic",
 			BOOTSTRAP_SERVERS_CONFIG, "localhost:9092",
-			PRODUCER_OVERRIDE_PROPERTY + SSL_KEY_PASSWORD_CONFIG, new Password("my_pass"),
-			PRODUCER_OVERRIDE_PROPERTY + SSL_KEYSTORE_CERTIFICATE_CHAIN_CONFIG, new Password("my_pass"),
-			PRODUCER_OVERRIDE_PROPERTY + SSL_KEYSTORE_KEY_CONFIG, new Password("my_pass"),
-			PRODUCER_OVERRIDE_PROPERTY + SSL_KEYSTORE_LOCATION_CONFIG, "/keystore_resource_file_path",
-			PRODUCER_OVERRIDE_PROPERTY + SSL_ENGINE_FACTORY_CLASS_CONFIG, LogErrorHandlerTest.class,
-			PRODUCER_OVERRIDE_PROPERTY + SSL_PROVIDER_CONFIG, "/path_to_ssl_provider_config");
+			PRODUCER_OVERRIDE_PREFIX + SSL_KEY_PASSWORD_CONFIG, new Password("my_pass"),
+			PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_CERTIFICATE_CHAIN_CONFIG, new Password("my_pass"),
+			PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_KEY_CONFIG, new Password("my_pass"),
+			PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_LOCATION_CONFIG, "/keystore_resource_file_path",
+			PRODUCER_OVERRIDE_PREFIX + SSL_ENGINE_FACTORY_CLASS_CONFIG, LogErrorHandlerTest.class,
+			PRODUCER_OVERRIDE_PREFIX + SSL_PROVIDER_CONFIG, "/path_to_ssl_provider_config");
 		var mockedLockHandler = mock(LogErrorHandler.class);
 		Method getProperties = mockedLockHandler.getClass().getDeclaredMethod("getProperties", Map.class);
 		getProperties.setAccessible(true);
@@ -112,7 +111,7 @@ class LogErrorHandlerTest {
 				}
 				continue;
 			}
-			var keyWithPrefix = PRODUCER_OVERRIDE_PROPERTY + entryKey;
+			var keyWithPrefix = PRODUCER_OVERRIDE_PREFIX + entryKey;
 			assertTrue(kafkaConnectProps.containsKey(keyWithPrefix));
 			assertEquals(kafkaConnectProps.get(keyWithPrefix), entryValue);
 		}
@@ -124,7 +123,6 @@ class LogErrorHandlerTest {
 			SERVER_IRI, "http://localhost:7200",
 			DLQ_TOPIC_NAME_CONFIG, "error_topic");
 		var mockedLockHandler = mock(LogErrorHandler.class);
-		when(mockedLockHandler.escapeNewLinesFromString(anyString())).thenCallRealMethod();
 		Method getProperties = mockedLockHandler.getClass().getDeclaredMethod("getProperties", Map.class);
 		getProperties.setAccessible(true);
 		var convertedProps = (Properties) getProperties.invoke(mockedLockHandler, kafkaConnectProps);
@@ -143,7 +141,7 @@ class LogErrorHandlerTest {
 			}
 			var keyWithPrefix = CONNECT_ENV_PREFIX + (entryKey.replace(".", "_").toUpperCase());
 			assertTrue(ENV_VARIABLES.containsKey(keyWithPrefix));
-			assertEquals(mockedLockHandler.escapeNewLinesFromString((String) ENV_VARIABLES.get(keyWithPrefix)), entryValue);
+			assertEquals(escapeNewLinesFromString((String) ENV_VARIABLES.get(keyWithPrefix)), entryValue);
 		}
 	}
 }

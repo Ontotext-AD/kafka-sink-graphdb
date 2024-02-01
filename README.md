@@ -59,21 +59,19 @@ select * where {
 }
 ```
 
-# Secured Kafka Sink with FailedRecordProducer Configuration
+# Enable Security for Failed Messages sent to DLQ
 
-This guide provides instructions on how to start a secured Kafka Sink while configuring
+This guide offers step-by-step instructions for initiating a secure Kafka Sink configuration, incorporating security properties.
 
-the inner FailedRecordProducer with security properties. The configuration can be provided
-
-either using properties with a "producer.override." prefix or through environment variables in the Dockerfile.
+The configuration details can be specified using properties prefixed with "producer.override." or through environment variables in the Dockerfile.
 
 ## Configuration Options
 
-### Using "producer.override." Prefix in Properties
+### Utilizing ["producer.override."](https://docs.confluent.io/platform/current/connect/references/allconfigs.html#override-the-worker-configuration) Prefix in Property Configuration
 
-To configure the inner FailedRecordProducer with security properties using a "producer.override." prefix:
+To apply security properties, integrate the required settings into given .properties file.
 
-Provide the `graphdb-kafka-sink.properties` file to include security properties with the "producer.override." prefix. For example:
+Provide the "producer.override." prefix to indicate security-related parameters. For example:
 
 ```properties
 
@@ -238,7 +236,7 @@ services:
 		  CONNECT_CONSUMER_SSL_CLIENT_AUTH: required
 ```
 > **Note:** </br>
-> The FailedRecordProducer will initiate only if both "errors.tolerance": "all" and a value for "errors.deadletterqueue.topic.name"</br>
+> The DLQ (Dead Letter Queue) producer will initiate only if both "errors.tolerance": "all" and a value for "errors.deadletterqueue.topic.name"</br>
 > are either specified in the properties file or passed as runtime properties.</br>
 > They cannot be provided as environment variables. </br>
 > If security configuration is not found in the properties file or as a runtime property the application </br>
