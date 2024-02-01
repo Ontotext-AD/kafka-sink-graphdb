@@ -85,8 +85,7 @@ public class LogErrorHandler implements ErrorHandler {
 		for (Map.Entry<String, String> entry : envVars.entrySet()) {
 			var key = entry.getKey();
 			if (key.startsWith(CONNECT_ENV_PREFIX)) {
-				key = key.replaceFirst("^CONNECT_CONSUMER_", "")
-					.replaceFirst("^CONNECT_PRODUCER_", "")
+				key = key.replaceFirst("^CONNECT_PRODUCER_", "")
 					.replaceFirst("^" + CONNECT_ENV_PREFIX, "").replace("_", ".").toLowerCase();
 				var entryValue = entry.getValue();
 				props.put(key, escapeNewLinesFromString(entryValue));
