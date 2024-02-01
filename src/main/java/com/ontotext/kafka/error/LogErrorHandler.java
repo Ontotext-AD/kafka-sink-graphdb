@@ -68,9 +68,9 @@ public class LogErrorHandler implements ErrorHandler {
 
 	private Properties getProperties(Map<String, ?> properties) {
 		Properties props = new Properties();
-		if (!resolveProducerProperties(properties, props)) {
-			resolvePropertiesFromEnvironment(props);
-		}
+		resolveProducerProperties(properties, props);
+		resolvePropertiesFromEnvironment(props);
+
 		props.put(ProducerConfig.CLIENT_ID_CONFIG, FailedRecordProducer.class.getSimpleName());
 		return props;
 	}
@@ -93,22 +93,17 @@ public class LogErrorHandler implements ErrorHandler {
 		}
 	}
 
-	private boolean resolveProducerProperties(Map<String, ?> properties, Properties props) {
-		boolean producerPropertiesResolvedFromPassed = false;
+	private void resolveProducerProperties(Map<String, ?> properties, Properties props) {
 		for (Map.Entry<String, ?> entry : properties.entrySet()) {
 			var key = entry.getKey();
 			if (key.startsWith(PRODUCER_OVERRIDE_PREFIX)) {
-				producerPropertiesResolvedFromPassed = true;
 				props.put(key.substring(PRODUCER_OVERRIDE_PREFIX.length()), entry.getValue());
 			}
 		}
-		if (producerPropertiesResolvedFromPassed) {
-			var bootstrapServers = properties.get(BOOTSTRAP_SERVERS_CONFIG);
-			if (StringUtils.isNotEmpty((String) bootstrapServers)) {
-				props.put(BOOTSTRAP_SERVERS_CONFIG, properties.get(BOOTSTRAP_SERVERS_CONFIG));
-			}
+		var bootstrapServers = properties.get(BOOTSTRAP_SERVERS_CONFIG);
+		if (StringUtils.isNotEmpty((String) bootstrapServers)) {
+			props.put(BOOTSTRAP_SERVERS_CONFIG, properties.get(BOOTSTRAP_SERVERS_CONFIG));
 		}
-		return producerPropertiesResolvedFromPassed;
 	}
 
 	@VisibleForTesting

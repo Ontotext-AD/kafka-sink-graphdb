@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.Properties;
 
 import org.apache.kafka.common.config.types.Password;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
@@ -37,7 +36,22 @@ class LogErrorHandlerTest {
 	@SystemStub
 	private EnvironmentVariables environmentVariables;
 
+	private static final Map<String, Object> kafkaConnectProps = Map.of(ERRORS_TOLERANCE_CONFIG, "all",
+		SERVER_IRI, "http://localhost:7200",
+		DLQ_TOPIC_NAME_CONFIG, "error_topic",
+		BOOTSTRAP_SERVERS_CONFIG, "localhost:9092",
+		PRODUCER_OVERRIDE_PREFIX + SSL_KEY_PASSWORD_CONFIG, new Password("my_pass"),
+		PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_CERTIFICATE_CHAIN_CONFIG, new Password("my_pass"),
+		PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_KEY_CONFIG, new Password("my_pass"),
+		PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_LOCATION_CONFIG, "/keystore_resource_file_path",
+		PRODUCER_OVERRIDE_PREFIX + SSL_ENGINE_FACTORY_CLASS_CONFIG, LogErrorHandlerTest.class,
+		PRODUCER_OVERRIDE_PREFIX + SSL_PROVIDER_CONFIG, "/path_to_ssl_provider_config");
+
 	private static final Map<Object, Object> ENV_VARIABLES = Map.ofEntries(entry("CONNECT_BOOTSTRAP_SERVERS", "SSL://example.test.com:9094"),
+		entry("CONNECT_SSL_KEYSTORE_KEY", "this_pass"),
+		entry("CONNECT_SSL_KEYSTORE_LOCATION", "/keystore_another_resource_file_path"),
+		entry("CONNECT_SSL_PROVIDER", "/path_to_another_ssl_provider_config"),
+		entry("CONNECT_SSL_KEYSTORE_CERTIFICATE_CHAIN", "another_pass"),
 		entry("CONNECT_REST_ADVERTISED_HOST_NAME", "example.test.com"),
 		entry("CONNECT_REST_PORT", "8083"),
 		entry("CONNECT_REST_HOST_NAME", "example.test.com"),
@@ -74,25 +88,13 @@ class LogErrorHandlerTest {
 		entry("CONNECT_PRODUCER_SSL_TRUSTSTORE_LOCATION", "/etc/kafka/secrets/keystore7200.jks"),
 		entry("CONNECT_SSL_KEY_PASSWORD", "192.168.129.24-node-7200pass"),
 		entry("CONNECT_CONSUMER_SSL_KEY_PASSWORD", "192.168.129.24-node-7200pass"),
-		entry("CONNECT_PRODUCER_SSL_KEY_PASSWORD", "192.168.129.24-node-7200pass"));
-
-	@BeforeEach
-	void beforeEach() {
-		environmentVariables.set(ENV_VARIABLES);
-	}
+		entry("CONNECT_PRODUCER_SSL_KEY_PASSWORD", "192.168.129.24-node-7200pass"),
+		entry("CONNECT_SSL_ENGINE_FACTORY_CLASS", "MyClass"),
+		entry("CONNECT_CONSUMER_SSL_ENGINE_FACTORY_CLASS", "MyClass"),
+		entry("CONNECT_PRODUCER_SSL_ENGINE_FACTORY_CLASS", "MyClass"));
 
 	@Test
-	void testFailedRecordProducerConfiguration() throws IllegalAccessException, NoSuchMethodException, InvocationTargetException {
-		var kafkaConnectProps = Map.of(ERRORS_TOLERANCE_CONFIG, "all",
-			SERVER_IRI, "http://localhost:7200",
-			DLQ_TOPIC_NAME_CONFIG, "error_topic",
-			BOOTSTRAP_SERVERS_CONFIG, "localhost:9092",
-			PRODUCER_OVERRIDE_PREFIX + SSL_KEY_PASSWORD_CONFIG, new Password("my_pass"),
-			PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_CERTIFICATE_CHAIN_CONFIG, new Password("my_pass"),
-			PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_KEY_CONFIG, new Password("my_pass"),
-			PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_LOCATION_CONFIG, "/keystore_resource_file_path",
-			PRODUCER_OVERRIDE_PREFIX + SSL_ENGINE_FACTORY_CLASS_CONFIG, LogErrorHandlerTest.class,
-			PRODUCER_OVERRIDE_PREFIX + SSL_PROVIDER_CONFIG, "/path_to_ssl_provider_config");
+	void testFailedRecordProducerConfiguration() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
 		var mockedLockHandler = mock(LogErrorHandler.class);
 		Method getProperties = mockedLockHandler.getClass().getDeclaredMethod("getProperties", Map.class);
 		getProperties.setAccessible(true);
@@ -119,9 +121,36 @@ class LogErrorHandlerTest {
 
 	@Test
 	void testFailedRecordProducerConfigurationFromEnvironmentVariables() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+		environmentVariables.set(ENV_VARIABLES);
 		var kafkaConnectProps = Map.of(ERRORS_TOLERANCE_CONFIG, "all",
 			SERVER_IRI, "http://localhost:7200",
 			DLQ_TOPIC_NAME_CONFIG, "error_topic");
+		var mockedLockHandler = mock(LogErrorHandler.class);
+		Method getProperties = mockedLockHandler.getClass().getDeclaredMethod("getProperties", Map.class);
+		getProperties.setAccessible(true);
+		var convertedProps = (Properties) getProperties.invoke(mockedLockHandler, kafkaConnectProps);
+		for (var entry : convertedProps.entrySet()) {
+			var entryKey = (String) entry.getKey();
+			var entryValue = entry.getValue();
+			if (ERRORS_TOLERANCE_CONFIG.equals(entryKey)
+				|| DLQ_TOPIC_NAME_CONFIG.equals(entryKey)
+				|| SERVER_IRI.equals(entryKey)
+				|| CLIENT_ID_CONFIG.equals(entryKey)) {
+				if (!CLIENT_ID_CONFIG.equals(entryKey)) {
+					assertTrue(kafkaConnectProps.containsKey(entryKey));
+					assertEquals(kafkaConnectProps.get(entryKey), entryValue);
+				}
+				continue;
+			}
+			var keyWithPrefix = CONNECT_ENV_PREFIX + (entryKey.replace(".", "_").toUpperCase());
+			assertTrue(ENV_VARIABLES.containsKey(keyWithPrefix));
+			assertEquals(escapeNewLinesFromString((String) ENV_VARIABLES.get(keyWithPrefix)), entryValue);
+		}
+	}
+
+	@Test
+	void testFailedRecordProducerConfigurationWillBeSetFromEnvVariables() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+		environmentVariables.set(ENV_VARIABLES);
 		var mockedLockHandler = mock(LogErrorHandler.class);
 		Method getProperties = mockedLockHandler.getClass().getDeclaredMethod("getProperties", Map.class);
 		getProperties.setAccessible(true);
