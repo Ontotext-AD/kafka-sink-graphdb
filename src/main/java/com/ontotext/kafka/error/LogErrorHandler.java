@@ -1,9 +1,12 @@
 package com.ontotext.kafka.error;
 
+import static org.apache.kafka.clients.CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG;
+
+import com.google.common.annotations.VisibleForTesting;
 import com.ontotext.kafka.util.PropertiesUtil;
 import com.ontotext.kafka.util.ValueUtil;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.kafka.connect.runtime.SinkConnectorConfig;
 import org.apache.kafka.connect.runtime.errors.ToleranceType;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -14,7 +17,14 @@ import org.slf4j.LoggerFactory;
 import java.util.Map;
 import java.util.Properties;
 
+/**
+ * Tailored DLQ (Dead Letter Queue) producer featuring a specialized error handler, designed to replace the default mechanism.
+ * This custom error handler not only takes charge of error management but also enhances logging capabilities for improved diagnostics.
+ */
+
 public class LogErrorHandler implements ErrorHandler {
+	public static final String PRODUCER_OVERRIDE_PREFIX = "producer.override.";
+	public static final String CONNECT_ENV_PREFIX = "CONNECT_";
 	private static final Logger LOGGER = LoggerFactory.getLogger(LogErrorHandler.class);
 
 	private final ToleranceType tolerance;
@@ -46,7 +56,7 @@ public class LogErrorHandler implements ErrorHandler {
 		if (tolerance.equals(ToleranceType.NONE) || !isValid(topicName)) {
 			return null;
 		}
-		return new FailedRecordProducer(getProperties(properties));
+		return new FailedRecordProducer(topicName, getProperties(properties));
 	}
 
 	private boolean isValid(String topicName) {
@@ -58,10 +68,9 @@ public class LogErrorHandler implements ErrorHandler {
 
 	private Properties getProperties(Map<String, ?> properties) {
 		Properties props = new Properties();
-		props.put(SinkConnectorConfig.DLQ_TOPIC_NAME_CONFIG, properties.get(SinkConnectorConfig.DLQ_TOPIC_NAME_CONFIG));
-		props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, properties.get(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG));
-		props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-		props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+		resolveProducerProperties(properties, props);
+		resolvePropertiesFromEnvironment(props);
+
 		props.put(ProducerConfig.CLIENT_ID_CONFIG, FailedRecordProducer.class.getSimpleName());
 		return props;
 	}
@@ -69,5 +78,36 @@ public class LogErrorHandler implements ErrorHandler {
 	@Override
 	public boolean isTolerable() {
 		return tolerance == ToleranceType.ALL;
+	}
+
+	private void resolvePropertiesFromEnvironment(Properties props) {
+		var envVars = System.getenv();
+		for (Map.Entry<String, String> entry : envVars.entrySet()) {
+			var key = entry.getKey();
+			if (key.startsWith(CONNECT_ENV_PREFIX)) {
+				key = key.replaceFirst("^CONNECT_PRODUCER_", "")
+					.replaceFirst("^" + CONNECT_ENV_PREFIX, "").replace("_", ".").toLowerCase();
+				var entryValue = entry.getValue();
+				props.put(key, escapeNewLinesFromString(entryValue));
+			}
+		}
+	}
+
+	private void resolveProducerProperties(Map<String, ?> properties, Properties props) {
+		for (Map.Entry<String, ?> entry : properties.entrySet()) {
+			var key = entry.getKey();
+			if (key.startsWith(PRODUCER_OVERRIDE_PREFIX)) {
+				props.put(key.substring(PRODUCER_OVERRIDE_PREFIX.length()), entry.getValue());
+			}
+		}
+		var bootstrapServers = properties.get(BOOTSTRAP_SERVERS_CONFIG);
+		if (StringUtils.isNotEmpty((String) bootstrapServers)) {
+			props.put(BOOTSTRAP_SERVERS_CONFIG, properties.get(BOOTSTRAP_SERVERS_CONFIG));
+		}
+	}
+
+	@VisibleForTesting
+	public static String escapeNewLinesFromString(String value) {
+		return value.replace("\\" + System.lineSeparator(), "");
 	}
 }
