@@ -145,9 +145,9 @@ or pass properties runtime in config on start of the connector
 	fi
 ```
 
-### Using Environment Variables in Dockerfile
+### Using Environment Variables in 'docker-compose' file
 
-To configure the inner FailedRecordProducer with security properties using environment variables in the Dockerfile:
+To configure the Producer with security properties using environment variables in the 'docker-compose' file:
 
 ```dockerfile
 version: '3'
