@@ -101,7 +101,7 @@ public class LogErrorHandler implements ErrorHandler {
 			}
 		}
 		var bootstrapServers = properties.get(BOOTSTRAP_SERVERS_CONFIG);
-		if (StringUtils.isNotEmpty((String) bootstrapServers)) {
+		if (bootstrapServers != null) {
 			props.put(BOOTSTRAP_SERVERS_CONFIG, properties.get(BOOTSTRAP_SERVERS_CONFIG));
 		}
 	}
