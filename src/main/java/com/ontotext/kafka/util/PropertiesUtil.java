@@ -53,6 +53,10 @@ public class PropertiesUtil {
 		return properties.getProperty(key);
 	}
 
+	public static void setProperty(String key, String value) {
+		properties.setProperty(key, value);
+	}
+
 	public static ToleranceType getTolerance(Map<String, ?> properties) {
 		String tolerance = (String) properties.get(ConnectorConfig.ERRORS_TOLERANCE_CONFIG);
 		if (tolerance == null || "none".equalsIgnoreCase(tolerance)) {

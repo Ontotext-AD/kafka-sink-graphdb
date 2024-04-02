@@ -1,0 +1,8 @@
+{
+  "@context": {
+    "@vocab": "https://example.com/vocabulary/",
+    "@base": "https://example.com/data/",
+    "walmartOrder": "https://skos.com/order",
+    "orderNumber": "@id"
+  }
+}

@@ -188,6 +188,10 @@
 	</build>
 
 	<repositories>
+		<repository>
+			<id>confluent</id>
+			<url>https://packages.confluent.io/maven/</url>
+		</repository>
 		<!-- Repository needed for GraphDB artifacts and some support artifacts -->
 		<repository>
 			<id>owlim-releases</id>
@@ -262,7 +266,7 @@
 	</dependencyManagement>
 
 	<dependencies>
-        <dependency>
+		<dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>connect-api</artifactId>
             <version>${kafka.version}</version>
@@ -297,9 +301,18 @@
             <groupId>org.apache.avro</groupId>
             <artifactId>avro</artifactId>
             <version>${avro.version}</version>
-            <scope>test</scope>
         </dependency>
-        <dependency>
+		<dependency>
+			<groupId>io.confluent</groupId>
+			<artifactId>kafka-schema-registry-client</artifactId>
+			<version>7.6.0</version>
+		</dependency>
+		<dependency>
+			<groupId>io.confluent</groupId>
+			<artifactId>kafka-connect-avro-converter</artifactId>
+			<version>7.6.0</version>
+		</dependency>
+		<dependency>
             <groupId>org.eclipse.rdf4j</groupId>
             <artifactId>rdf4j-http-client</artifactId>
             <version>${rdf4j.version}</version>

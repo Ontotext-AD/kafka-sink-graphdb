@@ -1,6 +1,9 @@
 package com.ontotext.kafka;
 
 import com.ontotext.kafka.mocks.DummyRepository;
+import io.confluent.connect.avro.AvroData;
+import java.io.IOException;
+import org.apache.avro.Schema;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.rio.RDFFormat;
@@ -53,6 +56,19 @@ public class Utils {
 		return builder.toString();
 	}
 
+	public static org.apache.kafka.connect.data.Schema getAvroSchema(String source)
+		throws IOException {
+		Schema.Parser parser = new Schema.Parser();
+		AvroData avroData = new AvroData(100);
+		Schema schema = parser.parse(
+			Utils.class.getClassLoader().getResourceAsStream(source));
+		return avroData.toConnectSchema(schema);
+	}
+
+	public static byte[] getAvroData(String data) throws IOException {
+		return Utils.class.getClassLoader().getResourceAsStream(data).readAllBytes();
+	}
+
 	public static void verifyForMilliseconds(Supplier<Boolean> supplier, long ms) {
 		long timeUntilSchedule = System.currentTimeMillis() + ms;
 		while (System.currentTimeMillis() < timeUntilSchedule) {
@@ -65,6 +81,14 @@ public class Utils {
 			SinkRecord sinkRecord = new SinkRecord("topic", 0, null, null, null,
 				generateRDFStatements(statementsSize).getBytes(),
 				12);
+			sinkRecords.add(Collections.singleton(sinkRecord));
+		}
+	}
+
+	public static void generateAvroSinkRecords(Queue<Collection<SinkRecord>> sinkRecords, int recordsSize, String schema, String data)
+		throws IOException {
+		for (int i = 0; i < recordsSize; i++) {
+			SinkRecord sinkRecord = new SinkRecord("topic", 0, null, null, getAvroSchema(schema), getAvroData(data), 12);
 			sinkRecords.add(Collections.singleton(sinkRecord));
 		}
 	}

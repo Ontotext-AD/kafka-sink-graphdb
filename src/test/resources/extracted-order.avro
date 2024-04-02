@@ -1,0 +1,635 @@
+{
+  "doc": "walmart processed order to be picked up by ETL",
+  "fields": [
+    {
+      "doc": "user cadenAlias",
+      "name": "cadenAlias",
+      "type": {
+        "logicalType": "uuid",
+        "type": "string"
+      }
+    },
+    {
+      "doc": "order object from walmart extraction",
+      "name": "walmartOrder",
+      "type": {
+        "doc": "individual order item from walmart extraction",
+        "fields": [
+          {
+            "doc": "customer cadenAlias",
+            "name": "customer",
+            "type": [
+              "null",
+              {
+                "logicalType": "uuid",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "doc": "user cadenAlias",
+            "name": "cadenAlias",
+            "type": [
+              "null",
+              {
+                "logicalType": "uuid",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "doc": "order date",
+            "name": "orderDate",
+            "type": [
+              "null",
+              {
+                "avro.java.string": "String",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "doc": "order number",
+            "name": "orderNumber",
+            "type": [
+              "null",
+              {
+                "avro.java.string": "String",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "doc": "order status",
+            "name": "orderStatus",
+            "type": [
+              "null",
+              {
+                "avro.java.string": "String",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "doc": "order broker",
+            "name": "broker",
+            "type": [
+              "null",
+              {
+                "avro.java.string": "String",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "doc": "order type",
+            "name": "orderType",
+            "type": [
+              "null",
+              {
+                "avro.java.string": "String",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "doc": "list of ordered items",
+            "name": "orderedItems",
+            "type": [
+              "null",
+              {
+                "items": {
+                  "doc": "walmart order to be mapped from walmart order extraction",
+                  "fields": [
+                    {
+                      "doc": "order quantity",
+                      "name": "orderQuantity",
+                      "type": [
+                        "null",
+                        "int"
+                      ]
+                    },
+                    {
+                      "default": null,
+                      "doc": "item adjustment status",
+                      "name": "itemAdjustmentStatus",
+                      "type": [
+                        "null",
+                        {
+                          "avro.java.string": "String",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    {
+                      "default": null,
+                      "doc": "LineID",
+                      "name": "lineId",
+                      "type": [
+                        "null",
+                        {
+                          "avro.java.string": "String",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    {
+                      "doc": "order product",
+                      "name": "orderedItem",
+                      "type": [
+                        "null",
+                        {
+                          "doc": "walmart order to be mapped from walmart order extraction",
+                          "fields": [
+                            {
+                              "doc": "product sku",
+                              "name": "identifier",
+                              "type": [
+                                "null",
+                                {
+                                  "avro.java.string": "String",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            {
+                              "doc": "product name",
+                              "name": "name",
+                              "type": [
+                                "null",
+                                {
+                                  "avro.java.string": "String",
+                                  "type": "string"
+                                }
+                              ]
+                            }
+                          ],
+                          "name": "Product",
+                          "type": "record"
+                        }
+                      ]
+                    },
+                    {
+                      "doc": "order seller",
+                      "name": "seller",
+                      "type": [
+                        "null",
+                        {
+                          "doc": "walmart order to be mapped from walmart order extraction",
+                          "fields": [
+                            {
+                              "doc": "seller parent organization",
+                              "name": "parentOrganization",
+                              "type": [
+                                "null",
+                                {
+                                  "avro.java.string": "String",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            {
+                              "doc": "seller name",
+                              "name": "name",
+                              "type": [
+                                "null",
+                                {
+                                  "avro.java.string": "String",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            {
+                              "doc": "seller address",
+                              "name": "address",
+                              "type": [
+                                "null",
+                                {
+                                  "avro.java.string": "String",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            {
+                              "doc": "seller identifier",
+                              "name": "identifier",
+                              "type": [
+                                "null",
+                                {
+                                  "avro.java.string": "String",
+                                  "type": "string"
+                                }
+                              ]
+                            }
+                          ],
+                          "name": "Seller",
+                          "type": "record"
+                        }
+                      ]
+                    },
+                    {
+                      "doc": "order parcel delivery",
+                      "name": "orderDelivery",
+                      "type": [
+                        "null",
+                        {
+                          "doc": "walmart order to be mapped from walmart order extraction",
+                          "fields": [
+                            {
+                              "doc": "parcel delivery address",
+                              "name": "deliveryAddress",
+                              "type": [
+                                "null",
+                                {
+                                  "avro.java.string": "String",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            {
+                              "doc": "parcel delivery hasDeliveryMethod?",
+                              "name": "hasDeliveryMethod",
+                              "type": [
+                                "null",
+                                {
+                                  "avro.java.string": "String",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            {
+                              "doc": "parcel delivery identifier",
+                              "name": "identifier",
+                              "type": [
+                                "null",
+                                {
+                                  "avro.java.string": "String",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            {
+                              "doc": "parcel delivery tracking number",
+                              "name": "trackingNumber",
+                              "type": [
+                                "null",
+                                {
+                                  "avro.java.string": "String",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            {
+                              "doc": "order sameAs",
+                              "name": "sameAs",
+                              "type": [
+                                "null",
+                                {
+                                  "avro.java.string": "String",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            {
+                              "doc": "order sameAs",
+                              "name": "isShippedByBroker",
+                              "type": [
+                                "null",
+                                {
+                                  "avro.java.string": "String",
+                                  "type": "string"
+                                }
+                              ]
+                            }
+                          ],
+                          "name": "ParcelDelivery",
+                          "type": "record"
+                        }
+                      ]
+                    },
+                    {
+                      "doc": "price specification",
+                      "name": "priceSpecification",
+                      "type": [
+                        "null",
+                        {
+                          "doc": "walmart order to be mapped from walmart order extraction",
+                          "fields": [
+                            {
+                              "doc": "price",
+                              "name": "price",
+                              "type": [
+                                "null",
+                                "double"
+                              ]
+                            },
+                            {
+                              "doc": "price currency",
+                              "name": "priceCurrency",
+                              "type": [
+                                "null",
+                                {
+                                  "avro.java.string": "String",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            {
+                              "doc": "tax",
+                              "name": "tax",
+                              "type": [
+                                "null",
+                                "double"
+                              ]
+                            },
+                            {
+                              "doc": "service fee",
+                              "name": "serviceFee",
+                              "type": [
+                                "null",
+                                "double"
+                              ]
+                            },
+                            {
+                              "doc": "delivery fee",
+                              "name": "deliveryFee",
+                              "type": [
+                                "null",
+                                "double"
+                              ]
+                            },
+                            {
+                              "doc": "tip",
+                              "name": "tip",
+                              "type": [
+                                "null",
+                                "double"
+                              ]
+                            },
+                            {
+                              "doc": "discount",
+                              "name": "discount",
+                              "type": [
+                                "null",
+                                {
+                                  "items": {
+                                    "avro.java.string": "String",
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                }
+                              ]
+                            },
+                            {
+                              "doc": "discount code",
+                              "name": "discountCode",
+                              "type": [
+                                "null",
+                                {
+                                  "avro.java.string": "String",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            {
+                              "doc": "refund",
+                              "name": "refund",
+                              "type": [
+                                "null",
+                                "double"
+                              ]
+                            },
+                            {
+                              "default": null,
+                              "doc": "refund",
+                              "name": "refundArray",
+                              "type": [
+                                "null",
+                                {
+                                  "items": {
+                                    "doc": "walmart generic price adjustment object",
+                                    "fields": [
+                                      {
+                                        "doc": "label",
+                                        "name": "label",
+                                        "type": [
+                                          "null",
+                                          {
+                                            "avro.java.string": "String",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "doc": "labelStyle",
+                                        "name": "labelStyle",
+                                        "type": [
+                                          "null",
+                                          {
+                                            "avro.java.string": "String",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "doc": "strikeThroughValue",
+                                        "name": "strikeThroughValue",
+                                        "type": [
+                                          "null",
+                                          {
+                                            "avro.java.string": "String",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "doc": "value",
+                                        "name": "value",
+                                        "type": [
+                                          "null",
+                                          "double"
+                                        ]
+                                      },
+                                      {
+                                        "doc": "displayValue",
+                                        "name": "displayValue",
+                                        "type": [
+                                          "null",
+                                          {
+                                            "avro.java.string": "String",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "name": "WalmartGenericPriceAdjustment",
+                                    "type": "record"
+                                  },
+                                  "type": "array"
+                                }
+                              ]
+                            },
+                            {
+                              "default": null,
+                              "doc": "fees",
+                              "name": "fees",
+                              "type": [
+                                "null",
+                                {
+                                  "items": "WalmartGenericPriceAdjustment",
+                                  "type": "array"
+                                }
+                              ]
+                            },
+                            {
+                              "doc": "subtotal",
+                              "name": "subTotal",
+                              "type": [
+                                "null",
+                                "double"
+                              ]
+                            },
+                            {
+                              "doc": "unitPrice",
+                              "name": "unitPrice",
+                              "type": [
+                                "null",
+                                "double"
+                              ]
+                            },
+                            {
+                              "doc": "type of unit,  i.e lbs,oz...etc",
+                              "name": "unit",
+                              "type": [
+                                "null",
+                                {
+                                  "avro.java.string": "String",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            {
+                              "doc": "hasPayment",
+                              "name": "hasPayment",
+                              "type": [
+                                "null",
+                                {
+                                  "items": {
+                                    "doc": "walmart order to be mapped from walmart order extraction",
+                                    "fields": [
+                                      {
+                                        "doc": "payment method id",
+                                        "name": "identifier",
+                                        "type": [
+                                          "null",
+                                          {
+                                            "avro.java.string": "String",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "doc": "mask - denoting type of visa, etc",
+                                        "name": "mask",
+                                        "type": [
+                                          "null",
+                                          {
+                                            "avro.java.string": "String",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "doc": "card type used, i.e visa, mastercard, etc",
+                                        "name": "cardType",
+                                        "type": [
+                                          "null",
+                                          {
+                                            "avro.java.string": "String",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "doc": "payment method",
+                                        "name": "paymentMethod",
+                                        "type": [
+                                          "null",
+                                          {
+                                            "avro.java.string": "String",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "doc": "amount",
+                                        "name": "amount",
+                                        "type": [
+                                          "null",
+                                          "double"
+                                        ]
+                                      }
+                                    ],
+                                    "name": "PaymentSpecification",
+                                    "type": "record"
+                                  },
+                                  "type": "array"
+                                }
+                              ]
+                            }
+                          ],
+                          "name": "PriceSpecification",
+                          "type": "record"
+                        }
+                      ]
+                    }
+                  ],
+                  "name": "OrderItem",
+                  "type": "record"
+                },
+                "type": "array"
+              }
+            ]
+          },
+          {
+            "doc": "order is a fuel purchase",
+            "name": "isFuelPurchase",
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          {
+            "doc": "order is an exchange",
+            "name": "isExchange",
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          {
+            "doc": "order is a return",
+            "name": "isReturn",
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          {
+            "doc": "price specification",
+            "name": "priceSpecification",
+            "type": [
+              "null",
+              "PriceSpecification"
+            ]
+          }
+        ],
+        "name": "WalmartOrder",
+        "type": "record"
+      }
+    }
+  ],
+  "name": "WalmartProcessedOrderForETL",
+  "namespace": "io.confluent.walmartintake",
+  "type": "record"
+}

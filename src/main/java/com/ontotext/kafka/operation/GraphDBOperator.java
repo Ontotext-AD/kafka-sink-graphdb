@@ -1,5 +1,7 @@
 package com.ontotext.kafka.operation;
 
+import com.ontotext.kafka.util.PropertiesUtil;
+import java.util.Objects;
 import org.apache.kafka.common.utils.SystemTime;
 import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.runtime.ConnectMetrics;
@@ -29,10 +31,12 @@ public class GraphDBOperator extends RetryWithToleranceOperator implements Opera
 	private final long errorRetryTimeout;
 	private final long errorMaxDelayInMillis;
 	private final ToleranceType tolerance;
+	private static Map<String, ?> externalProperties;
 
 	public GraphDBOperator(Map<String, ?> properties) {
 		super((Long) properties.get(ConnectorConfig.ERRORS_RETRY_TIMEOUT_CONFIG),
-			(Long) properties.get(ConnectorConfig.ERRORS_RETRY_MAX_DELAY_CONFIG), getTolerance(properties), new SystemTime(), METRICS);
+			(Long) properties.get(ConnectorConfig.ERRORS_RETRY_MAX_DELAY_CONFIG), getTolerance(properties), new SystemTime());
+		externalProperties = properties;
 		errorRetryTimeout = (Long) properties.get(ConnectorConfig.ERRORS_RETRY_TIMEOUT_CONFIG);
 		errorMaxDelayInMillis = (Long) properties.get(ConnectorConfig.ERRORS_RETRY_MAX_DELAY_CONFIG);
 		tolerance = getTolerance(properties);
@@ -41,6 +45,7 @@ public class GraphDBOperator extends RetryWithToleranceOperator implements Opera
 	@Override
 	public <E> E execAndHandleError(Operation<E> operation) {
 		try {
+			LOGGER.info(operation.toString());
 			return executeAndRetry(operation);
 		} catch (UpdateExecutionException e) {
 			LOGGER.warn("Caught an Update Exception while executing operation: {}", operation, e);
@@ -135,8 +140,14 @@ public class GraphDBOperator extends RetryWithToleranceOperator implements Opera
 
 		private static Map<String, String> getBasicProperties() {
 			Map<String, String> props = new HashMap<>();
-			props.put(ConnectorConfig.KEY_CONVERTER_CLASS_CONFIG, StringConverter.class.getName());
-			props.put(ConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG, StringConverter.class.getName());
+			String keyConverter =
+				PropertiesUtil.getProperty(ConnectorConfig.KEY_CONVERTER_CLASS_CONFIG);
+			props.put(ConnectorConfig.KEY_CONVERTER_CLASS_CONFIG,
+				Objects.requireNonNullElseGet(keyConverter, StringConverter.class::getName));
+			String valueConverter =
+				PropertiesUtil.getProperty(ConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG);
+			props.put(ConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG,
+				Objects.requireNonNullElseGet(valueConverter, StringConverter.class::getName));
 			props.put(StandaloneConfig.OFFSET_STORAGE_FILE_FILENAME_CONFIG, "/tmp/connect.offsets");
 			return props;
 		}

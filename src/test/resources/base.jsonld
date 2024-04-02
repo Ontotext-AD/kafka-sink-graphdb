@@ -1,0 +1,88 @@
+{
+    "@context": {
+    "@vocab": "https://example.com/vocabulary/",
+    "@base": "https://example.com/data/"
+  },
+  "@id": "41096588-34ee-4d34-8ecf-4cd90f03012c",
+  "walmartOrder": {
+    "customer": "41096588-34ee-4d34-8ecf-4cd90f03012c",
+    "companyAlias": "41096588-34ee-4d34-8ecf-4cd90f03012c",
+    "orderDate": "2024-01-04T19:30:57.000Z",
+    "@id": "35231126233656963523",
+    "orderStatus": "IN_STORE",
+    "broker": "Walmart",
+    "orderType": "IN_STORE",
+    "orderedItems": [
+      {
+        "orderQuantity": 1,
+        "itemAdjustmentStatus": "REGULAR",
+        "lineId": "0",
+        "orderedItem": {
+          "identifier": "38253425",
+          "name": "Reese's Milk Chocolate Peanut Butter Cups Candy, Pack 1.5 oz",
+        },
+        "seller": {
+          "parentOrganization": "Walmart",
+          "name": "Omaha Supercenter",
+          "address": "1606 S 72ND ST, Omaha, NE 68124",
+          "identifier": "4358"
+        },
+        "orderDelivery": {
+          "deliveryAddress": null,
+          "hasDeliveryMethod": null,
+          "identifier": null,
+          "trackingNumber": null,
+          "sameAs": null,
+          "isShippedByBroker": null
+        },
+        "priceSpecification": {
+          "price": 0.98,
+          "priceCurrency": "USD",
+          "tax": null,
+          "serviceFee": null,
+          "deliveryFee": null,
+          "tip": null,
+          "discount": [],
+          "discountCode": null,
+          "refund": null,
+          "refundArray": null,
+          "fees": null,
+          "subTotal": null,
+          "unitPrice": 0.98,
+          "unit": "Qty",
+          "hasPayment": null
+        }
+      }
+    ],
+    "isFuelPurchase": false,
+    "isExchange": false,
+    "isReturn": false,
+    "priceSpecification": {
+      "price": 0.88,
+      "priceCurrency": "USD",
+      "tax": 0.0,
+      "serviceFee": null,
+      "deliveryFee": null,
+      "tip": null,
+      "discount": [
+        "Associate discount"
+      ],
+      "discountCode": null,
+      "refund": null,
+      "refundArray": [],
+      "fees": [],
+      "subTotal": 0.98,
+      "unitPrice": null,
+      "unit": null,
+      "hasPayment": [
+        {
+          "identifier": null,
+          "mask": "3815",
+          "cardType": "WMVISA",
+          "paymentMethod": "CREDITCARD",
+          "amount": null
+        }
+      ]
+    }
+  }
+}

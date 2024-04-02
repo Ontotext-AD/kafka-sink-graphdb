@@ -1,9 +1,13 @@
 package com.ontotext.kafka.mocks;
 
+import java.io.ByteArrayOutputStream;
+import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import org.eclipse.rdf4j.common.transaction.IsolationLevel;
 import org.eclipse.rdf4j.common.iteration.Iteration;
 import org.eclipse.rdf4j.http.client.query.AbstractHTTPUpdate;
 import org.eclipse.rdf4j.model.*;
+import org.eclipse.rdf4j.model.impl.TreeModel;
 import org.eclipse.rdf4j.query.*;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
@@ -228,7 +232,16 @@ public class DummyRepositoryConnection implements RepositoryConnection {
 
 	@Override
 	public void add(Statement st, Resource... contexts) throws RepositoryException {
-
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		RDFWriter writer = Rio.createWriter(RDFFormat.NQUADS, out);
+		writer.startRDF();
+		writer.handleStatement(st);
+		writer.endRDF();
+		StringReader reader = new StringReader(new String(out.toByteArray(), StandardCharsets.UTF_8));
+		if (contexts.length != 0) {
+			addContextConsumer.accept(Arrays.stream(contexts).map(Value::stringValue).findFirst().get(), reader);
+		}
+		addFormatConsumer.accept(reader, RDFFormat.NQUADS);
 	}
 
 	@Override
@@ -248,7 +261,7 @@ public class DummyRepositoryConnection implements RepositoryConnection {
 
 	@Override
 	public void remove(Statement st, Resource... contexts) throws RepositoryException {
-
+		removeConsumer.accept(Arrays.stream(contexts).map(Value::stringValue).findFirst().get());
 	}
 
 	@Override
