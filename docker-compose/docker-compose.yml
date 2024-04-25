@@ -26,41 +26,16 @@ services:
       - schema-registry
 
   schema-registry:
-    image: confluentinc/cp-schema-registry
+    image: confluentinc/cp-schema-registry:7.6.1
     depends_on:
       - broker
+    ports:
+      - 8085:8085
     environment:
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'PLAINTEXT://broker:9092'
       SCHEMA_REGISTRY_HOST_NAME: 'schema-registry'
       SCHEMA_REGISTRY_LISTENERS: 'http://0.0.0.0:8085'
       SCHEMA_REGISTRY_LOG4J_ROOT_LOGLEVEL: 'INFO'
-
-  connect:
-    image: confluentinc/cp-kafka-connect
-    depends_on:
-      - broker
-      - schema-registry
-    environment:
-      CONNECT_BOOTSTRAP_SERVERS: 'broker:9092'
-      CONNECT_REST_PORT: '8083'
-      CONNECT_REST_LISTENERS: 'http://0.0.0.0:8083'
-      CONNECT_REST_ADVERTISED_HOST_NAME: 'connect'
-      CONNECT_CONFIG_STORAGE_TOPIC: '__connect-config'
-      CONNECT_OFFSET_STORAGE_TOPIC: '__connect-offsets'
-      CONNECT_STATUS_STORAGE_TOPIC: '__connect-status'
-      CONNECT_GROUP_ID: 'kafka-connect'
-      CONNECT_KEY_CONVERTER_SCHEMAS_ENABLE: 'true'
-      CONNECT_KEY_CONVERTER: 'io.confluent.connect.avro.AvroConverter'
-      CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: 'http://schema-registry:8085'
-      CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: 'true'
-      CONNECT_VALUE_CONVERTER: 'io.confluent.connect.avro.AvroConverter'
-      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: 'http://schema-registry:8085'
-      CONNECT_INTERNAL_KEY_CONVERTER: 'org.apache.kafka.connect.json.JsonConverter'
-      CONNECT_INTERNAL_VALUE_CONVERTER: 'org.apache.kafka.connect.json.JsonConverter'
-      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: '1'
-      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: '1'
-      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: '1'
-      CONNECT_PLUGIN_PATH: ' /usr/share/java/'
 
 #  ksqldb:
 #    image: confluentinc/cp-ksqldb-server
@@ -118,7 +93,7 @@ services:
 #    links:
 #      - kafka
   zookeeper:
-    image: confluentinc/cp-zookeeper:7.5.3
+    image: confluentinc/cp-zookeeper:7.6.1
     hostname: zookeeper
     container_name: zookeeper
     ports:
@@ -128,7 +103,7 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
 
   broker:
-    image: confluentinc/cp-enterprise-kafka:7.5.3
+    image: confluentinc/cp-enterprise-kafka:7.6.1
     hostname: broker
     container_name: broker
     depends_on:
@@ -152,7 +127,7 @@ services:
       CONFLUENT_SUPPORT_CUSTOMER_ID: anonymous
 
   graphdb:
-    image: ontotext/graphdb:10.5.0
+    image: ontotext/graphdb:10.6.2
     hostname: graphdb
     container_name: graphdb
     ports:
@@ -191,4 +166,7 @@ services:
       CONNECT_STATUS_STORAGE_TOPIC: docker-connect-status-1
       CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_ZOOKEEPER_CONNECT: zookeeper:2181
-      CONNECT_LOG4J_LOGGERS: org.apache.zookeeper=DEBUG,org.I0Itec.zkclient=DEBUG,org.reflections=ERROR
+      CONNECT_LOG4J_LOGGERS: org.apache.zookeeper=DEBUG,org.I0Itec.zkclient=DEBUG,org.reflections=ERROR,com.ontotext.kafka.service.InPlaceReplaceProcessor=DEBUG,com.ontotext.kafka.util.ValueUtil=DEBUG,com.ontotext.kafka.convert.RDFFromAvroConverter=DEBUG,com.ontotext.kafka.convert.DirectRDFConverter=DEBUG
+      CONNECT_LOG4J_ROOT_LOGLEVEL: INFO
+      CONNECT_LOG4J_LOGLEVEL: INFO
+      schema.registry.url: 'http://schema-registry:8085'

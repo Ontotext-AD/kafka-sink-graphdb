@@ -1,0 +1,30 @@
+{
+  "ROOT": {
+    "type": "https://example.io/Customer",
+    "id": "https://example.io/{companyAlias}"
+  },
+  "walmartOrder": {
+    "type": "https://www.example.io/ontology/Order",
+    "id": "https://example.com/data/{companyAlias}/Order/{broker}/{orderDate}"
+  },
+  "priceSpecification": {
+    "type": "https://example.io/ontology/PriceSpecification",
+    "id": "../priceSpecification"
+  },
+  "orderDelivery": {
+    "type": "https://example.io/ontology/OrderDelivery",
+    "id": "../orderedItems/orderDelivery"
+  },
+  "orderedItem": {
+    "type": "https://example.io/ontology/OrderedItem",
+    "id": "../orderedItems/orderedItem"
+  },
+  "seller": {
+    "type": "https://example.io/ontology/Seller",
+    "id": "../orderedItems/seller"
+  },
+  "hasPayment": {
+    "type": "https://example.io/ontology/Payment",
+    "id": "../payment"
+  }
+}

@@ -1,0 +1,251 @@
+@prefix dash: <http://datashapes.org/dash#> .
+@prefix ex: <http://datashapes.org/sh/tests/core/complex/personexample.test#> .
+@prefix mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix sht: <http://www.w3.org/ns/shacl-test#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# An SSN needs to have only numbers.
+ex:Alice
+	rdf:type ex:Person ;
+	ex:ssn "987-65-432A" ;
+.
+
+# A person needs to have only one SSN.
+ex:Bob
+	rdf:type ex:Person ;
+	ex:ssn "123-45-6789" ;
+	ex:ssn "124-35-6789" ;
+.
+
+# A person can only work for an ex:Company.
+ex:Calvin
+	rdf:type ex:Person ;
+	ex:birthDate "1999-09-09"^^xsd:date ;
+	ex:worksFor ex:UntypedCompany ;
+.
+
+# A rectangle needs to have both height and width.
+ex:InvalidRectangle1
+	rdf:type ex:Rectangle ;
+	ex:height 3 ;
+.
+ex:InvalidRectangle2
+	rdf:type ex:Rectangle ;
+	ex:width 2 ;
+.
+ex:ValidRectangle1
+	rdf:type ex:Rectangle ;
+	ex:height 3 ;
+	ex:width 2 ;
+.
+
+# Use inference and specific target nodes, specify that John, Quokki, Ghost, and Someone have to be instances of ex:Person.
+ex:John
+	rdf:type ex:MalePerson ;
+.
+ex:MalePerson
+	rdf:type rdfs:Class ;
+	rdfs:subClassOf ex:Person ;
+.
+ex:Person
+	rdf:type rdfs:Class ;
+	rdfs:subClassOf rdfs:Resource ;
+.
+ex:Quokki
+	rdf:type ex:Animal ;
+.
+ex:Someone
+	rdf:type ex:Person ;
+.
+
+# Using the same approach, specify that John, Joe, Quokki, Quokkip, Someone and Ghost are both Person and Animal.
+ex:John	# not Animal
+		   rdf:type ex:MalePerson ;
+.
+ex:Joe # OK
+	   rdf:type ex:MalePerson ;
+	   rdf:type ex:Animal ;
+.
+ex:MalePerson
+	rdf:type rdfs:Class ;
+	rdfs:subClassOf ex:Person ;
+.
+ex:Person
+	rdf:type rdfs:Class ;
+	rdfs:subClassOf rdfs:Resource ;
+.
+ex:Quokki # not Person
+		  rdf:type ex:Animal ;
+.
+ex:Quokkip # not Animal
+		   rdf:type ex:Person ;
+.
+ex:Someone # OK
+		   rdf:type ex:Person ;
+		   rdf:type ex:Animal ;
+.
+
+# All wrong datatypes and languages.
+ex:Datatyper
+	a ex:TestShape ;
+	ex:IRI 42 ;
+	ex:integer "test" ;
+	ex:boolean 0.23 ;
+	ex:english "Английски"@en ;
+	ex:unique "Test"@en ;
+	ex:unique "Not test"@en ;
+	ex:literal [ex:actually "Blank node"] ;
+	ex:blankNode ex:Someone .
+
+# Values test
+ex:ValidTest ex:valueNode 1 .
+
+ex:invalidTest ex:valueNode 2 .
+
+ex:anotherValidTest ex:valueNode 1, 2 .
+
+# Colours test - eyes can only be Green, Blue, Brown or a combination thereof.
+ex:Green
+	rdf:type ex:Person ;
+	ex:eyeColor "Green" ;
+.
+ex:Red
+	rdf:type ex:Person ;
+	ex:eyeColor "Red", "Green" ;
+.
+ex:Blue
+	rdf:type ex:Person ;
+	ex:eyeColor "Blue" ;
+.
+ex:Combo
+	rdf:type ex:Person ;
+	ex:eyeColor "Green", "Blue" .
+
+# Value must be no greater than 4, inclusive.
+ex:Inclusive
+	ex:valueNode 4 ;
+	ex:valueNode ex:John ;
+	ex:valueNode 3.9 ;
+	ex:valueNode 4 ;
+	ex:valueNode 4.0 ;
+	ex:valueNode 4.1 ;
+	ex:valueNode "Hello" ;
+.
+
+# Value must be no longer than 4 characters.
+ex:Length
+	rdf:type sh:NodeShape ;
+	ex:valueNode <a:b> ;
+	ex:valueNode ex:John ;
+	ex:valueNode 123 ;
+	ex:valueNode 1234 ;
+	ex:valueNode 12345 ;
+	ex:valueNode "2017-03-29"^^xsd:date ;
+	ex:valueNode "Hel" ;
+	ex:valueNode "Hell" ;
+	ex:valueNode "Hell"@en ;
+	ex:valueNode "Hello" ;
+.
+
+# Value must not be heck.
+ex:InvalidResource1
+	rdf:type rdfs:Resource ;
+	ex:property "Heck" ;
+.
+
+# A rectangle needs to either have both height and width, or an area.
+ex:InvalidRectangle1
+	rdf:type ex:RectangleWithArea ;
+	ex:height 3 ;
+.
+ex:InvalidRectangle2
+	rdf:type ex:RectangleWithArea ;
+.
+ex:ValidRectangle1
+	rdf:type ex:RectangleWithArea ;
+	ex:height 3 ;
+	ex:width 2 ;
+.
+ex:ValidRectangle2
+	rdf:type ex:RectangleWithArea ;
+	ex:area 6 ;
+	ex:height 3 ;
+	ex:width 2 ;
+.
+ex:ValidRectangle3
+	rdf:type ex:RectangleWithArea ;
+	ex:area 6 ;
+	ex:height 3 ;
+.
+
+# A kitten doesn't care about capitalization, but cares about proper spelling.
+ex:RegexCat
+	rdfs:label "Kitten" ;
+	rdfs:label "kITtEn" ;
+	rdfs:label "Cat"
+.
+
+# A person either has a first name and a last name, or a full name, but not both.
+ex:Bob
+	rdf:type ex:Person ;
+	ex:firstName "Robert" ;
+	ex:lastName "Coin" ;
+.
+ex:Carla
+	rdf:type ex:Person ;
+	ex:fullName "Carla Miller" ;
+.
+ex:Dory
+	rdf:type ex:Person ;
+	ex:firstName "Dory" ;
+	ex:fullName "Dory Dunce" ;
+	ex:lastName "Dunce" ;
+.
+
+# Must have a total of two instances of property1 and property2, in any combination.
+ex:InvalidResource1
+	ex:property1 "One" ;
+	ex:property3 "Three" ;
+.
+ex:ValidResource1
+	ex:property1 "One" ;
+	ex:property1 "Two" ;
+.
+ex:ValidResource2
+	ex:property1 "One" ;
+	ex:property2 "Two" ;
+.
+ex:ValidResource3
+	ex:property2 "One" ;
+	ex:property2 "Two" ;
+.
+
+# The same as before, must have a total of two instances of p1 and p2, in any combination, a hop away.
+ex:InvalidResource1
+	ex:nodeRef ex:Node3 ;
+	ex:nodeRef ex:Node1 ;
+.
+ex:ValidResource1
+	ex:nodeRef ex:Node1, ex:Node2 .
+
+ex:Node1
+	ex:property2 "One" ;
+.
+ex:Node2
+	ex:property2 "Two" ;
+.
+
+# Use SHACL-SPARQL to check that the sum is correctly computed.
+ex:MyLittleComputationWrong
+	ex:sum 42 ;
+	ex:component1 43 ;
+	ex:component2 1 .
+
+ex:MyLittleComputationRight
+	ex:sum 42 ;
+	ex:component1 43 ;
+	ex:component2 -1 .

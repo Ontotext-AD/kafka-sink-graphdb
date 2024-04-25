@@ -1,5 +1,9 @@
 package com.ontotext.kafka.service;
 
+import static com.ontotext.kafka.GraphDBSinkConfig.AVRO_CONTEXT;
+import static com.ontotext.kafka.GraphDBSinkConfig.AVRO_MAPPING;
+import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
+
 import com.ontotext.kafka.GraphDBSinkConfig;
 import com.ontotext.kafka.error.ErrorHandler;
 import com.ontotext.kafka.error.LogErrorHandler;
@@ -35,6 +39,10 @@ public class GraphDBService {
 	private Thread recordProcessor;
 	private int batchSize;
 	private long timeoutCommitMs;
+	private String avroContext;
+	private String avroMapping;
+	private String schemaUrl;
+	private Map<String, ?> properties;
 
 	private GraphDBService() {
 	}
@@ -50,8 +58,12 @@ public class GraphDBService {
 					(String) properties.get(GraphDBSinkConfig.RDF_FORMAT), (String) properties.get(GraphDBSinkConfig.TEMPLATE_ID)));
 			shouldRun.set(true);
 			recordProcessor.start();
+			avroContext = (String) properties.get(AVRO_CONTEXT);
+			avroMapping = (String) properties.get(AVRO_MAPPING);
+			schemaUrl = (String) properties.get(SCHEMA_REGISTRY_URL_CONFIG);
 			LOG.debug("Started the GraphDB Repository connection.");
 		}
+		this.properties = properties;
 	}
 
 	public static GraphDBService connectorService() {
@@ -109,6 +121,9 @@ public class GraphDBService {
 			case SMART_UPDATE:
 				return new UpdateRecordsProcessor(sinkRecords, shouldRun, repository.get(),
 					ValueUtil.getRDFFormat(rdfFormat), batchSize, timeoutCommitMs, errorHandler, operator, templateId);
+			case INPLACE_REPLACE:
+				return new InPlaceReplaceProcessor(sinkRecords, shouldRun, repository.get(),
+					ValueUtil.getRDFFormat(rdfFormat), batchSize, timeoutCommitMs, errorHandler, operator, avroContext, avroMapping, null);
 			default:
 				throw new UnsupportedOperationException("Not implemented yet");
 		}

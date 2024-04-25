@@ -29,12 +29,14 @@ public class DummyRepositoryConnection implements RepositoryConnection {
 	protected BiConsumer<Reader, RDFFormat> addFormatConsumer;
 	private final Consumer<String> removeConsumer;
 	private final BiConsumer<String, Reader> addContextConsumer;
+	private Model model;
 
 	public DummyRepositoryConnection(BiConsumer<Reader, RDFFormat> addConsumer, BiConsumer<String, Reader> addContextConsumer,
 									 Consumer<String> removeContextsConsumer) {
 		this.addFormatConsumer = addConsumer;
 		this.addContextConsumer = addContextConsumer;
 		this.removeConsumer = removeContextsConsumer;
+		this.model = new TreeModel();
 	}
 
 	@Override
@@ -242,6 +244,7 @@ public class DummyRepositoryConnection implements RepositoryConnection {
 			addContextConsumer.accept(Arrays.stream(contexts).map(Value::stringValue).findFirst().get(), reader);
 		}
 		addFormatConsumer.accept(reader, RDFFormat.NQUADS);
+		model.add(st.getSubject(), st.getPredicate(), st.getObject(), contexts);
 	}
 
 	@Override
@@ -256,6 +259,7 @@ public class DummyRepositoryConnection implements RepositoryConnection {
 
 	@Override
 	public void remove(Resource subject, IRI predicate, Value object, Resource... contexts) throws RepositoryException {
+		model.remove(subject, predicate, object, contexts);
 
 	}
 
@@ -302,5 +306,9 @@ public class DummyRepositoryConnection implements RepositoryConnection {
 	@Override
 	public void clearNamespaces() throws RepositoryException {
 
+	}
+
+	public Model getModel() {
+		return this.model;
 	}
 }

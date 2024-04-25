@@ -311,6 +311,12 @@
 			<groupId>io.confluent</groupId>
 			<artifactId>kafka-connect-avro-converter</artifactId>
 			<version>7.6.0</version>
+			<exclusions>
+				<exclusion>
+					<artifactId>kafka-schema-registry-client</artifactId>
+					<groupId>io.confluent</groupId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
             <groupId>org.eclipse.rdf4j</groupId>

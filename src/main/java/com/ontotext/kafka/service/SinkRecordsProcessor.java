@@ -2,6 +2,7 @@ package com.ontotext.kafka.service;
 
 import com.ontotext.kafka.error.ErrorHandler;
 import com.ontotext.kafka.operation.OperationHandler;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Queue;
@@ -144,6 +145,8 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 			LOGGER.trace("Finished batch processing for {} ms", finish - start);
 			return SUCCESSES;
 		} catch (Exception e) {
+			LOGGER.error(e.getMessage());
+			LOGGER.error(Arrays.toString(e.getStackTrace()));
 			throw new RetriableException(e);
 		}
 	}

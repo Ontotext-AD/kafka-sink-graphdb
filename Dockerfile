@@ -6,10 +6,10 @@ WORKDIR /tmp/kafka-sink-graphdb
 
 RUN \
   apt-get update && apt-get install unzip && \
-  mvn -U -B clean package && \
+  mvn -B clean package -DskipTests=true && \
   unzip /tmp/kafka-sink-graphdb/target/kafka-sink-graphdb-plugin.zip -d target/
 
 # Final stage - kafka sink worker
-FROM confluentinc/cp-kafka-connect:7.5.3
+FROM confluentinc/cp-kafka-connect:7.6.1
 
 COPY --from=builder /tmp/kafka-sink-graphdb/target/kafka-sink-graphdb /usr/share/java/kafka-sink-graphdb

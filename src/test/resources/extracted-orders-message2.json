@@ -1,0 +1,136 @@
+{
+  "companyAlias": "41096588-34ee-4d34-8ecf-4cd90f03012c",
+  "walmartOrder": {
+    "customer": {
+      "string": "41096588-34ee-4d34-8ecf-4cd90f03012c"
+    },
+    "companyAlias": {
+      "string": "41096588-34ee-4d34-8ecf-4cd90f03012c"
+    },
+    "orderDate": {
+      "string": "2024-01-04T19:30:57.000Z"
+    },
+    "orderNumber": {
+      "string": "35231126233656963523"
+    },
+    "orderStatus": {
+      "string": "IN_STORE"
+    },
+    "broker": {
+      "string": "Walmart"
+    },
+    "orderType": {
+      "string": "IN_STORE"
+    },
+    "orderedItems": {"array": [
+      {
+        "orderQuantity": {
+          "int": 2
+        },
+        "itemAdjustmentStatus": {
+          "string": "REGULAR"
+        },
+        "lineId": {
+          "string": "0"
+        },
+        "orderedItem": { "io.confluent.walmartintake.Product": {
+          "identifier": {
+            "string": "38253425"
+          },
+          "name": {
+            "string": "Reese's Milk Chocolate Peanut Butter Cups Candy, Pack 1.5 oz"
+          }
+        }},
+        "seller": { "io.confluent.walmartintake.Seller": {
+          "parentOrganization": {
+            "string": "HallMart"
+          },
+          "name": {
+            "string": "Omaha Supercenter"
+          },
+          "address": {
+            "string": "1606 S 72ND ST, Omaha, NE 68124"
+          },
+          "identifier": {
+            "string": "4358"
+          }
+        }},
+        "orderDelivery": { "io.confluent.walmartintake.ParcelDelivery": {
+          "deliveryAddress": null,
+          "hasDeliveryMethod": null,
+          "identifier": null,
+          "trackingNumber": null,
+          "sameAs": null,
+          "isShippedByBroker": null
+        }},
+        "priceSpecification": { "io.confluent.walmartintake.PriceSpecification": {
+          "price": {
+            "double": 0.98
+          },
+          "priceCurrency": {
+            "string": "USD"
+          },
+          "tax": null,
+          "serviceFee": null,
+          "deliveryFee": null,
+          "tip": null,
+          "discount":  {"array":[]},
+          "discountCode": null,
+          "refund": null,
+          "refundArray": null,
+          "fees": null,
+          "subTotal": null,
+          "unitPrice": {
+            "double": 0.98
+          },
+          "unit": {
+            "string": "Qty"
+          },
+          "hasPayment": null
+        }}
+      }
+    ]},
+    "isFuelPurchase": {"boolean": false},
+    "isExchange": {"boolean": false},
+    "isReturn": {"boolean": false},
+    "priceSpecification": {"io.confluent.walmartintake.PriceSpecification": {
+      "price": {
+        "double": 0.88
+      },
+      "priceCurrency": {
+        "string": "USD"
+      },
+      "tax": {
+        "double": 0
+      },
+      "serviceFee": null,
+      "deliveryFee": null,
+      "tip": null,
+      "discount": {"array": ["Associate discount", "Massive discount"]},
+      "discountCode": null,
+      "refund": null,
+      "refundArray": {"array":[]},
+      "fees":  {"array":[]},
+      "subTotal": {
+        "double": 0.98
+      },
+      "unitPrice": null,
+      "unit": null,
+      "hasPayment": {"array": [
+        {
+          "identifier": null,
+          "mask": {
+            "string": "3815"
+          },
+          "cardType": {
+            "string": "WMVISA"
+          },
+          "paymentMethod": {
+            "string": "CREDITCARD"
+          },
+          "amount": null
+        }
+      ]}
+    }}
+  }
+}

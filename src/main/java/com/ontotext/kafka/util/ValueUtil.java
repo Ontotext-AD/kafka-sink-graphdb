@@ -6,24 +6,19 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.StringReader;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Objects;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumReader;
-import org.apache.avro.generic.GenericDatumWriter;
-import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.Decoder;
 import org.apache.avro.io.DecoderFactory;
-import org.apache.avro.io.EncoderFactory;
-import org.apache.avro.io.JsonEncoder;
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.io.file.PathUtils;
 import org.apache.kafka.common.config.ConfigException;
-import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -34,6 +29,7 @@ import org.eclipse.rdf4j.rio.RDFFormat;
 
 import java.io.*;
 import org.eclipse.rdf4j.rio.Rio;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,7 +37,7 @@ import org.slf4j.LoggerFactory;
 public class ValueUtil {
 
 	private static final Logger LOG = LoggerFactory.getLogger(ValueUtil.class);
-	private static final String AVRO_CONTEXT = PropertiesUtil.getProperty("avro.context");
+	private static final Pattern PATTERN = Pattern.compile("\\{\\w*}");
 
 	private ValueUtil() {
 	}
@@ -85,30 +81,44 @@ public class ValueUtil {
 	public static Reader convertRDFData(Object obj) {
 		Objects.requireNonNull(obj, "Cannot parse null objects");
 		if (obj instanceof byte[]) {
-			return new BufferedReader(new InputStreamReader(new ByteArrayInputStream((byte[]) obj)));
+			return new BufferedReader(
+				new InputStreamReader(new ByteArrayInputStream((byte[]) obj)));
 		} else {
 			return new StringReader(convertValueToString(obj));
 		}
 	}
 
-	public static Model convertToModel(Object obj, Schema schema)
+	public static Model convertToModel(Object obj, Schema schema, String contextLocation,
+									   String mappingLocation)
 		throws IOException, URISyntaxException {
 		Objects.requireNonNull(obj, "Cannot parse null objects");
-		JSONObject contextJson = null;
-		try (FileInputStream fis = new FileInputStream(new File(new URL(AVRO_CONTEXT).toURI()))) {
+		LOG.debug("Picking up context from: {}", contextLocation);
+		LOG.debug("Picking up mapping from: {}", mappingLocation);
+		LOG.debug("New data: {}", (new String((byte[]) obj, StandardCharsets.UTF_8)));
+		LOG.debug("Schema: {}", schema);
+		JSONObject contextJson;
+		try (FileInputStream fis = new FileInputStream(contextLocation)) {
 			contextJson = new JSONObject(IOUtils.toString(fis, StandardCharsets.UTF_8));
 		} catch (IOException e) {
+			LOG.error(e.getMessage());
+			LOG.debug(Arrays.toString(e.getStackTrace()));
+			throw new ConfigException(
+				"Trying to carry out AVRO conversion, but no context exists!");
+		}
+		JSONObject mappingJson = null;
+		try (FileInputStream fis = new FileInputStream(mappingLocation)) {
+			mappingJson = new JSONObject(IOUtils.toString(fis, StandardCharsets.UTF_8));
+		} catch (IOException e) {
+			LOG.error(e.getMessage());
+			LOG.debug(Arrays.toString(e.getStackTrace()));
 			throw new ConfigException(
 				"Trying to carry out AVRO conversion, but no mapping exists!");
 		}
-		ByteArrayInputStream bais = null;
-		if (obj instanceof byte[]) {
-			bais = new ByteArrayInputStream((byte[]) obj);
-		}
+		ByteArrayInputStream bais = new ByteArrayInputStream((byte[]) obj);
 		Decoder decoder = DecoderFactory.get().binaryDecoder(bais, null);
 		GenericData.Record avroRecord =
 			(GenericData.Record) new GenericDatumReader<>(schema).read(null, decoder);
-		JSONObject jsonObject = new JSONObject(new String(avroRecord.toString()));
+		JSONObject jsonObject = new JSONObject(avroRecord.toString());
 //		ByteArrayOutputStream out = new ByteArrayOutputStream();
 //		DatumWriter<GenericRecord> writer = new GenericDatumWriter<>(schema);
 //		JsonEncoder encoder = EncoderFactory.get().jsonEncoder(schema, out);
@@ -121,23 +131,75 @@ public class ValueUtil {
 		if (LOG.isDebugEnabled()) {
 			LOG.debug(jsonObject.toString());
 		}
-		String alias = (String) jsonObject.remove("companyAlias");
-		jsonObject.put("@id", alias);
 		JSONObject finalObject = new JSONObject();
-		finalObject.put("@id", alias);
 		for (String key : contextJson.keySet()) {
 			finalObject.put(key, contextJson.get(key));
 		}
+		String upperLevelId = "";
+		navigateObjectAppendTypeAndId(jsonObject, mappingJson, upperLevelId, null);
+//		String aliasKey = null;
+//		for (Map.Entry<String, Object> entry : contextJson.getJSONObject("@context").toMap().entrySet()) {
+//			if (entry.getValue().equals("@id")) {
+//				aliasKey = entry.getKey();
+//				break;
+//			}
+//		}
+//		if (aliasKey == null) {
+//			throw new ConfigException("Empty root ID keyword!");
+//		}
+//		String alias = (String) jsonObject.remove(aliasKey);
+		finalObject.put("@id", applyTypeAndId(jsonObject, mappingJson, null, "ROOT"));
 		finalObject.put("@graph", jsonObject);
 		return Rio.parse(new ByteArrayInputStream(finalObject.toString().getBytes()),
 			RDFFormat.JSONLD);
 	}
 
+	private static void navigateObjectAppendTypeAndId(Object jsonObject, JSONObject mappingJson,
+													  String upperLevelId, String prevId) {
+		if (jsonObject instanceof JSONObject) {
+			if (prevId != null && mappingJson.has(prevId)) {
+				applyTypeAndId((JSONObject) jsonObject, mappingJson, upperLevelId, prevId);
+			}
+			for (String key : ((JSONObject) jsonObject).keySet()) {
+				Object nested = ((JSONObject) jsonObject).get(key);
+				if ((nested instanceof JSONObject && mappingJson.has(key))) {
+					String id = applyTypeAndId((JSONObject) nested, mappingJson, upperLevelId, key);
+					navigateObjectAppendTypeAndId(nested, mappingJson, id, null);
+				} else if (nested instanceof JSONArray) {
+					navigateObjectAppendTypeAndId(nested, mappingJson, upperLevelId + "/" + key, key);
+				}
+			}
+		} else if (jsonObject instanceof JSONArray) {
+			((JSONArray) jsonObject).forEach(
+				item -> navigateObjectAppendTypeAndId(item, mappingJson, upperLevelId, prevId));
+		}
+	}
+
+	private static String applyTypeAndId(JSONObject jsonObject, JSONObject mappingJson,
+									   String upperLevelId, String prevId) {
+		JSONObject specificMapping = mappingJson.getJSONObject(prevId);
+		String type = specificMapping.getString("type");
+		jsonObject.put("@type", type);
+		String id = specificMapping.getString("id");
+		if (id.startsWith("..")) {
+			id = id.replace("..", upperLevelId);
+		}
+		Matcher matcher = PATTERN.matcher(id);
+		while (matcher.find()) {
+			String template = matcher.group();
+			String filedValue =
+				jsonObject.getString(template.replace("{", "").replace("}", ""));
+			id = id.replace(template, filedValue);
+		}
+		jsonObject.put("@id", id);
+		return id;
+	}
+
 
 	public static Resource convertIRIKey(Object obj) {
 		return SimpleValueFactory
-				.getInstance()
-				.createIRI(convertValueToString(obj));
+			.getInstance()
+			.createIRI(convertValueToString(obj));
 	}
 
 	public static String convertValueToString(Object value) {
@@ -149,13 +211,15 @@ public class ValueUtil {
 		} else if (value instanceof Struct) {
 			return value.toString();
 		} else {
-			throw new DataException("error: no value converter present due to unexpected object type "
+			throw new DataException(
+				"error: no value converter present due to unexpected object type "
 					+ value.getClass().getName());
 		}
 	}
 
 	public static String recordInfo(SinkRecord record) {
-		return String.format("Record: {topic='%s', kafkaPartition=%d, key=%s, keySchema=%s, value=%s, valueSchema=%s, timestamp=%d}",
+		return String.format(
+			"Record: {topic='%s', kafkaPartition=%d, key=%s, keySchema=%s, value=%s, valueSchema=%s, timestamp=%d}",
 			record.topic(),
 			record.kafkaPartition(),
 			convertValueToStringNullable(record.key()),

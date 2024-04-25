@@ -14,6 +14,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+
+import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
+import static io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_DOC;
 import static org.apache.kafka.common.config.ConfigDef.ValidString.in;
 import static org.apache.kafka.connect.runtime.SinkConnectorConfig.*;
 
@@ -47,7 +50,8 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	public enum TransactionType {
 		ADD,
 		REPLACE_GRAPH,
-		SMART_UPDATE;
+		SMART_UPDATE,
+		INPLACE_REPLACE;
 
 		private static final Map<String, TransactionType> MAP = new HashMap<>();
 
@@ -104,6 +108,10 @@ public class GraphDBSinkConfig extends AbstractConfig {
 
 	public static final String ERROR_GROUP = "Error Handling";
 	public static final String DLQ_TOPIC_DISPLAY = "Dead Letter Queue Topic Name";
+	public static final String AVRO_CONTEXT = "avro.context";
+	public static final String AVRO_CONTEXT_DOC = "Set the JSON-LD context for Avro messages.";
+	public static final String AVRO_MAPPING = "avro.mapping";
+
 
 	public GraphDBSinkConfig(Map<?, ?> originals) {
 		super(CONFIG, originals);
@@ -112,6 +120,8 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	public static ConfigDef createConfig() {
 		int orderInErrorGroup = 0;
 		return new GraphDBConfigDef()
+			.define(AVRO_CONTEXT, ConfigDef.Type.STRING, ConfigDef.Importance.HIGH, AVRO_CONTEXT_DOC)
+			.define(SCHEMA_REGISTRY_URL_CONFIG, ConfigDef.Type.STRING, ConfigDef.Importance.HIGH, SCHEMA_REGISTRY_URL_DOC)
 			.define(SERVER_IRI, ConfigDef.Type.STRING, ConfigDef.Importance.HIGH,
 				SERVER_IRI_DOC)
 			.define(REPOSITORY, ConfigDef.Type.STRING, ConfigDef.Importance.HIGH,

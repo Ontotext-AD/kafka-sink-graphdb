@@ -2,8 +2,8 @@
   "doc": "walmart processed order to be picked up by ETL",
   "fields": [
     {
-      "doc": "user cadenAlias",
-      "name": "cadenAlias",
+      "doc": "user companyAlias",
+      "name": "companyAlias",
       "type": {
         "logicalType": "uuid",
         "type": "string"
@@ -16,7 +16,7 @@
         "doc": "individual order item from walmart extraction",
         "fields": [
           {
-            "doc": "customer cadenAlias",
+            "doc": "customer companyAlias",
             "name": "customer",
             "type": [
               "null",
@@ -27,8 +27,8 @@
             ]
           },
           {
-            "doc": "user cadenAlias",
-            "name": "cadenAlias",
+            "doc": "user companyAlias",
+            "name": "companyAlias",
             "type": [
               "null",
               {

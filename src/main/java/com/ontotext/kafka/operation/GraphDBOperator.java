@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Random;
 
 import static com.ontotext.kafka.util.PropertiesUtil.getTolerance;
+import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
 
 public class GraphDBOperator extends RetryWithToleranceOperator implements OperationHandler {
 
@@ -35,7 +36,7 @@ public class GraphDBOperator extends RetryWithToleranceOperator implements Opera
 
 	public GraphDBOperator(Map<String, ?> properties) {
 		super((Long) properties.get(ConnectorConfig.ERRORS_RETRY_TIMEOUT_CONFIG),
-			(Long) properties.get(ConnectorConfig.ERRORS_RETRY_MAX_DELAY_CONFIG), getTolerance(properties), new SystemTime());
+			(Long) properties.get(ConnectorConfig.ERRORS_RETRY_MAX_DELAY_CONFIG), getTolerance(properties), new SystemTime(), METRICS);
 		externalProperties = properties;
 		errorRetryTimeout = (Long) properties.get(ConnectorConfig.ERRORS_RETRY_TIMEOUT_CONFIG);
 		errorMaxDelayInMillis = (Long) properties.get(ConnectorConfig.ERRORS_RETRY_MAX_DELAY_CONFIG);
@@ -148,6 +149,8 @@ public class GraphDBOperator extends RetryWithToleranceOperator implements Opera
 				PropertiesUtil.getProperty(ConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG);
 			props.put(ConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG,
 				Objects.requireNonNullElseGet(valueConverter, StringConverter.class::getName));
+			String schemaUrl = PropertiesUtil.getProperty(SCHEMA_REGISTRY_URL_CONFIG);
+			props.put(SCHEMA_REGISTRY_URL_CONFIG, schemaUrl);
 			props.put(StandaloneConfig.OFFSET_STORAGE_FILE_FILENAME_CONFIG, "/tmp/connect.offsets");
 			return props;
 		}
