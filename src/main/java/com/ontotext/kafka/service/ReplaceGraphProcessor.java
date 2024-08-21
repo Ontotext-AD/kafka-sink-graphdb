@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.Reader;
 import java.util.Collection;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -38,13 +39,22 @@ public class ReplaceGraphProcessor extends SinkRecordsProcessor {
 	@Override
 	protected void handleRecord(SinkRecord record, RepositoryConnection connection) {
 		try {
+			LOG.trace("Executing replace graph operation......");
 			Resource context = ValueUtil.convertIRIKey(record.key());
 			connection.clear(context);
+			if (LOG.isTraceEnabled()) {
+				LOG.trace("IRI of the graph that is being replaced: {}", context.stringValue());
+			}
 			if (record.value() != null) {
 				long start = System.currentTimeMillis();
 				connection.add(ValueUtil.convertRDFData(record.value()), format, context);
 				long finish = System.currentTimeMillis();
-				LOG.trace("Converted the record and added it to the RDF4J connection for {} ms", finish - start);
+				if (LOG.isTraceEnabled()) {
+					Reader recordValue = ValueUtil.convertRDFData(record.value());
+					String recordValueString = convertReaderToString(recordValue);
+					LOG.trace("Added record value (body): {}", recordValueString);
+					LOG.trace("Converted the record and added it to the RDF4J connection for {} ms", finish - start);
+				}
 			}
 		} catch (IOException e) {
 			throw new RetriableException(e.getMessage());
@@ -52,6 +62,18 @@ public class ReplaceGraphProcessor extends SinkRecordsProcessor {
 			// Catch records that caused exceptions we can't recover from by retrying the connection
 			handleFailedRecord(record, e);
 		}
+	}
+
+	public static String convertReaderToString(Reader reader) throws IOException {
+		StringBuilder stringBuilder = new StringBuilder();
+		char[] buffer = new char[1024];
+		int numCharsRead;
+
+		while ((numCharsRead = reader.read(buffer)) != -1) {
+			stringBuilder.append(buffer, 0, numCharsRead);
+		}
+
+		return stringBuilder.toString();
 	}
 
 }

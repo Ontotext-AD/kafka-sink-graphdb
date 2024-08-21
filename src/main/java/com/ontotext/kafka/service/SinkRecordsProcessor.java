@@ -2,12 +2,14 @@ package com.ontotext.kafka.service;
 
 import com.ontotext.kafka.error.ErrorHandler;
 import com.ontotext.kafka.operation.OperationHandler;
+
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Queue;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
+
 import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.runtime.errors.Operation;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -112,7 +114,7 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 
 	protected void flushRecordUpdates() {
 		if (!recordsBatch.isEmpty()) {
-			LOGGER.debug("Cleared {} filed records.", failedRecords.size());
+			LOGGER.debug("Cleared {} failed records.", failedRecords.size());
 			failedRecords.clear();
 			if (operator.execAndHandleError(this) == null) {
 				LOGGER.warn("Flushing failed to execute the update");
@@ -132,6 +134,9 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 		long start = System.currentTimeMillis();
 		try (RepositoryConnection connection = repository.getConnection()) {
 			connection.begin();
+			LOGGER.trace("Opened the GraphDB Repository connection.");
+			LOGGER.trace("Started batch transaction processing");
+			LOGGER.trace("Batch size: {}", batchSize);
 			while (!recordsBatch.isEmpty()) {
 				SinkRecord record = recordsBatch.remove();
 				if (!failedRecords.contains(record)) {
@@ -139,6 +144,7 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 				}
 			}
 			connection.commit();
+			LOGGER.trace("GraphDB repository connection(transaction) commited");
 			failedRecords.clear();
 			long finish = System.currentTimeMillis();
 			LOGGER.trace("Finished batch processing for {} ms", finish - start);
