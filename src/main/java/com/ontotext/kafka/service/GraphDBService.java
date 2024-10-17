@@ -50,7 +50,6 @@ public class GraphDBService {
 					(String) properties.get(GraphDBSinkConfig.RDF_FORMAT), (String) properties.get(GraphDBSinkConfig.TEMPLATE_ID)));
 			shouldRun.set(true);
 			recordProcessor.start();
-			LOG.debug("Started the GraphDB Repository connection.");
 		}
 	}
 

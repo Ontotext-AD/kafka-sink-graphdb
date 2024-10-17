@@ -12,9 +12,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.Reader;
 import java.util.Collection;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import static com.ontotext.kafka.service.ReplaceGraphProcessor.convertReaderToString;
 
 /**
  * {@link SinkRecordsProcessor} implementation that directly flushes RDF data from {@link SinkRecord} values
@@ -34,10 +37,16 @@ public class AddRecordsProcessor extends SinkRecordsProcessor {
 	@Override
 	protected void handleRecord(SinkRecord record, RepositoryConnection connection) {
 		try {
+			LOG.trace("Executing add graph operation......");
 			long start = System.currentTimeMillis();
 			connection.add(ValueUtil.convertRDFData(record.value()), format);
 			long finish = System.currentTimeMillis();
-			LOG.trace("Converted the record and added it to the RDF4J connection for {} ms", finish - start);
+			if (LOG.isTraceEnabled()) {
+				Reader recordValue = ValueUtil.convertRDFData(record.value());
+				String recordValueString = convertReaderToString(recordValue);
+				LOG.trace("Added record value (body): {}", recordValueString);
+				LOG.trace("Converted the record and added it to the RDF4J connection for {} ms", finish - start);
+			}
 		} catch (IOException e) {
 			throw new RetriableException(e.getMessage(), e);
 		} catch (Exception e) {

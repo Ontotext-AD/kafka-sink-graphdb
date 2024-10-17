@@ -8,17 +8,22 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.rio.RDFFormat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.Reader;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.ontotext.kafka.service.ReplaceGraphProcessor.convertReaderToString;
 import static com.ontotext.kafka.util.ValueUtil.convertValueToString;
 
 public class UpdateRecordsProcessor extends SinkRecordsProcessor {
 
+	private static final Logger LOG = LoggerFactory.getLogger(UpdateRecordsProcessor.class);
 	private final String templateId;
 	private final StringBuilder sb;
 
@@ -34,10 +39,19 @@ public class UpdateRecordsProcessor extends SinkRecordsProcessor {
 	@Override
 	protected void handleRecord(SinkRecord record, RepositoryConnection connection) {
 		try {
+			LOG.trace("Executing update graph operation......");
+			long start = System.currentTimeMillis();
 			String query = getQuery(record);
 			connection.prepareUpdate(query)
 				.execute();
 			connection.add(ValueUtil.convertRDFData(record.value()), format);
+			long finish = System.currentTimeMillis();
+			if (LOG.isTraceEnabled()) {
+				Reader recordValue = ValueUtil.convertRDFData(record.value());
+				String recordValueString = convertReaderToString(recordValue);
+				LOG.trace("Added record value (body): {}", recordValueString);
+				LOG.trace("Converted the record and added it to the RDF4J connection for {} ms", finish - start);
+			}
 		} catch (IOException e) {
 			throw new RetriableException(e.getMessage());
 		} catch (Exception e) {

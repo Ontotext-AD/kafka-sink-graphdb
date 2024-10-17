@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.stream.IntStream;
 
+import com.ontotext.kafka.service.SinkRecordsProcessor;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.HttpClientBuilder;
@@ -27,8 +28,12 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import com.ontotext.kafka.GraphDBSinkConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ValidateGraphDBConnection {
+
+	protected static final Logger LOGGER = LoggerFactory.getLogger(ValidateGraphDBConnection.class);
 
 	public static Config validateGraphDBConnection(Config validatedConnectorConfigs) {
 		ArrayList<ConfigValue> confValues = (ArrayList<ConfigValue>) validatedConnectorConfigs.configValues();
@@ -93,6 +98,7 @@ public class ValidateGraphDBConnection {
 					                                                 .getEntity()
 					                                                 .getContent(), StandardCharsets.UTF_8)).getString("productVersion");
 			} catch (JSONException e) {
+				LOGGER.error("JSON error", e);
 				throw new ConfigException(SERVER_IRI, serverIri.value(),
 					"No GraphDB running on the provided GraphDB server URL");
 			}
@@ -103,6 +109,7 @@ public class ValidateGraphDBConnection {
 
 			}
 		} catch (IOException e) {
+			LOGGER.error("I/O error", e);
 			throw new ConfigException(SERVER_IRI, serverIri.value(),
 				"No GraphDB running on the provided GraphDB server URL");
 		}
