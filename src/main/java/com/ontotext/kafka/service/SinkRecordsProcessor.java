@@ -83,15 +83,17 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 		try {
 			commitTimer.schedule(scheduleCommitter, timeoutCommitMs, timeoutCommitMs);
 			while (shouldRun.get()) {
-				Collection<SinkRecord> messages = sinkRecords.poll();
+				Collection<SinkRecord> messages = sinkRecords.peek();
 				if (messages != null) {
 					consumeRecords(messages);
+					sinkRecords.poll();
 				}
 			}
 			// commit any records left before shutdown
 			LOG.info("Commiting any records left before shutdown");
 			while (sinkRecords.peek() != null) {
-				consumeRecords(sinkRecords.poll());
+				consumeRecords(sinkRecords.peek());
+				sinkRecords.poll();
 			}
 			// final flush after all messages have been batched
 			flushUpdates();
