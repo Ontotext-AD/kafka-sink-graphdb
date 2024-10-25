@@ -157,8 +157,7 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 			LOG.trace(
 				"Transaction started in GraphDB Repository connection {} , Batch size: {} , Records in current batch: {}",
 				this.repositoryUrl, batchSize, recordsInCurrentBatch);
-			while (!recordsBatch.isEmpty()) {
-				SinkRecord record = recordsBatch.remove();
+			for (SinkRecord record : recordsBatch) {
 				if (!failedRecords.contains(record)) {
 					handleRecord(record, connection);
 				}
@@ -168,6 +167,7 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 				"Transaction in GraphDB repository connection {} commited, Batch size: {} , Records in current batch: {}",
 				this.repositoryUrl, batchSize, recordsInCurrentBatch);
 			LOG.debug("Cleared {} failed records.", failedRecords.size());
+			recordsBatch.clear();
 			failedRecords.clear();
 			if (LOG.isTraceEnabled()) {
 				long finish = System.currentTimeMillis();
