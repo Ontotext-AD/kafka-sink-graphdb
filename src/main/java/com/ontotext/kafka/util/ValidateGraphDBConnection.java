@@ -9,7 +9,7 @@ import static com.ontotext.kafka.GraphDBSinkConfig.SERVER_IRI;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.IntStream;
 
 import org.apache.commons.io.IOUtils;
@@ -25,13 +25,17 @@ import org.eclipse.rdf4j.repository.RepositoryException;
 import org.eclipse.rdf4j.repository.http.HTTPRepository;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.ontotext.kafka.GraphDBSinkConfig;
 
 public class ValidateGraphDBConnection {
 
+	private static final Logger LOGGER = LoggerFactory.getLogger(ValidateGraphDBConnection.class);
+
 	public static Config validateGraphDBConnection(Config validatedConnectorConfigs) {
-		ArrayList<ConfigValue> confValues = (ArrayList<ConfigValue>) validatedConnectorConfigs.configValues();
+		List<ConfigValue> confValues = validatedConnectorConfigs.configValues();
 
 		int serverIriId = getConfigIdByName(confValues, SERVER_IRI);
 		ConfigValue serverIri = confValues.get(serverIriId);
@@ -53,26 +57,26 @@ public class ValidateGraphDBConnection {
 		try {
 			validateGraphDBAuthAndRepo(confValues, testRepository, authType);
 		} catch (ConfigException e) {
+			LOGGER.error("Could not connect to repository", e);
 			authType.addErrorMessage(e.getMessage());
 			confValues.set(authTypeId, authType);
 		} catch (RepositoryException e) {
+			LOGGER.error("Could not connect to repository", e);
 			repository.addErrorMessage(new ConfigException(REPOSITORY, repository.value(),
 				e.getMessage() + ": Invalid repository").getMessage());
 			confValues.set(repositoryId, repository);
 		}
-
 		return validatedConnectorConfigs;
 	}
 
-	private static int getConfigIdByName(final ArrayList<ConfigValue> config, final String name) {
-
+	private static int getConfigIdByName(final List<ConfigValue> config, final String name) {
 		return IntStream.range(0, config.size())
 			       .filter(i -> name.equals(config.get(i).name()))
 			       .findFirst()
 			       .orElse(-1);
 	}
 
-	private static ConfigValue getConfigByName(final ArrayList<ConfigValue> config, final String name) {
+	private static ConfigValue getConfigByName(final List<ConfigValue> config, final String name) {
 
 		return config.stream().filter(cv -> cv.name().equals(name)).findFirst().orElse(null);
 	}
@@ -108,9 +112,8 @@ public class ValidateGraphDBConnection {
 		}
 	}
 
-	private static void validateGraphDBAuthAndRepo(ArrayList<ConfigValue> confValues, HTTPRepository testRepo,
+	private static void validateGraphDBAuthAndRepo(List<ConfigValue> confValues, HTTPRepository testRepo,
 		ConfigValue authType) {
-
 		switch (GraphDBSinkConfig.AuthenticationType.of((String) authType.value())) {
 			case NONE:
 				break;

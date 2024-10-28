@@ -9,16 +9,17 @@
 	<description>Kafka Sink Connector for RDF update streaming to GraphDB</description>
 
 	<properties>
-        <kafka.version>3.5.2</kafka.version>
-		<slf4j.version>2.0.5</slf4j.version>
+        <kafka.version>3.8.0</kafka.version>
+		<slf4j.version>2.0.16</slf4j.version>
         <jackson.version>2.15.3</jackson.version>
         <java.level>11</java.level>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<rdf4j.version>4.3.8</rdf4j.version>
+		<!-- Keep rdf4j identical to GDB's version -->
+		<rdf4j.version>4.3.12</rdf4j.version>
 		<confluent.connect.plugin.version>0.12.0</confluent.connect.plugin.version>
         <avro.version>1.11.3</avro.version>
 		<dependency.check.version>8.4.3</dependency.check.version>
-		<jetty.version>9.4.53.v20231009</jetty.version>
+		<jetty.version>12.0.14</jetty.version>
 		<apache.maven.version>3.9.6</apache.maven.version>
 		<eclipse.collections.version>11.1.0</eclipse.collections.version>
 		<junit.jupiter.version>5.10.1</junit.jupiter.version>
@@ -244,13 +245,13 @@
 				<version>${jetty.version}</version>
 			</dependency>
 			<dependency>
-				<groupId>org.eclipse.jetty</groupId>
-				<artifactId>jetty-servlet</artifactId>
+				<groupId>org.eclipse.jetty.ee10</groupId>
+				<artifactId>jetty-ee10-servlet</artifactId>
 				<version>${jetty.version}</version>
 			</dependency>
 			<dependency>
-				<groupId>org.eclipse.jetty</groupId>
-				<artifactId>jetty-servlets</artifactId>
+				<groupId>org.eclipse.jetty.ee10</groupId>
+				<artifactId>jetty-ee10-servlets</artifactId>
 				<version>${jetty.version}</version>
 			</dependency>
 			<dependency>

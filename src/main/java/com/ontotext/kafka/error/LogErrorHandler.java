@@ -2,10 +2,9 @@ package com.ontotext.kafka.error;
 
 import static org.apache.kafka.clients.CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.ontotext.kafka.util.PropertiesUtil;
-import com.ontotext.kafka.util.ValueUtil;
-import org.apache.commons.lang3.StringUtils;
+import java.util.Map;
+import java.util.Properties;
+
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.connect.runtime.SinkConnectorConfig;
 import org.apache.kafka.connect.runtime.errors.ToleranceType;
@@ -14,14 +13,15 @@ import org.eclipse.rdf4j.query.UpdateExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Map;
-import java.util.Properties;
+import com.google.common.annotations.VisibleForTesting;
+import com.ontotext.kafka.util.PropertiesUtil;
+import com.ontotext.kafka.util.ValueUtil;
 
 /**
- * Tailored DLQ (Dead Letter Queue) producer featuring a specialized error handler, designed to replace the default mechanism.
- * This custom error handler not only takes charge of error management but also enhances logging capabilities for improved diagnostics.
+ * Tailored DLQ (Dead Letter Queue) producer featuring a specialized error handler, designed to replace the default
+ * mechanism. This custom error handler not only takes charge of error management but also enhances logging
+ * capabilities for improved diagnostics.
  */
-
 public class LogErrorHandler implements ErrorHandler {
 	public static final String PRODUCER_OVERRIDE_PREFIX = "producer.override.";
 	public static final String CONNECT_ENV_PREFIX = "CONNECT_";
@@ -33,22 +33,6 @@ public class LogErrorHandler implements ErrorHandler {
 	public LogErrorHandler(Map<String, ?> properties) {
 		this.tolerance = PropertiesUtil.getTolerance(properties);
 		this.producer = fetchProducer(properties);
-	}
-
-	@Override
-	public void handleFailingRecord(SinkRecord record, Throwable ex) {
-		LOGGER.warn("Record failed: {}", ValueUtil.recordInfo(record), ex);
-		switch (tolerance) {
-			case NONE: {
-				LOGGER.warn("An Exception={} occurred in {} running in ToleranceType.NONE configuration", ex, ValueUtil.recordInfo(record));
-				throw new UpdateExecutionException("Record failed", ex);
-			}
-			case ALL: {
-				if (producer != null) {
-					producer.returnFailed(record);
-				}
-			}
-		}
 	}
 
 	private FailedRecordProducer fetchProducer(Map<String, ?> properties) {
@@ -75,24 +59,6 @@ public class LogErrorHandler implements ErrorHandler {
 		return props;
 	}
 
-	@Override
-	public boolean isTolerable() {
-		return tolerance == ToleranceType.ALL;
-	}
-
-	private void resolvePropertiesFromEnvironment(Properties props) {
-		var envVars = System.getenv();
-		for (Map.Entry<String, String> entry : envVars.entrySet()) {
-			var key = entry.getKey();
-			if (key.startsWith(CONNECT_ENV_PREFIX)) {
-				key = key.replaceFirst("^CONNECT_PRODUCER_", "")
-					.replaceFirst("^" + CONNECT_ENV_PREFIX, "").replace("_", ".").toLowerCase();
-				var entryValue = entry.getValue();
-				props.put(key, escapeNewLinesFromString(entryValue));
-			}
-		}
-	}
-
 	private void resolveProducerProperties(Map<String, ?> properties, Properties props) {
 		for (Map.Entry<String, ?> entry : properties.entrySet()) {
 			var key = entry.getKey();
@@ -106,8 +72,43 @@ public class LogErrorHandler implements ErrorHandler {
 		}
 	}
 
+	private void resolvePropertiesFromEnvironment(Properties props) {
+		var envVars = System.getenv();
+		for (Map.Entry<String, String> entry : envVars.entrySet()) {
+			var key = entry.getKey();
+			if (key.startsWith(CONNECT_ENV_PREFIX)) {
+				key = key.replaceFirst("^CONNECT_PRODUCER_", "")
+						.replaceFirst("^" + CONNECT_ENV_PREFIX, "").replace("_", ".").toLowerCase();
+				var entryValue = entry.getValue();
+				props.put(key, escapeNewLinesFromString(entryValue));
+			}
+		}
+	}
+
 	@VisibleForTesting
 	public static String escapeNewLinesFromString(String value) {
 		return value.replace("\\" + System.lineSeparator(), "");
+	}
+
+	@Override
+	public void handleFailingRecord(SinkRecord record, Throwable ex) {
+		LOGGER.warn("Record failed: {}", ValueUtil.recordInfo(record), ex);
+		switch (tolerance) {
+			case NONE: {
+				LOGGER.warn("An Exception={} occurred in {} running in ToleranceType.NONE configuration", ex,
+						ValueUtil.recordInfo(record));
+				throw new UpdateExecutionException("Record failed", ex);
+			}
+			case ALL: {
+				if (producer != null) {
+					producer.returnFailed(record);
+				}
+			}
+		}
+	}
+
+	@Override
+	public boolean isTolerable() {
+		return tolerance == ToleranceType.ALL;
 	}
 }

@@ -45,7 +45,7 @@ public class GraphDBSinkTask extends SinkTask {
 		try {
 			GraphDBService.connectorService().addData(collection);
 		} catch (Exception e) {
-			throw new RetriableException(e.getMessage());
+			throw new RetriableException(e.getMessage(), e);
 		}
 	}
 }

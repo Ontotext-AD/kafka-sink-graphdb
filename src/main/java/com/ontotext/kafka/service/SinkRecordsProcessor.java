@@ -1,13 +1,15 @@
 package com.ontotext.kafka.service;
 
-import com.ontotext.kafka.error.ErrorHandler;
-import com.ontotext.kafka.operation.OperationHandler;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Queue;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
+
 import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.runtime.errors.Operation;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -17,9 +19,8 @@ import org.eclipse.rdf4j.rio.RDFFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.locks.ReentrantLock;
+import com.ontotext.kafka.error.ErrorHandler;
+import com.ontotext.kafka.operation.OperationHandler;
 
 /**
  * A processor which batches sink records and flushes the updates to a given
@@ -50,8 +51,8 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 	protected final OperationHandler operator;
 
 	protected SinkRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
-								   Repository repository, RDFFormat format, int batchSize, long timeoutCommitMs,
-								   ErrorHandler errorHandler, OperationHandler operator) {
+			Repository repository, RDFFormat format, int batchSize, long timeoutCommitMs, ErrorHandler errorHandler,
+			OperationHandler operator) {
 		this.recordsBatch = new LinkedBlockingQueue<>();
 		this.sinkRecords = sinkRecords;
 		this.shouldRun = shouldRun;

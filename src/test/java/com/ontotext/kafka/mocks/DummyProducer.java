@@ -1,5 +1,10 @@
 package com.ontotext.kafka.mocks;
 
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Future;
+
 import org.apache.kafka.clients.consumer.ConsumerGroupMetadata;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.producer.Callback;
@@ -10,13 +15,9 @@ import org.apache.kafka.common.Metric;
 import org.apache.kafka.common.MetricName;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.Uuid;
 import org.apache.kafka.common.errors.ProducerFencedException;
 import org.apache.kafka.connect.sink.SinkRecord;
-
-import java.time.Duration;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.Future;
 
 public class DummyProducer implements Producer<String, String> {
 	protected final List<SinkRecord> records;
@@ -46,11 +47,13 @@ public class DummyProducer implements Producer<String, String> {
 	}
 
 	@Override
-	public void sendOffsetsToTransaction(Map<TopicPartition, OffsetAndMetadata> offsets, String consumerGroupId) throws ProducerFencedException {
+	public void sendOffsetsToTransaction(Map<TopicPartition, OffsetAndMetadata> offsets, String consumerGroupId) throws
+			ProducerFencedException {
 	}
 
 	@Override
-	public void sendOffsetsToTransaction(Map<TopicPartition, OffsetAndMetadata> map, ConsumerGroupMetadata consumerGroupMetadata) throws ProducerFencedException {
+	public void sendOffsetsToTransaction(Map<TopicPartition, OffsetAndMetadata> map,
+			ConsumerGroupMetadata consumerGroupMetadata) throws ProducerFencedException {
 
 	}
 
@@ -78,6 +81,11 @@ public class DummyProducer implements Producer<String, String> {
 
 	@Override
 	public Map<MetricName, ? extends Metric> metrics() {
+		return null;
+	}
+
+	@Override
+	public Uuid clientInstanceId(Duration timeout) {
 		return null;
 	}
 
