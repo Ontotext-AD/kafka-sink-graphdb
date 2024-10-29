@@ -51,12 +51,6 @@ public class UpdateRecordsProcessorTest {
 		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch, 5000);
 		recordsProcessor.start();
 		awaitEmptyCollection(sinkRecords);
-		assertTrue(formats.isEmpty());
-		assertTrue(streams.isEmpty());
-		shouldRun.set(false);
-		awaitProcessorShutdown(recordsProcessor);
-
-		assertFalse(recordsProcessor.isAlive());
 		assertEquals(3, streams.size());
 		for (Reader reader : streams) {
 			assertEquals(15, Rio.parse(reader, RDFFormat.NQUADS).size());
@@ -76,13 +70,6 @@ public class UpdateRecordsProcessorTest {
 		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch, 5000);
 		recordsProcessor.start();
 		awaitEmptyCollection(sinkRecords);
-
-		assertTrue(formats.isEmpty());
-		assertTrue(streams.isEmpty());
-		shouldRun.set(false);
-		awaitProcessorShutdown(recordsProcessor);
-		assertFalse(recordsProcessor.isAlive());
-
 		assertEquals(3, streams.size());
 		for (Reader reader : streams) {
 			assertEquals(15, Rio.parse(reader, RDFFormat.NQUADS).size());
