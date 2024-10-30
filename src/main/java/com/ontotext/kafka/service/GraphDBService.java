@@ -5,6 +5,7 @@ import com.ontotext.kafka.error.ErrorHandler;
 import com.ontotext.kafka.error.LogErrorHandler;
 import com.ontotext.kafka.operation.GraphDBOperator;
 import com.ontotext.kafka.util.ValueUtil;
+
 import org.apache.kafka.common.config.types.Password;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
@@ -84,6 +85,10 @@ public class GraphDBService {
 			case NONE:
 				return repository;
 			case BASIC:
+				if (LOG.isTraceEnabled()) {
+					LOG.trace("Initializing repository connection with user {}",
+						properties.get(GraphDBSinkConfig.AUTH_BASIC_USER));
+				}
 				repository.setUsernameAndPassword(
 					(String) properties.get(GraphDBSinkConfig.AUTH_BASIC_USER),
 					((Password) properties.get(GraphDBSinkConfig.AUTH_BASIC_PASS)).value());
