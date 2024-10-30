@@ -2,17 +2,20 @@ package com.ontotext.kafka.service;
 
 import com.ontotext.kafka.error.ErrorHandler;
 import com.ontotext.kafka.operation.OperationHandler;
+
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Queue;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
+
 import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.runtime.errors.Operation;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
+import org.eclipse.rdf4j.repository.http.HTTPRepository;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,10 +51,11 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 	protected final ErrorHandler errorHandler;
 	protected final Set<SinkRecord> failedRecords;
 	protected final OperationHandler operator;
+	protected final String repositoryUrl;
 
 	protected SinkRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
-								   Repository repository, RDFFormat format, int batchSize, long timeoutCommitMs,
-								   ErrorHandler errorHandler, OperationHandler operator) {
+		Repository repository, RDFFormat format, int batchSize, long timeoutCommitMs,
+		ErrorHandler errorHandler, OperationHandler operator) {
 		this.recordsBatch = new LinkedBlockingQueue<>();
 		this.sinkRecords = sinkRecords;
 		this.shouldRun = shouldRun;
@@ -65,6 +69,13 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 		this.errorHandler = errorHandler;
 		this.failedRecords = new HashSet<>();
 		this.operator = operator;
+		// repositoryUrl is used for logging purposes
+		if (repository instanceof HTTPRepository) {
+			this.repositoryUrl = ((HTTPRepository) repository).getRepositoryURL();
+		} else {
+			this.repositoryUrl = "unknown";
+		}
+
 	}
 
 	@Override
@@ -112,7 +123,7 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 
 	protected void flushRecordUpdates() {
 		if (!recordsBatch.isEmpty()) {
-			LOGGER.debug("Cleared {} filed records.", failedRecords.size());
+			LOGGER.debug("Cleared {} failed records.", failedRecords.size());
 			failedRecords.clear();
 			if (operator.execAndHandleError(this) == null) {
 				LOGGER.warn("Flushing failed to execute the update");
@@ -132,6 +143,10 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 		long start = System.currentTimeMillis();
 		try (RepositoryConnection connection = repository.getConnection()) {
 			connection.begin();
+			if (LOGGER.isTraceEnabled()) {
+				LOGGER.trace("Transaction started in GraphDB Repository connection {} , Batch size: {} , Records in current batch: {}",
+					this.repositoryUrl, batchSize, recordsBatch.size());
+			}
 			while (!recordsBatch.isEmpty()) {
 				SinkRecord record = recordsBatch.remove();
 				if (!failedRecords.contains(record)) {
@@ -139,6 +154,7 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 				}
 			}
 			connection.commit();
+			LOGGER.trace("Transaction in GraphDB repository connection commited");
 			failedRecords.clear();
 			long finish = System.currentTimeMillis();
 			LOGGER.trace("Finished batch processing for {} ms", finish - start);
