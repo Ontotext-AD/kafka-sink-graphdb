@@ -59,15 +59,11 @@ public class ReplaceGraphProcessor extends SinkRecordsProcessor {
 				}
 			}
 		} catch (IOException e) {
-			if(LOG.isTraceEnabled()) {
 				LOG.debug("Caught an I/O exception while processing record");
-			}
 			throw new RetriableException(e.getMessage());
 		} catch (Exception e) {
 			// Catch records that caused exceptions we can't recover from by retrying the connection
-			if(LOG.isTraceEnabled()) {
 				LOG.debug("Caught non retriable exception while processing record");
-			}
 			handleFailedRecord(record, e);
 		}
 	}

@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class AddRecordsProcessor extends SinkRecordsProcessor {
 
-	private static final Logger LOG = LoggerFactory.getLogger(ReplaceGraphProcessor.class);
+	private static final Logger LOG = LoggerFactory.getLogger(AddRecordsProcessor.class);
 
 	public AddRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
 		Repository repository,
