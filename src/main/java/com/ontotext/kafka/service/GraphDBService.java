@@ -48,7 +48,8 @@ public class GraphDBService {
 			timeoutCommitMs = (Long) properties.get(GraphDBSinkConfig.BATCH_COMMIT_SCHEDULER);
 			recordProcessor = new Thread(
 				fetchProcessor((String) properties.get(GraphDBSinkConfig.TRANSACTION_TYPE),
-					(String) properties.get(GraphDBSinkConfig.RDF_FORMAT), (String) properties.get(GraphDBSinkConfig.TEMPLATE_ID)));
+					(String) properties.get(GraphDBSinkConfig.RDF_FORMAT),
+					(String) properties.get(GraphDBSinkConfig.TEMPLATE_ID)));
 			shouldRun.set(true);
 			recordProcessor.start();
 			LOG.debug("Started the GraphDB Repository connection.");
@@ -80,6 +81,8 @@ public class GraphDBService {
 	private static Repository fetchRepository(Map<String, ?> properties) {
 		String address = (String) properties.get(GraphDBSinkConfig.SERVER_IRI);
 		String repositoryId = (String) properties.get(GraphDBSinkConfig.REPOSITORY);
+		LOG.trace("Fetched repository from {}", address);
+		LOG.trace("Fetched repository name: {}", repositoryId);
 		var repository = new HTTPRepository(address, repositoryId);
 		switch (GraphDBSinkConfig.AuthenticationType.of((String) properties.get(GraphDBSinkConfig.AUTH_TYPE))) {
 			case NONE:

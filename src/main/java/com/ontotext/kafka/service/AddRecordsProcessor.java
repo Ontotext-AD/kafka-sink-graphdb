@@ -30,8 +30,9 @@ public class AddRecordsProcessor extends SinkRecordsProcessor {
 
 	private static final Logger LOG = LoggerFactory.getLogger(ReplaceGraphProcessor.class);
 
-	public AddRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun, Repository repository,
-							   RDFFormat format, int batchSize, long timeoutCommitMs, ErrorHandler errorHandler, OperationHandler operator) {
+	public AddRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
+		Repository repository,
+		RDFFormat format, int batchSize, long timeoutCommitMs, ErrorHandler errorHandler, OperationHandler operator) {
 		super(sinkRecords, shouldRun, repository, format, batchSize, timeoutCommitMs, errorHandler, operator);
 	}
 
