@@ -27,7 +27,7 @@ import java.util.Properties;
 
 public class PropertiesUtil {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(PropertiesUtil.class);
+	private static final Logger LOG = LoggerFactory.getLogger(PropertiesUtil.class);
 	private static String version = "0.0.1";
 	private static Properties properties;
 
@@ -40,8 +40,9 @@ public class PropertiesUtil {
 			properties.load(PropertiesUtil.class.getResourceAsStream("/graphdb-kafka-version.properties"));
 			properties.load(PropertiesUtil.class.getResourceAsStream("/graphdb-kafka-sink.properties"));
 			version = properties.getProperty("graphdb.version", version).trim();
+			LOG.info("GraphDB version: {}", version);
 		} catch (Exception e) {
-			LOGGER.warn("error while loading version:", e);
+			LOG.warn("error while loading version:", e);
 		}
 	}
 

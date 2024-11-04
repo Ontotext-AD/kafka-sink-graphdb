@@ -12,13 +12,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.Reader;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.ontotext.kafka.service.ReplaceGraphProcessor.convertReaderToString;
 import static com.ontotext.kafka.util.ValueUtil.convertValueToString;
 
 public class UpdateRecordsProcessor extends SinkRecordsProcessor {
@@ -47,9 +45,7 @@ public class UpdateRecordsProcessor extends SinkRecordsProcessor {
 			connection.add(ValueUtil.convertRDFData(record.value()), format);
 			long finish = System.currentTimeMillis();
 			if (LOG.isTraceEnabled()) {
-				Reader recordValue = ValueUtil.convertRDFData(record.value());
-				String recordValueString = convertReaderToString(recordValue);
-				LOG.trace("Added record value: {}", recordValueString);
+				LOG.trace("Record info: {}", ValueUtil.recordInfo(record));
 				LOG.trace("Converted the record and added it to the RDF4J connection for {} ms", finish - start);
 			}
 		} catch (IOException e) {

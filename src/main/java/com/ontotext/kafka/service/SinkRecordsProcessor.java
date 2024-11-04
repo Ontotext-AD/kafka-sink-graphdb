@@ -35,7 +35,7 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public abstract class SinkRecordsProcessor implements Runnable, Operation<Object> {
 
-	protected static final Logger LOGGER = LoggerFactory.getLogger(SinkRecordsProcessor.class);
+	private static final Logger LOG = LoggerFactory.getLogger(SinkRecordsProcessor.class);
 	private static final Object SUCCESSES = new Object();
 
 	protected final Queue<Collection<SinkRecord>> sinkRecords;
@@ -123,16 +123,16 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 
 	protected void flushRecordUpdates() {
 		if (!recordsBatch.isEmpty()) {
-			LOGGER.debug("Cleared {} failed records.", failedRecords.size());
+			LOG.debug("Cleared {} failed records.", failedRecords.size());
 			failedRecords.clear();
 			if (operator.execAndHandleError(this) == null) {
-				LOGGER.warn("Flushing failed to execute the update");
+				LOG.warn("Flushing failed to execute the update");
 				if (!errorHandler.isTolerable()) {
-					LOGGER.error("Errors are not tolerated in ErrorTolerance.NONE");
+					LOG.error("Errors are not tolerated in ErrorTolerance.NONE");
 					throw new RuntimeException("Flushing failed to execute the update");
 					// if retrying doesn't solve the problem
 				} else {
-					LOGGER.warn("ERROR is TOLERATED the operation continues...");
+					LOG.warn("ERROR is TOLERATED the operation continues...");
 				}
 			}
 		}
@@ -143,8 +143,8 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 		long start = System.currentTimeMillis();
 		try (RepositoryConnection connection = repository.getConnection()) {
 			connection.begin();
-			if (LOGGER.isTraceEnabled()) {
-				LOGGER.trace("Transaction started in GraphDB Repository connection {} , Batch size: {} , Records in current batch: {}",
+			if (LOG.isTraceEnabled()) {
+				LOG.trace("Transaction started in GraphDB Repository connection {} , Batch size: {} , Records in current batch: {}",
 					this.repositoryUrl, batchSize, recordsBatch.size());
 			}
 			while (!recordsBatch.isEmpty()) {
@@ -154,10 +154,10 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 				}
 			}
 			connection.commit();
-			LOGGER.trace("Transaction in GraphDB repository connection commited");
+			LOG.trace("Transaction in GraphDB repository connection commited");
 			failedRecords.clear();
 			long finish = System.currentTimeMillis();
-			LOGGER.trace("Finished batch processing for {} ms", finish - start);
+			LOG.trace("Finished batch processing for {} ms", finish - start);
 			return SUCCESSES;
 		} catch (Exception e) {
 			throw new RetriableException(e);
