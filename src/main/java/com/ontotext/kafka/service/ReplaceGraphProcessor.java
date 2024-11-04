@@ -14,7 +14,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.Reader;
 import java.util.Collection;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -51,31 +50,18 @@ public class ReplaceGraphProcessor extends SinkRecordsProcessor {
 				connection.add(ValueUtil.convertRDFData(record.value()), format, context);
 				long finish = System.currentTimeMillis();
 				if (LOG.isTraceEnabled()) {
-					Reader recordValue = ValueUtil.convertRDFData(record.value());
-					String recordValueString = convertReaderToString(recordValue);
-					LOG.trace("Processed record context(IRI): {}", context.stringValue());
-					LOG.trace("Processed record value: {}", recordValueString);
+					LOG.trace("Record info: {}", ValueUtil.recordInfo(record));
 					LOG.trace("Converted the record and added it to the RDF4J connection for {} ms", finish - start);
 				}
 			}
 		} catch (IOException e) {
-				LOG.debug("Caught an I/O exception while processing record");
+			LOG.debug("Caught an I/O exception while processing record");
 			throw new RetriableException(e.getMessage());
 		} catch (Exception e) {
 			// Catch records that caused exceptions we can't recover from by retrying the connection
-				LOG.debug("Caught non retriable exception while processing record");
+			LOG.debug("Caught non retriable exception while processing record");
 			handleFailedRecord(record, e);
 		}
-	}
-
-	public static String convertReaderToString(Reader reader) throws IOException {
-		StringBuilder stringBuilder = new StringBuilder();
-		char[] buffer = new char[1024];
-		int numCharsRead;
-		while ((numCharsRead = reader.read(buffer)) != -1) {
-			stringBuilder.append(buffer, 0, numCharsRead);
-		}
-		return stringBuilder.toString();
 	}
 
 }

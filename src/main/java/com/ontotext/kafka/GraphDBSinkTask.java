@@ -6,6 +6,8 @@ import com.ontotext.kafka.util.PropertiesUtil;
 import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 import java.util.Map;
@@ -17,6 +19,7 @@ import java.util.Map;
  * @author Tomas Kovachev tomas.kovachev@ontotext.com
  */
 public class GraphDBSinkTask extends SinkTask {
+	private static final Logger LOG = LoggerFactory.getLogger(GraphDBSinkTask.class);
 
 	@Override
 	public String version() {
@@ -33,6 +36,7 @@ public class GraphDBSinkTask extends SinkTask {
 		if (collection.isEmpty()) {
 			return;
 		}
+		LOG.trace("Sink task received {} records", collection.size());
 		processRecords(collection);
 	}
 
