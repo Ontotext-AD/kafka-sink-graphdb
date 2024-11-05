@@ -5,7 +5,7 @@ import static org.apache.kafka.clients.CommonClientConfigs.BOOTSTRAP_SERVERS_CON
 import com.google.common.annotations.VisibleForTesting;
 import com.ontotext.kafka.util.PropertiesUtil;
 import com.ontotext.kafka.util.ValueUtil;
-import org.apache.commons.lang3.StringUtils;
+
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.connect.runtime.SinkConnectorConfig;
 import org.apache.kafka.connect.runtime.errors.ToleranceType;
@@ -23,6 +23,8 @@ import java.util.Properties;
  */
 
 public class LogErrorHandler implements ErrorHandler {
+
+	private static final Logger LOG = LoggerFactory.getLogger(LogErrorHandler.class);
 	public static final String PRODUCER_OVERRIDE_PREFIX = "producer.override.";
 	public static final String CONNECT_ENV_PREFIX = "CONNECT_";
 	private static final Logger LOGGER = LoggerFactory.getLogger(LogErrorHandler.class);
@@ -40,11 +42,13 @@ public class LogErrorHandler implements ErrorHandler {
 		LOGGER.warn("Record failed: {}", ValueUtil.recordInfo(record), ex);
 		switch (tolerance) {
 			case NONE: {
-				LOGGER.warn("An Exception={} occurred in {} running in ToleranceType.NONE configuration", ex, ValueUtil.recordInfo(record));
+				LOGGER.warn("An Exception={} occurred in {} running in ToleranceType.NONE configuration", ex,
+						ValueUtil.recordInfo(record));
 				throw new UpdateExecutionException("Record failed", ex);
 			}
 			case ALL: {
 				if (producer != null) {
+					LOG.trace("Returning failed record to Kafka.....");
 					producer.returnFailed(record);
 				}
 			}
@@ -72,7 +76,14 @@ public class LogErrorHandler implements ErrorHandler {
 		resolvePropertiesFromEnvironment(props);
 
 		props.put(ProducerConfig.CLIENT_ID_CONFIG, FailedRecordProducer.class.getSimpleName());
+		logProperties(props);
 		return props;
+	}
+
+	private void logProperties(Properties props) {
+		StringBuilder sb = new StringBuilder("DQL Properties:\n");
+		props.forEach((key, value) -> sb.append(key).append(" = ").append(value).append("\n"));
+		LOGGER.info(sb.toString());
 	}
 
 	@Override
@@ -86,7 +97,7 @@ public class LogErrorHandler implements ErrorHandler {
 			var key = entry.getKey();
 			if (key.startsWith(CONNECT_ENV_PREFIX)) {
 				key = key.replaceFirst("^CONNECT_PRODUCER_", "")
-					.replaceFirst("^" + CONNECT_ENV_PREFIX, "").replace("_", ".").toLowerCase();
+						.replaceFirst("^" + CONNECT_ENV_PREFIX, "").replace("_", ".").toLowerCase();
 				var entryValue = entry.getValue();
 				props.put(key, escapeNewLinesFromString(entryValue));
 			}

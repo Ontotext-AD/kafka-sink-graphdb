@@ -14,7 +14,7 @@ import java.util.Properties;
 
 class FailedRecordProducer implements FailedProducer {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(FailedRecordProducer.class);
+	private static final Logger LOG = LoggerFactory.getLogger(FailedRecordProducer.class);
 	private final String topicName;
 	private final Producer<String, String> producer;
 
@@ -37,9 +37,9 @@ class FailedRecordProducer implements FailedProducer {
 			ProducerRecord<String, String> pr = new ProducerRecord<>(topicName, recordKey, recordValue);
 			producer.send(pr, (metadata, exception) -> {
 				if (exception == null) {
-					LOGGER.info("Successfully returned failed record to Kafka. {}", ValueUtil.recordInfo(record));
+					LOG.info("Successfully returned failed record to Kafka. {}", ValueUtil.recordInfo(record));
 				} else {
-					LOGGER.error("Returning failed record to kafka: UNSUCCESSFUL. {}", ValueUtil.recordInfo(record),
+					LOG.error("Returning failed record to kafka: UNSUCCESSFUL. {}", ValueUtil.recordInfo(record),
 						exception);
 				}
 			});
