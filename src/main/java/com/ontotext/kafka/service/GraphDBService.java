@@ -72,7 +72,6 @@ public class GraphDBService {
 
 	public void addData(Collection<SinkRecord> records) {
 		sinkRecords.add(records);
-		LOG.trace("{} records ingested", records.size());
 	}
 
 	private Repository initializeRepository(Repository repository, Map<String, ?> properties) {
