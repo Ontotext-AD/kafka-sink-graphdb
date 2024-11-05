@@ -81,7 +81,7 @@ public class LogErrorHandler implements ErrorHandler {
 	}
 
 	private void logProperties(Properties props) {
-		StringBuilder sb = new StringBuilder("DQL Properties:\n");
+		StringBuilder sb = new StringBuilder("DLQ Properties:\n");
 		props.forEach((key, value) -> sb.append(key).append(" = ").append(value).append("\n"));
 		LOGGER.info(sb.toString());
 	}
