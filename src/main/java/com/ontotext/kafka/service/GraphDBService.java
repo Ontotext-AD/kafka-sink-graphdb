@@ -81,8 +81,7 @@ public class GraphDBService {
 	private static Repository fetchRepository(Map<String, ?> properties) {
 		String address = (String) properties.get(GraphDBSinkConfig.SERVER_IRI);
 		String repositoryId = (String) properties.get(GraphDBSinkConfig.REPOSITORY);
-		LOG.trace("Fetching repository from {}", address);
-		LOG.trace("Repository name: {}", repositoryId);
+		LOG.trace("Fetching repository {} from {}", repositoryId, address);
 		var repository = new HTTPRepository(address, repositoryId);
 		switch (GraphDBSinkConfig.AuthenticationType.of((String) properties.get(GraphDBSinkConfig.AUTH_TYPE))) {
 			case NONE:
