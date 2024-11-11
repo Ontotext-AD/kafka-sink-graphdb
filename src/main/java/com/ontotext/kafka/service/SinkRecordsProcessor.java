@@ -54,8 +54,8 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 	protected final String repositoryUrl;
 
 	protected SinkRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
-			Repository repository, RDFFormat format, int batchSize, long timeoutCommitMs,
-			ErrorHandler errorHandler, OperationHandler operator) {
+								   Repository repository, RDFFormat format, int batchSize, long timeoutCommitMs,
+								   ErrorHandler errorHandler, OperationHandler operator) {
 		this.recordsBatch = new LinkedBlockingQueue<>();
 		this.sinkRecords = sinkRecords;
 		this.shouldRun = shouldRun;
@@ -145,11 +145,9 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 		try (RepositoryConnection connection = repository.getConnection()) {
 			connection.begin();
 			int recordsInCurrentBatch = recordsBatch.size();
-			if (LOG.isTraceEnabled()) {
-				LOG.trace(
-						"Transaction started in GraphDB Repository connection {} , Batch size: {} , Records in current batch: {}",
-						this.repositoryUrl, batchSize, recordsInCurrentBatch);
-			}
+			LOG.trace(
+				"Transaction started in GraphDB Repository connection {} , Batch size: {} , Records in current batch: {}",
+				this.repositoryUrl, batchSize, recordsInCurrentBatch);
 			while (!recordsBatch.isEmpty()) {
 				SinkRecord record = recordsBatch.remove();
 				if (!failedRecords.contains(record)) {
@@ -157,15 +155,15 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 				}
 			}
 			connection.commit();
-			if (LOG.isTraceEnabled()) {
-				LOG.trace(
-						"Transaction in GraphDB repository connection {} commited, Batch size: {} , Records in current batch: {}",
-						this.repositoryUrl, batchSize, recordsInCurrentBatch);
-			}
+			LOG.trace(
+				"Transaction in GraphDB repository connection {} commited, Batch size: {} , Records in current batch: {}",
+				this.repositoryUrl, batchSize, recordsInCurrentBatch);
 			LOG.debug("Cleared {} failed records.", failedRecords.size());
 			failedRecords.clear();
-			long finish = System.currentTimeMillis();
-			LOG.trace("Finished batch processing for {} ms", finish - start);
+			if (LOG.isTraceEnabled()) {
+				long finish = System.currentTimeMillis();
+				LOG.trace("Finished batch processing for {} ms", finish - start);
+			}
 			return SUCCESSES;
 		} catch (Exception e) {
 			throw new RetriableException(e);

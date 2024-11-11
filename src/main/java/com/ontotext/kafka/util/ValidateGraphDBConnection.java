@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.stream.IntStream;
 
+import com.ontotext.kafka.service.SinkRecordsProcessor;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.HttpClientBuilder;
@@ -23,12 +24,17 @@ import org.eclipse.rdf4j.http.protocol.UnauthorizedException;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.RepositoryException;
 import org.eclipse.rdf4j.repository.http.HTTPRepository;
+import org.eclipse.sisu.inject.Logs;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import com.ontotext.kafka.GraphDBSinkConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ValidateGraphDBConnection {
+
+	private static final Logger LOG = LoggerFactory.getLogger(ValidateGraphDBConnection.class);
 
 	public static Config validateGraphDBConnection(Config validatedConnectorConfigs) {
 		ArrayList<ConfigValue> confValues = (ArrayList<ConfigValue>) validatedConnectorConfigs.configValues();
@@ -67,9 +73,9 @@ public class ValidateGraphDBConnection {
 	private static int getConfigIdByName(final ArrayList<ConfigValue> config, final String name) {
 
 		return IntStream.range(0, config.size())
-			       .filter(i -> name.equals(config.get(i).name()))
-			       .findFirst()
-			       .orElse(-1);
+			.filter(i -> name.equals(config.get(i).name()))
+			.findFirst()
+			.orElse(-1);
 	}
 
 	private static ConfigValue getConfigByName(final ArrayList<ConfigValue> config, final String name) {
@@ -88,10 +94,11 @@ public class ValidateGraphDBConnection {
 			}
 			try {
 				version = new JSONObject(IOUtils.toString(HttpClientBuilder.create()
-					                                                 .build()
-					                                                 .execute(new HttpGet(versionUrl.toString()))
-					                                                 .getEntity()
-					                                                 .getContent(), StandardCharsets.UTF_8)).getString("productVersion");
+					.build()
+					.execute(new HttpGet(versionUrl.toString()))
+					.getEntity()
+					.getContent(), StandardCharsets.UTF_8)).getString("productVersion");
+				LOG.trace("Using GraphDB version {}", version);
 			} catch (JSONException e) {
 				throw new ConfigException(SERVER_IRI, serverIri.value(),
 					"No GraphDB running on the provided GraphDB server URL");
@@ -109,7 +116,7 @@ public class ValidateGraphDBConnection {
 	}
 
 	private static void validateGraphDBAuthAndRepo(ArrayList<ConfigValue> confValues, HTTPRepository testRepo,
-		ConfigValue authType) {
+												   ConfigValue authType) {
 
 		switch (GraphDBSinkConfig.AuthenticationType.of((String) authType.value())) {
 			case NONE:

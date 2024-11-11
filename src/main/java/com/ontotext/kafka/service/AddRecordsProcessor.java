@@ -28,9 +28,9 @@ public class AddRecordsProcessor extends SinkRecordsProcessor {
 	private static final Logger LOG = LoggerFactory.getLogger(AddRecordsProcessor.class);
 
 	public AddRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
-			Repository repository,
-			RDFFormat format, int batchSize, long timeoutCommitMs, ErrorHandler errorHandler,
-			OperationHandler operator) {
+							   Repository repository,
+							   RDFFormat format, int batchSize, long timeoutCommitMs, ErrorHandler errorHandler,
+							   OperationHandler operator) {
 		super(sinkRecords, shouldRun, repository, format, batchSize, timeoutCommitMs, errorHandler, operator);
 	}
 
@@ -40,17 +40,15 @@ public class AddRecordsProcessor extends SinkRecordsProcessor {
 			LOG.trace("Executing add graph operation......");
 			long start = System.currentTimeMillis();
 			connection.add(ValueUtil.convertRDFData(record.value()), format);
-			long finish = System.currentTimeMillis();
 			if (LOG.isTraceEnabled()) {
 				LOG.trace("Record info: {}", ValueUtil.recordInfo(record));
+				long finish = System.currentTimeMillis();
 				LOG.trace("Converted the record and added it to the RDF4J connection for {} ms", finish - start);
 			}
 		} catch (IOException e) {
-			LOG.debug("Caught an I/O exception while processing record");
 			throw new RetriableException(e.getMessage(), e);
 		} catch (Exception e) {
 			// Catch records that caused exceptions we can't recover from by retrying the connection
-			LOG.debug("Caught non retriable exception while processing record");
 			handleFailedRecord(record, e);
 		}
 	}
