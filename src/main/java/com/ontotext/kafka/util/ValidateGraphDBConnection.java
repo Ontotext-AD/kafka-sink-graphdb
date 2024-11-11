@@ -12,7 +12,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.stream.IntStream;
 
-import com.ontotext.kafka.service.SinkRecordsProcessor;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.HttpClientBuilder;
@@ -24,7 +23,6 @@ import org.eclipse.rdf4j.http.protocol.UnauthorizedException;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.RepositoryException;
 import org.eclipse.rdf4j.repository.http.HTTPRepository;
-import org.eclipse.sisu.inject.Logs;
 import org.json.JSONException;
 import org.json.JSONObject;
 
