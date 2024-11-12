@@ -83,6 +83,7 @@ public class ValidateGraphDBConnection {
 
 	private static void validateGraphDBVersion(ConfigValue serverIri) {
 		try {
+			LOG.trace("Validating GraphDB version");
 			URL versionUrl;
 			String version;
 			if (serverIri.value().toString().endsWith("/")) {
@@ -98,6 +99,7 @@ public class ValidateGraphDBConnection {
 					.getContent(), StandardCharsets.UTF_8)).getString("productVersion");
 				LOG.trace("Using GraphDB version {}", version);
 			} catch (JSONException e) {
+				LOG.error("Caught JSON exception while validating GraphDB version", e);
 				throw new ConfigException(SERVER_IRI, serverIri.value(),
 					"No GraphDB running on the provided GraphDB server URL");
 			}
@@ -108,6 +110,7 @@ public class ValidateGraphDBConnection {
 
 			}
 		} catch (IOException e) {
+			LOG.error("Caught I/O exception while validating GraphDB version", e);
 			throw new ConfigException(SERVER_IRI, serverIri.value(),
 				"No GraphDB running on the provided GraphDB server URL");
 		}
@@ -115,7 +118,7 @@ public class ValidateGraphDBConnection {
 
 	private static void validateGraphDBAuthAndRepo(ArrayList<ConfigValue> confValues, HTTPRepository testRepo,
 												   ConfigValue authType) {
-
+		LOG.trace("Validating GraphDB authentication and repository");
 		switch (GraphDBSinkConfig.AuthenticationType.of((String) authType.value())) {
 			case NONE:
 				break;
@@ -130,8 +133,10 @@ public class ValidateGraphDBConnection {
 		}
 
 		try (RepositoryConnection connection = testRepo.getConnection()) {
+			LOG.trace("Starting repository connection test");
 			connection.begin();
 			connection.rollback();
+			LOG.trace("Rolled back repository connection test");
 		} catch (RepositoryException e) {
 			if (e instanceof UnauthorizedException) {
 				throw new ConfigException("Invalid credentials" + e.getMessage());
