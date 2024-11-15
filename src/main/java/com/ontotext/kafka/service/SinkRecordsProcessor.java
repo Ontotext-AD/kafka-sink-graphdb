@@ -17,7 +17,7 @@ import org.eclipse.rdf4j.rio.RDFFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -36,7 +36,7 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 	private static final Object SUCCESSES = new Object();
 
 	protected final Queue<Collection<SinkRecord>> sinkRecords;
-	protected final LinkedBlockingQueue<SinkRecord> recordsBatch;
+	protected final ConcurrentLinkedQueue<SinkRecord> recordsBatch;
 	protected final Repository repository;
 	protected final AtomicBoolean shouldRun;
 	protected final RDFFormat format;
@@ -52,7 +52,7 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 	protected SinkRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
 								   Repository repository, RDFFormat format, int batchSize, long timeoutCommitMs,
 								   ErrorHandler errorHandler, OperationHandler operator) {
-		this.recordsBatch = new LinkedBlockingQueue<>();
+		this.recordsBatch = new ConcurrentLinkedQueue<>();
 		this.sinkRecords = sinkRecords;
 		this.shouldRun = shouldRun;
 		this.repository = repository;
@@ -102,10 +102,17 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 	}
 
 	protected void consumeRecords(Collection<SinkRecord> messages) {
-		for (SinkRecord message : messages) {
-			recordsBatch.add(message);
-			if (batchSize <= recordsBatch.size()) {
-				flushUpdates();
+		try {
+			timeoutCommitLock.lock();
+			for (SinkRecord message : messages) {
+				recordsBatch.add(message);
+				if (batchSize <= recordsBatch.size()) {
+					flushUpdates();
+				}
+			}
+		} finally {
+			if (timeoutCommitLock.isHeldByCurrentThread()) {
+				timeoutCommitLock.unlock();
 			}
 		}
 	}
