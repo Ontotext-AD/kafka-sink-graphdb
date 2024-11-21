@@ -39,7 +39,7 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 	private static final Object SUCCESSES = new Object();
 
 	protected final Queue<Collection<SinkRecord>> sinkRecords;
-	protected final ConcurrentLinkedQueue<SinkRecord> recordsBatch;
+	protected final Queue<SinkRecord> recordsBatch;
 	protected final Repository repository;
 	protected final AtomicBoolean shouldRun;
 	protected final RDFFormat format;
