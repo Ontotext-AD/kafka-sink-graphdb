@@ -1,9 +1,9 @@
 package com.ontotext.kafka.service;
 
+import com.ontotext.kafka.GraphDBSinkConfig;
 import com.ontotext.kafka.error.ErrorHandler;
-import com.ontotext.kafka.operation.OperationHandler;
+import com.ontotext.kafka.operation.GraphDBOperator;
 import com.ontotext.kafka.util.ValueUtil;
-
 import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.model.Resource;
@@ -30,10 +30,14 @@ public class ReplaceGraphProcessor extends SinkRecordsProcessor {
 
 	private static final Logger LOG = LoggerFactory.getLogger(ReplaceGraphProcessor.class);
 
-	protected ReplaceGraphProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
-									Repository repository, RDFFormat format, int batchSize, long timeoutCommitMs,
-									ErrorHandler errorHandler, OperationHandler operator) {
-		super(sinkRecords, shouldRun, repository, format, batchSize, timeoutCommitMs, errorHandler, operator);
+	public ReplaceGraphProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun, Repository repository,
+								 GraphDBSinkConfig config) {
+		super(sinkRecords, shouldRun, repository, config);
+	}
+
+	ReplaceGraphProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun, Repository repository, RDFFormat nquads, int batchSize,
+						  long commitTimeout, ErrorHandler errorHandler, GraphDBOperator operator) {
+		super(sinkRecords, shouldRun, repository, nquads, batchSize, commitTimeout, errorHandler, operator);
 	}
 
 	@Override

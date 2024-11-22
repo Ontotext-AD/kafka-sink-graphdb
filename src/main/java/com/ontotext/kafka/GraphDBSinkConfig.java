@@ -2,18 +2,23 @@ package com.ontotext.kafka;
 
 import com.ontotext.kafka.util.ValidateEnum;
 import com.ontotext.kafka.util.ValidateRDFFormat;
+import com.ontotext.kafka.util.ValueUtil;
 import com.ontotext.kafka.util.VisibleIfRecommender;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigValue;
+import org.apache.kafka.connect.errors.DataException;
+import org.apache.kafka.connect.runtime.ConnectorConfig;
 import org.apache.kafka.connect.runtime.WorkerConfig;
 import org.apache.kafka.connect.runtime.errors.ToleranceType;
+import org.eclipse.rdf4j.rio.RDFFormat;
 
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.apache.kafka.clients.CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG;
 import static org.apache.kafka.common.config.ConfigDef.ValidString.in;
 import static org.apache.kafka.connect.runtime.SinkConnectorConfig.*;
 
@@ -24,7 +29,19 @@ import static org.apache.kafka.connect.runtime.SinkConnectorConfig.*;
  */
 public class GraphDBSinkConfig extends AbstractConfig {
 
-	public static final ConfigDef CONFIG = createConfig();
+	public static final ConfigDef CONFIG_DEFINITION = createConfigDef();
+
+	private final int batchSize;
+	private final Long timeoutCommitMs;
+	private final TransactionType transactionType;
+	private final RDFFormat rdfFormat;
+	private final String templateId;
+	private final ToleranceType tolerance;
+	private final String topicName;
+	private final String bootStrapServers;
+	private final long errorRetryTimeout;
+	private final long errorMaxDelayInMillis;
+
 
 	public enum AuthenticationType {
 		NONE,
@@ -106,10 +123,36 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	public static final String DLQ_TOPIC_DISPLAY = "Dead Letter Queue Topic Name";
 
 	public GraphDBSinkConfig(Map<?, ?> originals) {
-		super(CONFIG, originals);
+		super(CONFIG_DEFINITION, originals);
+		batchSize = getInt(BATCH_SIZE);
+		timeoutCommitMs = getLong(BATCH_COMMIT_SCHEDULER);
+		String trType = getString(TRANSACTION_TYPE);
+		transactionType = TransactionType.of(trType);
+		if (transactionType == null) {
+			throw new IllegalStateException(String.format("Invalid transaction type provided - %s", trType));
+		}
+		rdfFormat = ValueUtil.getRDFFormat(getString(RDF_FORMAT));
+		templateId = getString(TEMPLATE_ID);
+		this.topicName = getString(DLQ_TOPIC_NAME_CONFIG);
+		this.tolerance = parseTolerance();
+		this.bootStrapServers = getString(BOOTSTRAP_SERVERS_CONFIG);
+		this.errorRetryTimeout = getLong(ERRORS_RETRY_TIMEOUT_CONFIG);
+		this.errorMaxDelayInMillis = getLong(ERRORS_RETRY_MAX_DELAY_CONFIG);
 	}
 
-	public static ConfigDef createConfig() {
+	private ToleranceType parseTolerance() {
+		String tolerance = getString(ConnectorConfig.ERRORS_TOLERANCE_CONFIG);
+		if (tolerance == null || "none".equalsIgnoreCase(tolerance)) {
+			return ToleranceType.NONE;
+		} else if ("all".equalsIgnoreCase(tolerance)) {
+			return ToleranceType.ALL;
+		} else {
+			throw new DataException("error: Tolerance can be \"none\" or \"all\". Not supported for - "
+				+ tolerance);
+		}
+	}
+
+	public static ConfigDef createConfigDef() {
 		int orderInErrorGroup = 0;
 		return new GraphDBConfigDef()
 			.define(SERVER_IRI, ConfigDef.Type.STRING, ConfigDef.Importance.HIGH,
@@ -119,7 +162,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 			.define(RDF_FORMAT, ConfigDef.Type.STRING, DEFAULT_RDF_TYPE, new ValidateRDFFormat(),
 				ConfigDef.Importance.HIGH, RDF_FORMAT_DOC)
 			.define(TRANSACTION_TYPE, ConfigDef.Type.STRING, DEFAULT_TRANSACTION_TYPE,
-				new ValidateEnum(GraphDBSinkConfig.TransactionType.class),
+				new ValidateEnum(TransactionType.class),
 				ConfigDef.Importance.HIGH, TRANSACTION_TYPE_DOC)
 			.define(BATCH_SIZE, ConfigDef.Type.INT, DEFAULT_BATCH_SIZE, ConfigDef.Importance.HIGH,
 				BATCH_SIZE_DOC)
@@ -127,7 +170,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 				ConfigDef.Importance.HIGH,
 				BATCH_COMMIT_SCHEDULER_DOC)
 			.define(AUTH_TYPE, ConfigDef.Type.STRING, DEFAULT_AUTH_TYPE,
-				new ValidateEnum(GraphDBSinkConfig.AuthenticationType.class),
+				new ValidateEnum(AuthenticationType.class),
 				ConfigDef.Importance.HIGH, AUTH_TYPE_DOC)
 			.define(AUTH_BASIC_USER, ConfigDef.Type.STRING, DEFAULT_AUTH_BASIC_USER,
 				ConfigDef.Importance.HIGH, AUTH_BASIC_USER_DOC,
@@ -154,6 +197,48 @@ public class GraphDBSinkConfig extends AbstractConfig {
 			.define(WorkerConfig.BOOTSTRAP_SERVERS_CONFIG, ConfigDef.Type.LIST, Collections.emptyList(), new ConfigDef.NonNullValidator(),
 				ConfigDef.Importance.HIGH, CommonClientConfigs.BOOTSTRAP_SERVERS_DOC)
 			;
+	}
+
+	public int getBatchSize() {
+		return batchSize;
+	}
+
+	public Long getTimeoutCommitMs() {
+		return timeoutCommitMs;
+	}
+
+	public TransactionType getTransactionType() {
+		return transactionType;
+	}
+
+	public RDFFormat getRdfFormat() {
+		return rdfFormat;
+	}
+
+	public String getTemplateId() {
+		return templateId;
+	}
+
+	public ToleranceType getTolerance() {
+		return tolerance;
+	}
+
+	public String getTopicName() {
+		return topicName;
+	}
+
+
+	public String getBootStrapServers() {
+		return bootStrapServers;
+	}
+
+
+	public long getErrorRetryTimeout() {
+		return errorRetryTimeout;
+	}
+
+	public long getErrorMaxDelayInMillis() {
+		return errorMaxDelayInMillis;
 	}
 
 	public static class GraphDBConfigDef extends ConfigDef {

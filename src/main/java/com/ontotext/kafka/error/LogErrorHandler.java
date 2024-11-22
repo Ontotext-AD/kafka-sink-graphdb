@@ -1,13 +1,10 @@
 package com.ontotext.kafka.error;
 
-import static org.apache.kafka.clients.CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG;
-
 import com.google.common.annotations.VisibleForTesting;
-import com.ontotext.kafka.util.PropertiesUtil;
+import com.ontotext.kafka.GraphDBSinkConfig;
 import com.ontotext.kafka.util.ValueUtil;
-
+import org.apache.commons.lang.StringUtils;
 import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.connect.runtime.SinkConnectorConfig;
 import org.apache.kafka.connect.runtime.errors.ToleranceType;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.query.UpdateExecutionException;
@@ -16,6 +13,8 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.Properties;
+
+import static org.apache.kafka.clients.CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG;
 
 /**
  * Tailored DLQ (Dead Letter Queue) producer featuring a specialized error handler, designed to replace the default mechanism.
@@ -32,9 +31,9 @@ public class LogErrorHandler implements ErrorHandler {
 	private final ToleranceType tolerance;
 	private final FailedProducer producer;
 
-	public LogErrorHandler(Map<String, ?> properties) {
-		this.tolerance = PropertiesUtil.getTolerance(properties);
-		this.producer = fetchProducer(properties);
+	public LogErrorHandler(GraphDBSinkConfig config) {
+		this.tolerance = config.getTolerance();
+		this.producer = createProducer(config);
 	}
 
 	@Override
@@ -55,24 +54,17 @@ public class LogErrorHandler implements ErrorHandler {
 		}
 	}
 
-	private FailedRecordProducer fetchProducer(Map<String, ?> properties) {
-		String topicName = (String) properties.get(SinkConnectorConfig.DLQ_TOPIC_NAME_CONFIG);
-		if (tolerance.equals(ToleranceType.NONE) || !isValid(topicName)) {
+	private FailedRecordProducer createProducer(GraphDBSinkConfig config) {
+		String topicName = config.getTopicName();
+		if (tolerance.equals(ToleranceType.NONE) || StringUtils.isBlank(topicName)) {
 			return null;
 		}
-		return new FailedRecordProducer(topicName, getProperties(properties));
+		return new FailedRecordProducer(topicName, getProperties(config));
 	}
 
-	private boolean isValid(String topicName) {
-		if (topicName == null) {
-			return false;
-		}
-		return !topicName.isBlank();
-	}
-
-	private Properties getProperties(Map<String, ?> properties) {
+	private Properties getProperties(GraphDBSinkConfig config) {
 		Properties props = new Properties();
-		resolveProducerProperties(properties, props);
+		resolveProducerProperties(config, props);
 		resolvePropertiesFromEnvironment(props);
 
 		props.put(ProducerConfig.CLIENT_ID_CONFIG, FailedRecordProducer.class.getSimpleName());
@@ -80,15 +72,15 @@ public class LogErrorHandler implements ErrorHandler {
 		return props;
 	}
 
+	@Override
+	public boolean isTolerable() {
+		return tolerance == ToleranceType.ALL;
+	}
+
 	private void logProperties(Properties props) {
 		StringBuilder sb = new StringBuilder("DLQ Properties:\n");
 		props.forEach((key, value) -> sb.append(key).append(" = ").append(value).append("\n"));
 		LOGGER.info(sb.toString());
-	}
-
-	@Override
-	public boolean isTolerable() {
-		return tolerance == ToleranceType.ALL;
 	}
 
 	private void resolvePropertiesFromEnvironment(Properties props) {
@@ -104,16 +96,11 @@ public class LogErrorHandler implements ErrorHandler {
 		}
 	}
 
-	private void resolveProducerProperties(Map<String, ?> properties, Properties props) {
-		for (Map.Entry<String, ?> entry : properties.entrySet()) {
-			var key = entry.getKey();
-			if (key.startsWith(PRODUCER_OVERRIDE_PREFIX)) {
-				props.put(key.substring(PRODUCER_OVERRIDE_PREFIX.length()), entry.getValue());
-			}
-		}
-		var bootstrapServers = properties.get(BOOTSTRAP_SERVERS_CONFIG);
-		if (bootstrapServers != null) {
-			props.put(BOOTSTRAP_SERVERS_CONFIG, properties.get(BOOTSTRAP_SERVERS_CONFIG));
+	private void resolveProducerProperties(GraphDBSinkConfig config, Properties props) {
+		props.putAll(config.originalsWithPrefix(PRODUCER_OVERRIDE_PREFIX));
+		String bootstrapServers = config.getBootStrapServers();
+		if (StringUtils.isNotBlank(bootstrapServers)) {
+			props.put(BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
 		}
 	}
 

@@ -1,20 +1,16 @@
 package com.ontotext.kafka.service;
 
-import com.ontotext.kafka.error.ErrorHandler;
-import com.ontotext.kafka.operation.OperationHandler;
+import com.ontotext.kafka.GraphDBSinkConfig;
 import com.ontotext.kafka.util.ValueUtil;
-
 import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
-import org.eclipse.rdf4j.rio.RDFFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Collection;
-import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -24,17 +20,23 @@ public class UpdateRecordsProcessor extends SinkRecordsProcessor {
 
 	private static final Logger LOG = LoggerFactory.getLogger(UpdateRecordsProcessor.class);
 	private final String templateId;
-	private final StringBuilder sb;
+	private final StringBuilder sb = new StringBuilder();
 
-	protected UpdateRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
-									 Repository repository,
-									 RDFFormat format, int batchSize, long timeoutCommitMs, ErrorHandler errorHandler, OperationHandler operator,
-									 String templateId) {
-		super(sinkRecords, shouldRun, repository, format, batchSize, timeoutCommitMs, errorHandler, operator);
-		Objects.requireNonNull(templateId, "Cannot create update processor with empty graphdb.template.id property");
-		this.templateId = templateId;
-		this.sb = new StringBuilder();
+
+	public UpdateRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
+								  Repository repository, GraphDBSinkConfig config) {
+		super(sinkRecords, shouldRun, repository, config);
+		this.templateId = config.getTemplateId();
 	}
+
+//	// @TODO - This constructor is only used in testing. Remove once tests are refactored
+//	UpdateRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, LinkedBlockingQueue<SinkRecord> recordsBatch,
+//						   Repository repository, AtomicBoolean shouldRun, RDFFormat format, int batchSize, long timeoutCommitMs,
+//						   ErrorHandler errorHandler,
+//						   OperationHandler operator, String templateId) {
+//		super(sinkRecords, recordsBatch, repository, shouldRun, format, batchSize, timeoutCommitMs, errorHandler, operator);
+//		this.templateId = templateId;
+//	}
 
 	@Override
 	protected void handleRecord(SinkRecord record, RepositoryConnection connection) {

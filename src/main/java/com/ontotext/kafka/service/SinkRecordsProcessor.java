@@ -1,15 +1,10 @@
 package com.ontotext.kafka.service;
 
+import com.ontotext.kafka.GraphDBSinkConfig;
 import com.ontotext.kafka.error.ErrorHandler;
+import com.ontotext.kafka.error.LogErrorHandler;
+import com.ontotext.kafka.operation.GraphDBOperator;
 import com.ontotext.kafka.operation.OperationHandler;
-
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Queue;
-import java.util.Set;
-import java.util.Timer;
-import java.util.TimerTask;
-
 import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.runtime.errors.Operation;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -19,7 +14,9 @@ import org.eclipse.rdf4j.repository.http.HTTPRepository;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
+import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
@@ -53,28 +50,35 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 	protected final OperationHandler operator;
 	protected final String repositoryUrl;
 
-	protected SinkRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
-								   Repository repository, RDFFormat format, int batchSize, long timeoutCommitMs,
-								   ErrorHandler errorHandler, OperationHandler operator) {
-		this.recordsBatch = new ConcurrentLinkedQueue<>();
+	public SinkRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun, Repository repository, GraphDBSinkConfig config) {
+		this(sinkRecords, new ConcurrentLinkedQueue<>(), repository, shouldRun, config.getRdfFormat(), config.getBatchSize(), config.getTimeoutCommitMs(),
+			new LogErrorHandler(config), new GraphDBOperator(config));
+	}
+
+	private SinkRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, ConcurrentLinkedQueue<SinkRecord> recordsBatch, Repository repository,
+								 AtomicBoolean shouldRun, RDFFormat format, int batchSize, long timeoutCommitMs, ErrorHandler errorHandler,
+								 OperationHandler operator) {
 		this.sinkRecords = sinkRecords;
-		this.shouldRun = shouldRun;
+		this.recordsBatch = recordsBatch;
 		this.repository = repository;
+		this.shouldRun = shouldRun;
 		this.format = format;
-		this.commitTimer = new Timer(true);
-		this.scheduleCommitter = new ScheduleCommitter();
-		this.timeoutCommitLock = new ReentrantLock();
 		this.batchSize = batchSize;
 		this.timeoutCommitMs = timeoutCommitMs;
 		this.errorHandler = errorHandler;
-		this.failedRecords = new HashSet<>();
 		this.operator = operator;
+		this.commitTimer = new Timer(true);
+		this.scheduleCommitter = new ScheduleCommitter();
+		this.timeoutCommitLock = new ReentrantLock();
+		this.failedRecords = new HashSet<>();
+
 		// repositoryUrl is used for logging purposes
 		if (repository instanceof HTTPRepository) {
 			this.repositoryUrl = ((HTTPRepository) repository).getRepositoryURL();
 		} else {
 			this.repositoryUrl = "unknown";
 		}
+		MDC.put("RepositoryURL", repositoryUrl);
 
 	}
 
@@ -155,17 +159,14 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 			connection.begin();
 			int recordsInCurrentBatch = recordsBatch.size();
 			LOG.trace(
-				"Transaction started in GraphDB Repository connection {} , Batch size: {} , Records in current batch: {}",
-				this.repositoryUrl, batchSize, recordsInCurrentBatch);
+				"Transaction started, batch size: {} , records in current batch: {}", batchSize, recordsInCurrentBatch);
 			for (SinkRecord record : recordsBatch) {
 				if (!failedRecords.contains(record)) {
 					handleRecord(record, connection);
 				}
 			}
 			connection.commit();
-			LOG.trace(
-				"Transaction in GraphDB repository connection {} commited, Batch size: {} , Records in current batch: {}",
-				this.repositoryUrl, batchSize, recordsInCurrentBatch);
+			LOG.trace("Transaction commited, Batch size: {} , Records in current batch: {}", batchSize, recordsInCurrentBatch);
 			LOG.debug("Cleared {} failed records.", failedRecords.size());
 			recordsBatch.clear();
 			failedRecords.clear();
