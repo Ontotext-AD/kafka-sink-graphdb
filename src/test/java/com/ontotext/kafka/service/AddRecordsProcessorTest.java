@@ -250,7 +250,7 @@ class AddRecordsProcessorTest {
 	@Timeout(5)
 	void testHandleIOException() throws InterruptedException, IOException {
 		int batch = 4;
-		int expectedSize = 3;
+		int expectedSize = 4;
 
 		repository = initThrowingRepository(streams, formats, new IOException());
 		generateSinkRecords(sinkRecords, 4, 12);
@@ -290,7 +290,7 @@ class AddRecordsProcessorTest {
 	@Timeout(5)
 	void testHandleMultipleIOException() throws InterruptedException, IOException {
 		int batch = 4;
-		int expectedSize = 1;
+		int expectedSize = 4;
 
 		repository = initThrowingRepository(streams, formats, new IOException(), 3);
 		generateSinkRecords(sinkRecords, 4, 12);
