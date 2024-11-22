@@ -16,26 +16,23 @@
 
 package com.ontotext.kafka;
 
-import org.apache.kafka.common.config.AbstractConfig;
+import com.ontotext.kafka.util.ValidateGraphDBConnection;
+import com.ontotext.kafka.util.VersionUtil;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.sink.SinkConnector;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import com.ontotext.kafka.service.GraphDBService;
-import com.ontotext.kafka.util.PropertiesUtil;
-import com.ontotext.kafka.util.ValidateGraphDBConnection;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 
 /**
  * {@link SinkConnector} implementation for streaming messages containing RDF data to GraphDB repositories
- * asynchronously through {@link GraphDBService} .
+ * asynchronously
  *
  * @author Tomas Kovachev tomas.kovachev@ontotext.com
  */
@@ -43,19 +40,17 @@ public class GraphDBSinkConnector extends SinkConnector {
 
 	private static final Logger LOG = LoggerFactory.getLogger(GraphDBSinkConnector.class);
 	private Map<String, String> properties;
-	private AbstractConfig conf;
 
 	@Override
 	public String version() {
-		return PropertiesUtil.getVersion();
+		return VersionUtil.getVersion();
 	}
 
 	@Override
 	public void start(Map<String, String> properties) {
 		LOG.info("Starting the GraphDB SINK Connector ... ");
 		this.properties = properties;
-		this.conf = new GraphDBSinkConfig(properties);
-		GraphDBService.connectorService().initialize(conf.values());
+
 	}
 
 	@Override
@@ -74,13 +69,11 @@ public class GraphDBSinkConnector extends SinkConnector {
 
 	@Override
 	public void stop() {
-		LOG.info("Stopping the GraphDB SINK Connector ... ");
-		GraphDBService.connectorService().shutDown();
 	}
 
 	@Override
 	public ConfigDef config() {
-		return GraphDBSinkConfig.CONFIG;
+		return GraphDBSinkConfig.CONFIG_DEFINITION;
 	}
 
 	@Override

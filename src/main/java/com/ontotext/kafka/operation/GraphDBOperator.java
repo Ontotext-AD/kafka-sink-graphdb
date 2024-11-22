@@ -1,5 +1,6 @@
 package com.ontotext.kafka.operation;
 
+import com.ontotext.kafka.GraphDBSinkConfig;
 import org.apache.kafka.common.utils.SystemTime;
 import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.runtime.ConnectMetrics;
@@ -19,8 +20,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 
-import static com.ontotext.kafka.util.PropertiesUtil.getTolerance;
-
 public class GraphDBOperator extends RetryWithToleranceOperator implements OperationHandler {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(GraphDBOperator.class);
@@ -30,12 +29,11 @@ public class GraphDBOperator extends RetryWithToleranceOperator implements Opera
 	private final long errorMaxDelayInMillis;
 	private final ToleranceType tolerance;
 
-	public GraphDBOperator(Map<String, ?> properties) {
-		super((Long) properties.get(ConnectorConfig.ERRORS_RETRY_TIMEOUT_CONFIG),
-			(Long) properties.get(ConnectorConfig.ERRORS_RETRY_MAX_DELAY_CONFIG), getTolerance(properties), new SystemTime(), METRICS);
-		errorRetryTimeout = (Long) properties.get(ConnectorConfig.ERRORS_RETRY_TIMEOUT_CONFIG);
-		errorMaxDelayInMillis = (Long) properties.get(ConnectorConfig.ERRORS_RETRY_MAX_DELAY_CONFIG);
-		tolerance = getTolerance(properties);
+	public GraphDBOperator(GraphDBSinkConfig config) {
+		super(config.getErrorRetryTimeout(), config.getErrorMaxDelayInMillis(), config.getTolerance(), new SystemTime(), METRICS);
+		errorRetryTimeout = config.getErrorRetryTimeout();
+		errorMaxDelayInMillis = config.getErrorMaxDelayInMillis();
+		tolerance = config.getTolerance();
 	}
 
 	@Override

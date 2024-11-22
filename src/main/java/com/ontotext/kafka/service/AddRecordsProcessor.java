@@ -1,14 +1,11 @@
 package com.ontotext.kafka.service;
 
-import com.ontotext.kafka.error.ErrorHandler;
-import com.ontotext.kafka.operation.OperationHandler;
+import com.ontotext.kafka.GraphDBSinkConfig;
 import com.ontotext.kafka.util.ValueUtil;
-
 import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
-import org.eclipse.rdf4j.rio.RDFFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,12 +24,11 @@ public class AddRecordsProcessor extends SinkRecordsProcessor {
 
 	private static final Logger LOG = LoggerFactory.getLogger(AddRecordsProcessor.class);
 
-	public AddRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
-							   Repository repository,
-							   RDFFormat format, int batchSize, long timeoutCommitMs, ErrorHandler errorHandler,
-							   OperationHandler operator) {
-		super(sinkRecords, shouldRun, repository, format, batchSize, timeoutCommitMs, errorHandler, operator);
+	public AddRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun, Repository repository,
+							   GraphDBSinkConfig config) {
+		super(sinkRecords, shouldRun, repository, config);
 	}
+
 
 	@Override
 	protected void handleRecord(SinkRecord record, RepositoryConnection connection) {
