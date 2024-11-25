@@ -86,7 +86,7 @@ public class GraphDBSinkTask extends SinkTask {
 	}
 
 	private static Repository fetchRepository(Map<String, ?> properties) {
-		String address = (String) properties.get(GraphDBSinkConfig.SERVER_IRI);
+		String address = (String) properties.get(GraphDBSinkConfig.SERVER_URL);
 		String repositoryId = (String) properties.get(GraphDBSinkConfig.REPOSITORY);
 		LOG.trace("Fetching repository {} from {}", repositoryId, address);
 		var repository = new HTTPRepository(address, repositoryId);

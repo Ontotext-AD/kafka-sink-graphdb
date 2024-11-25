@@ -1,17 +1,6 @@
 package com.ontotext.kafka.util;
 
-import static com.ontotext.kafka.GraphDBSinkConfig.AUTH_BASIC_PASS;
-import static com.ontotext.kafka.GraphDBSinkConfig.AUTH_BASIC_USER;
-import static com.ontotext.kafka.GraphDBSinkConfig.AUTH_TYPE;
-import static com.ontotext.kafka.GraphDBSinkConfig.REPOSITORY;
-import static com.ontotext.kafka.GraphDBSinkConfig.SERVER_IRI;
-
-import java.io.IOException;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.stream.IntStream;
-
+import com.ontotext.kafka.GraphDBSinkConfig;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.HttpClientBuilder;
@@ -25,10 +14,16 @@ import org.eclipse.rdf4j.repository.RepositoryException;
 import org.eclipse.rdf4j.repository.http.HTTPRepository;
 import org.json.JSONException;
 import org.json.JSONObject;
-
-import com.ontotext.kafka.GraphDBSinkConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.stream.IntStream;
+
+import static com.ontotext.kafka.GraphDBSinkConfig.*;
 
 public class ValidateGraphDBConnection {
 
@@ -37,7 +32,7 @@ public class ValidateGraphDBConnection {
 	public static Config validateGraphDBConnection(Config validatedConnectorConfigs) {
 		ArrayList<ConfigValue> confValues = (ArrayList<ConfigValue>) validatedConnectorConfigs.configValues();
 
-		int serverIriId = getConfigIdByName(confValues, SERVER_IRI);
+		int serverIriId = getConfigIdByName(confValues, SERVER_URL);
 		ConfigValue serverIri = confValues.get(serverIriId);
 
 		try {
@@ -100,18 +95,18 @@ public class ValidateGraphDBConnection {
 				LOG.trace("Using GraphDB version {}", version);
 			} catch (JSONException e) {
 				LOG.error("Caught JSON exception while validating GraphDB version", e);
-				throw new ConfigException(SERVER_IRI, serverIri.value(),
+				throw new ConfigException(SERVER_URL, serverIri.value(),
 					"No GraphDB running on the provided GraphDB server URL");
 			}
 			String[] versionSplits = version.split("[.\\-]");
 			if (Integer.parseInt(versionSplits[0]) < 10 && Integer.parseInt(versionSplits[1]) < 10) {
-				throw new ConfigException(SERVER_IRI, serverIri.value(),
+				throw new ConfigException(SERVER_URL, serverIri.value(),
 					"Kafka sink is supported on GraphDB 9.10 or newer. Please update your GraphDB");
 
 			}
 		} catch (IOException e) {
 			LOG.error("Caught I/O exception while validating GraphDB version", e);
-			throw new ConfigException(SERVER_IRI, serverIri.value(),
+			throw new ConfigException(SERVER_URL, serverIri.value(),
 				"No GraphDB running on the provided GraphDB server URL");
 		}
 	}

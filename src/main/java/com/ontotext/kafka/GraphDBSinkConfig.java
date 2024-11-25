@@ -80,8 +80,8 @@ public class GraphDBSinkConfig extends AbstractConfig {
 		}
 	}
 
-	public static final String SERVER_IRI = "graphdb.server.url";
-	public static final String SERVER_IRI_DOC = "GraphDB Server connection URL";
+	public static final String SERVER_URL = "graphdb.server.url";
+	public static final String SERVER_URL_DOC = "GraphDB Server connection URL";
 
 	public static final String REPOSITORY = "graphdb.server.repository";
 	public static final String REPOSITORY_DOC = "Repository to which data is streamed";
@@ -156,48 +156,147 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	public static ConfigDef createConfigDef() {
 		int orderInErrorGroup = 0;
 		return new GraphDBConfigDef()
-			.define(SERVER_IRI, ConfigDef.Type.STRING, ConfigDef.Importance.HIGH,
-				SERVER_IRI_DOC)
-			.define(REPOSITORY, ConfigDef.Type.STRING, ConfigDef.Importance.HIGH,
-				REPOSITORY_DOC)
-			.define(RDF_FORMAT, ConfigDef.Type.STRING, DEFAULT_RDF_TYPE, new ValidateRDFFormat(),
-				ConfigDef.Importance.HIGH, RDF_FORMAT_DOC)
-			.define(TRANSACTION_TYPE, ConfigDef.Type.STRING, DEFAULT_TRANSACTION_TYPE,
-				new ValidateEnum(TransactionType.class),
-				ConfigDef.Importance.HIGH, TRANSACTION_TYPE_DOC)
-			.define(BATCH_SIZE, ConfigDef.Type.INT, DEFAULT_BATCH_SIZE, ConfigDef.Importance.HIGH,
-				BATCH_SIZE_DOC)
-			.define(BATCH_COMMIT_SCHEDULER, ConfigDef.Type.LONG, DEFAULT_BATCH_COMMIT_SCHEDULER,
+			.define(
+				SERVER_URL,
+				ConfigDef.Type.STRING,
 				ConfigDef.Importance.HIGH,
-				BATCH_COMMIT_SCHEDULER_DOC)
-			.define(AUTH_TYPE, ConfigDef.Type.STRING, DEFAULT_AUTH_TYPE,
+				SERVER_URL_DOC
+			)
+			.define(
+				REPOSITORY,
+				ConfigDef.Type.STRING,
+				ConfigDef.Importance.HIGH,
+				REPOSITORY_DOC
+			)
+			.define(
+				RDF_FORMAT,
+				ConfigDef.Type.STRING,
+				DEFAULT_RDF_TYPE,
+				new ValidateRDFFormat(),
+				ConfigDef.Importance.HIGH,
+				RDF_FORMAT_DOC
+			)
+			.define(
+				TRANSACTION_TYPE,
+				ConfigDef.Type.STRING,
+				DEFAULT_TRANSACTION_TYPE,
+				new ValidateEnum(TransactionType.class),
+				ConfigDef.Importance.HIGH,
+				TRANSACTION_TYPE_DOC
+			)
+			.define(
+				BATCH_SIZE,
+				ConfigDef.Type.INT,
+				DEFAULT_BATCH_SIZE,
+				ConfigDef.Importance.HIGH,
+				BATCH_SIZE_DOC
+			)
+			.define(
+				BATCH_COMMIT_SCHEDULER,
+				ConfigDef.Type.LONG,
+				DEFAULT_BATCH_COMMIT_SCHEDULER,
+				ConfigDef.Importance.HIGH,
+				BATCH_COMMIT_SCHEDULER_DOC
+			)
+			.define(
+				AUTH_TYPE,
+				ConfigDef.Type.STRING,
+				DEFAULT_AUTH_TYPE,
 				new ValidateEnum(AuthenticationType.class),
-				ConfigDef.Importance.HIGH, AUTH_TYPE_DOC)
-			.define(AUTH_BASIC_USER, ConfigDef.Type.STRING, DEFAULT_AUTH_BASIC_USER,
-				ConfigDef.Importance.HIGH, AUTH_BASIC_USER_DOC,
-				null, -1, ConfigDef.Width.NONE, AUTH_BASIC_USER,
-				new VisibleIfRecommender(AUTH_TYPE, AuthenticationType.BASIC))
-			.define(AUTH_BASIC_PASS, ConfigDef.Type.PASSWORD, DEFAULT_AUTH_BASIC_PASS,
-				ConfigDef.Importance.HIGH, AUTH_BASIC_PASS_DOC,
-				null, -1, ConfigDef.Width.NONE, AUTH_BASIC_PASS,
-				new VisibleIfRecommender(AUTH_TYPE, AuthenticationType.BASIC))
-			.define(AUTH_HEADER_TOKEN, ConfigDef.Type.STRING, "", ConfigDef.Importance.LOW,
-				AUTH_HEADER_TOKEN_DOC)
-			.define(TEMPLATE_ID, ConfigDef.Type.STRING, null, ConfigDef.Importance.MEDIUM,
-				TEMPLATE_ID_DOC)
+				ConfigDef.Importance.HIGH,
+				AUTH_TYPE_DOC
+			)
+			.define(
+				AUTH_BASIC_USER,
+				ConfigDef.Type.STRING,
+				DEFAULT_AUTH_BASIC_USER,
+				ConfigDef.Importance.HIGH,
+				AUTH_BASIC_USER_DOC,
+				null,
+				-1,
+				ConfigDef.Width.NONE,
+				AUTH_BASIC_USER,
+				new VisibleIfRecommender(AUTH_TYPE, AuthenticationType.BASIC)
+			)
+			.define(
+				AUTH_BASIC_PASS,
+				ConfigDef.Type.PASSWORD,
+				DEFAULT_AUTH_BASIC_PASS,
+				ConfigDef.Importance.HIGH,
+				AUTH_BASIC_PASS_DOC,
+				null,
+				-1,
+				ConfigDef.Width.NONE,
+				AUTH_BASIC_PASS,
+				new VisibleIfRecommender(AUTH_TYPE, AuthenticationType.BASIC)
+			)
+			.define(
+				AUTH_HEADER_TOKEN,
+				ConfigDef.Type.STRING,
+				"",
+				ConfigDef.Importance.LOW,
+				AUTH_HEADER_TOKEN_DOC
+			)
+			.define(
+				TEMPLATE_ID,
+				ConfigDef.Type.STRING,
+				null,
+				ConfigDef.Importance.MEDIUM,
+				TEMPLATE_ID_DOC
+			)
 			//error handling
-			.define(DLQ_TOPIC_NAME_CONFIG, ConfigDef.Type.STRING, DLQ_TOPIC_DEFAULT, ConfigDef.Importance.MEDIUM,
-				DLQ_TOPIC_NAME_DOC, ERROR_GROUP, ++orderInErrorGroup, ConfigDef.Width.MEDIUM, DLQ_TOPIC_DISPLAY)
-			.define(ERRORS_RETRY_TIMEOUT_CONFIG, ConfigDef.Type.LONG, ERRORS_RETRY_TIMEOUT_DEFAULT, ConfigDef.Importance.MEDIUM,
-				ERRORS_RETRY_TIMEOUT_DOC, ERROR_GROUP, ++orderInErrorGroup, ConfigDef.Width.MEDIUM, ERRORS_RETRY_TIMEOUT_DISPLAY)
-			.define(ERRORS_RETRY_MAX_DELAY_CONFIG, ConfigDef.Type.LONG, ERRORS_RETRY_MAX_DELAY_DEFAULT, ConfigDef.Importance.MEDIUM,
-				ERRORS_RETRY_MAX_DELAY_DOC, ERROR_GROUP, ++orderInErrorGroup, ConfigDef.Width.MEDIUM, ERRORS_RETRY_MAX_DELAY_DISPLAY)
-			.define(ERRORS_TOLERANCE_CONFIG, ConfigDef.Type.STRING, ERRORS_TOLERANCE_DEFAULT.value(),
-				in(ToleranceType.NONE.value(), ToleranceType.ALL.value()), ConfigDef.Importance.MEDIUM,
-				ERRORS_TOLERANCE_DOC, ERROR_GROUP, ++orderInErrorGroup, ConfigDef.Width.SHORT, ERRORS_TOLERANCE_DISPLAY)
-			.define(WorkerConfig.BOOTSTRAP_SERVERS_CONFIG, ConfigDef.Type.LIST, Collections.emptyList(), new ConfigDef.NonNullValidator(),
-				ConfigDef.Importance.HIGH, CommonClientConfigs.BOOTSTRAP_SERVERS_DOC)
-			;
+			.define(
+				DLQ_TOPIC_NAME_CONFIG,
+				ConfigDef.Type.STRING,
+				DLQ_TOPIC_DEFAULT,
+				ConfigDef.Importance.MEDIUM,
+				DLQ_TOPIC_NAME_DOC,
+				ERROR_GROUP,
+				++orderInErrorGroup,
+				ConfigDef.Width.MEDIUM,
+				DLQ_TOPIC_DISPLAY
+			)
+			.define(
+				ERRORS_RETRY_TIMEOUT_CONFIG,
+				ConfigDef.Type.LONG,
+				ERRORS_RETRY_TIMEOUT_DEFAULT,
+				ConfigDef.Importance.MEDIUM,
+				ERRORS_RETRY_TIMEOUT_DOC,
+				ERROR_GROUP,
+				++orderInErrorGroup,
+				ConfigDef.Width.MEDIUM,
+				ERRORS_RETRY_TIMEOUT_DISPLAY
+			)
+			.define(
+				ERRORS_RETRY_MAX_DELAY_CONFIG,
+				ConfigDef.Type.LONG,
+				ERRORS_RETRY_MAX_DELAY_DEFAULT,
+				ConfigDef.Importance.MEDIUM,
+				ERRORS_RETRY_MAX_DELAY_DOC,
+				ERROR_GROUP,
+				++orderInErrorGroup,
+				ConfigDef.Width.MEDIUM, ERRORS_RETRY_MAX_DELAY_DISPLAY
+			)
+			.define(
+				ERRORS_TOLERANCE_CONFIG,
+				ConfigDef.Type.STRING,
+				ERRORS_TOLERANCE_DEFAULT.value(),
+				in(ToleranceType.NONE.value(), ToleranceType.ALL.value()),
+				ConfigDef.Importance.MEDIUM,
+				ERRORS_TOLERANCE_DOC,
+				ERROR_GROUP,
+				++orderInErrorGroup,
+				ConfigDef.Width.SHORT,
+				ERRORS_TOLERANCE_DISPLAY
+			)
+			.define(
+				WorkerConfig.BOOTSTRAP_SERVERS_CONFIG,
+				ConfigDef.Type.LIST,
+				Collections.emptyList(),
+				new ConfigDef.NonNullValidator(),
+				ConfigDef.Importance.HIGH,
+				CommonClientConfigs.BOOTSTRAP_SERVERS_DOC
+			);
 	}
 
 	public int getBatchSize() {
