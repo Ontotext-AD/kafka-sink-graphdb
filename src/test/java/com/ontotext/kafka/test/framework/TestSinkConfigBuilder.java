@@ -21,7 +21,7 @@ public class TestSinkConfigBuilder {
 	}
 
 	private void initDefaults() {
-		this.configProperties.put(SERVER_IRI, "localhost");
+		this.configProperties.put(SERVER_URL, "localhost");
 		this.configProperties.put(REPOSITORY, "repo");
 
 	}
