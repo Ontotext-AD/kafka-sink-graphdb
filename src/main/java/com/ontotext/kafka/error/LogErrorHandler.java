@@ -3,6 +3,7 @@ package com.ontotext.kafka.error;
 import com.google.common.annotations.VisibleForTesting;
 import com.ontotext.kafka.GraphDBSinkConfig;
 import com.ontotext.kafka.util.ValueUtil;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.connect.runtime.errors.ToleranceType;
@@ -11,6 +12,7 @@ import org.eclipse.rdf4j.query.UpdateExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
@@ -98,8 +100,8 @@ public class LogErrorHandler implements ErrorHandler {
 
 	private void resolveProducerProperties(GraphDBSinkConfig config, Properties props) {
 		props.putAll(config.originalsWithPrefix(PRODUCER_OVERRIDE_PREFIX));
-		String bootstrapServers = config.getBootStrapServers();
-		if (StringUtils.isNotBlank(bootstrapServers)) {
+		List<String> bootstrapServers = config.getBootstrapServers();
+		if (CollectionUtils.isNotEmpty(bootstrapServers)) {
 			props.put(BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
 		}
 	}
