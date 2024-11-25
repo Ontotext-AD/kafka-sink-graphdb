@@ -63,7 +63,7 @@ public class GraphDBOperator extends RetryWithToleranceOperator implements Opera
 				attempt++;
 				return operation.call();
 			} catch (RetriableException e) {
-				LOGGER.trace("Caught a retryable exception while executing {} operation with {}", operation, this.getClass());
+				LOGGER.trace("Caught a retriable exception while executing {} operation with {}", operation, this.getClass());
 				if (checkRetry(startTime)) {
 					backoff(attempt, deadline);
 					if (Thread.currentThread().isInterrupted()) {

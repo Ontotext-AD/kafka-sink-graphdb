@@ -16,6 +16,7 @@ import org.eclipse.rdf4j.rio.RDFFormat;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.apache.kafka.clients.CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG;
@@ -38,7 +39,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	private final String templateId;
 	private final ToleranceType tolerance;
 	private final String topicName;
-	private final String bootStrapServers;
+	private final List<String> bootstrapServers;
 	private final long errorRetryTimeout;
 	private final long errorMaxDelayInMillis;
 
@@ -135,7 +136,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 		templateId = getString(TEMPLATE_ID);
 		this.topicName = getString(DLQ_TOPIC_NAME_CONFIG);
 		this.tolerance = parseTolerance();
-		this.bootStrapServers = getString(BOOTSTRAP_SERVERS_CONFIG);
+		this.bootstrapServers = getList(BOOTSTRAP_SERVERS_CONFIG);
 		this.errorRetryTimeout = getLong(ERRORS_RETRY_TIMEOUT_CONFIG);
 		this.errorMaxDelayInMillis = getLong(ERRORS_RETRY_MAX_DELAY_CONFIG);
 	}
@@ -228,8 +229,8 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	}
 
 
-	public String getBootStrapServers() {
-		return bootStrapServers;
+	public List<String> getBootstrapServers() {
+		return bootstrapServers;
 	}
 
 

@@ -26,9 +26,9 @@
 		<maven.artifact.transfer.version>0.13.1</maven.artifact.transfer.version>
 		<httpclient.osgi.version>4.5.14</httpclient.osgi.version>
 		<commons.logging.version>1.2</commons.logging.version>
-		<junit.version>4.13.2</junit.version>
 		<json.version>20231013</json.version>
 		<mockserver.junit.jupiter.version>5.15.0</mockserver.junit.jupiter.version>
+		<assertj.version>3.24.2</assertj.version>
 		<sisu.guava.version>0.11.1</sisu.guava.version>
 		<apache.maven.plugins.version>3.1.1</apache.maven.plugins.version>
 		<maven.release.plugin.version>2.5.3</maven.release.plugin.version>
@@ -402,12 +402,11 @@
             <version>${junit.jupiter.version}</version>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>${junit.version}</version>
-            <scope>test</scope>
-        </dependency>
+		<dependency>
+			<groupId>org.assertj</groupId>
+			<artifactId>assertj-core</artifactId>
+			<version>${assertj.version}</version>
+		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-api -->
 		<dependency>
 			<groupId>org.slf4j</groupId>

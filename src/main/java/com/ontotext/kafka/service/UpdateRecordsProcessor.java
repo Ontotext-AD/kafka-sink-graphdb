@@ -29,15 +29,6 @@ public class UpdateRecordsProcessor extends SinkRecordsProcessor {
 		this.templateId = config.getTemplateId();
 	}
 
-//	// @TODO - This constructor is only used in testing. Remove once tests are refactored
-//	UpdateRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, LinkedBlockingQueue<SinkRecord> recordsBatch,
-//						   Repository repository, AtomicBoolean shouldRun, RDFFormat format, int batchSize, long timeoutCommitMs,
-//						   ErrorHandler errorHandler,
-//						   OperationHandler operator, String templateId) {
-//		super(sinkRecords, recordsBatch, repository, shouldRun, format, batchSize, timeoutCommitMs, errorHandler, operator);
-//		this.templateId = templateId;
-//	}
-
 	@Override
 	protected void handleRecord(SinkRecord record, RepositoryConnection connection) {
 		try {

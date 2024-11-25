@@ -1,13 +1,21 @@
 package com.ontotext.kafka.service;
 
-import com.ontotext.kafka.mocks.DummyErrorHandler;
-import com.ontotext.kafka.mocks.DummyOperator;
-import com.ontotext.kafka.operation.OperationHandler;
+import com.ontotext.kafka.GraphDBSinkConfig;
+import com.ontotext.kafka.test.framework.ConnectionMockBuilder;
+import com.ontotext.kafka.test.framework.RepositoryMockBuilder;
+import com.ontotext.kafka.test.framework.TestSinkConfigBuilder;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.kafka.connect.runtime.errors.ToleranceType;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.Repository;
+import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.Rio;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.mockito.ArgumentCaptor;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -17,8 +25,10 @@ import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.ontotext.kafka.Utils.*;
-import static org.junit.jupiter.api.Assertions.*;
+import static com.ontotext.kafka.test.framework.RdfMockDataUtils.generateRDFStatements;
+import static com.ontotext.kafka.test.framework.RdfMockDataUtils.generateSinkRecords;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.*;
 
 public class UpdateRecordsProcessorTest {
 
@@ -27,89 +37,83 @@ public class UpdateRecordsProcessorTest {
 	private Repository repository;
 	private AtomicBoolean shouldRun;
 	private Queue<Collection<SinkRecord>> sinkRecords;
-	private DummyErrorHandler errorHandler;
-	private OperationHandler operator;
 
 	@BeforeEach
 	public void setup() {
 		streams = new LinkedBlockingQueue<>();
 		formats = new LinkedBlockingQueue<>();
-		repository = initRepository(streams, formats);
-		shouldRun = new AtomicBoolean(true);
+		RepositoryConnection connection = new ConnectionMockBuilder(null, (in, format) -> {
+			streams.add(in);
+			formats.add(format);
+		}, null).build();
+
+		repository = RepositoryMockBuilder.createDefaultMockedRepository(connection);
+		shouldRun = mock(AtomicBoolean.class);
 		sinkRecords = new LinkedBlockingQueue<>();
-		errorHandler = new DummyErrorHandler();
-		operator = new DummyOperator();
+		doReturn(CollectionUtils.isNotEmpty(sinkRecords)).when(shouldRun).get();
 	}
 
 	@Test
 	@DisplayName("Test should skip record with null key")
 	@Timeout(5)
 	void testShouldSkipInvalidRecord() throws InterruptedException, IOException {
-		int batch = 4;
-		generateValidSinkRecords(sinkRecords, 3, 15);
-		addInValidSinkRecord(sinkRecords);
-		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch, 5000);
-		recordsProcessor.start();
-		awaitEmptyCollection(sinkRecords);
-		assertEquals(3, streams.size());
+		GraphDBSinkConfig config = new TestSinkConfigBuilder()
+			.batchSize(4)
+			.timeoutCommitMs(5000)
+			.tolerance(ToleranceType.ALL)
+			.rdfFormat(RDFFormat.NQUADS.getDefaultFileExtension())
+			.build();
+		generateSinkRecords(sinkRecords, 3, 15);
+
+		SinkRecord invalidRecord = new SinkRecord("topic", 0, null, null, null,
+			generateRDFStatements(3).getBytes(),
+			12);
+		sinkRecords.add(Collections.singleton(invalidRecord));
+
+
+		UpdateRecordsProcessor processor = spy(new UpdateRecordsProcessor(sinkRecords, shouldRun, repository, config));
+		processor.run(); //Should terminate once all records have been consumed, as per the mocked shouldRun variable (or timeout in case of a bug/failure)
+		assertThat(formats).isNotEmpty();
+		assertThat(streams).isNotEmpty();
+		assertThat(streams).hasSize(3);
 		for (Reader reader : streams) {
-			assertEquals(15, Rio.parse(reader, RDFFormat.NQUADS).size());
+			assertThat(Rio.parse(reader, RDFFormat.NQUADS)).hasSize(15);
 		}
-		assertTrue(errorHandler.hasHandled(NullPointerException.class));
+		verify(processor).handleFailedRecord(eq(invalidRecord), any(NullPointerException.class));
 	}
 
 	@Test
 	@DisplayName("Test should skip multiple invalid records")
 	@Timeout(5)
 	void testShouldSkipMultipleInvalidRecords() throws InterruptedException, IOException {
-		int batch = 5;
-		generateValidSinkRecords(sinkRecords, 2, 15);
-		addInValidSinkRecord(sinkRecords);
-		generateValidSinkRecords(sinkRecords, 1, 15);
-		addInValidSinkRecord(sinkRecords);
-		Thread recordsProcessor = createProcessorThread(sinkRecords, shouldRun, repository, batch, 5000);
-		recordsProcessor.start();
-		awaitEmptyCollection(sinkRecords);
-		assertEquals(3, streams.size());
-		for (Reader reader : streams) {
-			assertEquals(15, Rio.parse(reader, RDFFormat.NQUADS).size());
-		}
-		assertTrue(errorHandler.hasHandled(NullPointerException.class));
-		assertEquals(2, errorHandler.numberOfHandled());
-	}
-
-	@Test
-	@DisplayName("Test should throw when templateId property is missing")
-	@Timeout(5)
-	public void testShouldThrowWithNullTemplateIdProperty() {
-		Assertions.assertThrows(NullPointerException.class,
-			() -> new UpdateRecordsProcessor(sinkRecords, shouldRun, repository, RDFFormat.NQUADS, 2,
-				1234, errorHandler, operator, null));
-	}
-
-	private Thread createProcessorThread(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun,
-										 Repository repository, int batchSize, long commitTimeout) {
-		Thread thread = new Thread(
-			new UpdateRecordsProcessor(sinkRecords, shouldRun, repository, RDFFormat.NQUADS, batchSize,
-				commitTimeout, errorHandler, operator, "templateId"));
-		thread.setDaemon(true);
-		return thread;
-	}
-
-	private void generateValidSinkRecords(Queue<Collection<SinkRecord>> sinkRecords, int recordsSize, int statementsSize) {
-		for (int i = 0; i < recordsSize; i++) {
-			SinkRecord sinkRecord = new SinkRecord("topic", 0, null, "key-value", null,
-				generateRDFStatements(statementsSize).getBytes(),
-				12);
-			sinkRecords.add(Collections.singleton(sinkRecord));
-		}
-	}
-
-	private void addInValidSinkRecord(Queue<Collection<SinkRecord>> sinkRecords) {
-		SinkRecord sinkRecord = new SinkRecord("topic", 0, null, null, null,
+		GraphDBSinkConfig config = new TestSinkConfigBuilder()
+			.batchSize(4)
+			.timeoutCommitMs(5000)
+			.tolerance(ToleranceType.ALL)
+			.rdfFormat(RDFFormat.NQUADS.getDefaultFileExtension())
+			.build();
+		generateSinkRecords(sinkRecords, 3, 15);
+		SinkRecord invalidRecord = new SinkRecord("topic", 0, null, null, null,
 			generateRDFStatements(3).getBytes(),
 			12);
-		sinkRecords.add(Collections.singleton(sinkRecord));
-	}
+		sinkRecords.add(Collections.singleton(invalidRecord));
+		generateSinkRecords(sinkRecords, 1, 15);
+		SinkRecord invalidRecord2 = new SinkRecord("topic", 0, null, null, null,
+			generateRDFStatements(3).getBytes(),
+			12);
+		sinkRecords.add(Collections.singleton(invalidRecord2));
 
+
+		UpdateRecordsProcessor processor = spy(new UpdateRecordsProcessor(sinkRecords, shouldRun, repository, config));
+		processor.run(); //Should terminate once all records have been consumed, as per the mocked shouldRun variable (or timeout in case of a bug/failure)
+		assertThat(formats).isNotEmpty();
+		assertThat(streams).isNotEmpty();
+		assertThat(streams).hasSize(4);
+		for (Reader reader : streams) {
+			assertThat(Rio.parse(reader, RDFFormat.NQUADS)).hasSize(15);
+		}
+		ArgumentCaptor<SinkRecord> argument = ArgumentCaptor.forClass(SinkRecord.class);
+		verify(processor, times(2)).handleFailedRecord(argument.capture(), any(NullPointerException.class));
+		assertThat(argument.getAllValues()).contains(invalidRecord, invalidRecord2);
+	}
 }
