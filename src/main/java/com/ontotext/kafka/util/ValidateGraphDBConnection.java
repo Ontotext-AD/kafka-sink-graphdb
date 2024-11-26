@@ -114,7 +114,9 @@ public class ValidateGraphDBConnection {
 	private static void validateGraphDBAuthAndRepo(ArrayList<ConfigValue> confValues, HTTPRepository testRepo,
 												   ConfigValue authType) {
 		LOG.trace("Validating GraphDB authentication and repository");
-		switch (GraphDBSinkConfig.AuthenticationType.of((String) authType.value())) {
+		AuthenticationType type = GraphDBSinkConfig.AuthenticationType.valueOf((String) authType.value());
+
+		switch (type) {
 			case NONE:
 				break;
 			case BASIC:

@@ -6,7 +6,7 @@ WORKDIR /tmp/kafka-sink-graphdb
 
 RUN \
   apt-get update && apt-get install unzip && \
-  mvn -U -B clean package && \
+  mvn -U -B -DskipTests=true clean package && \
   unzip /tmp/kafka-sink-graphdb/target/kafka-sink-graphdb-plugin.zip -d target/
 
 # Final stage - kafka sink worker

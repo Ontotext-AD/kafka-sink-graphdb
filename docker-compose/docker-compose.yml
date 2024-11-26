@@ -54,7 +54,9 @@ services:
       - graphdb
     ports:
       - 8083:8083
+      - 5005:5005
     environment:
+      JAVA_TOOL_OPTIONS: -agentlib:jdwp=transport=dt_socket,address=*:5005,server=y,suspend=y
       CONNECT_BOOTSTRAP_SERVERS: broker:9092
       CONNECT_REST_ADVERTISED_HOST_NAME: connect-1
       CONNECT_REST_PORT: 8083
@@ -86,6 +88,7 @@ services:
     ports:
       - 8084:8083
     environment:
+      JAVA_TOOL_OPTIONS: -agentlib:jdwp=transport=dt_socket,address=*:5005,server=y,suspend=n
       CONNECT_BOOTSTRAP_SERVERS: broker:9092
       CONNECT_REST_ADVERTISED_HOST_NAME: connect-2
       CONNECT_REST_PORT: 8083
@@ -117,6 +120,7 @@ services:
     ports:
       - 8085:8083
     environment:
+      JAVA_TOOL_OPTIONS: -agentlib:jdwp=transport=dt_socket,address=*:5005,server=y,suspend=n
       CONNECT_BOOTSTRAP_SERVERS: broker:9092
       CONNECT_REST_ADVERTISED_HOST_NAME: connect-3
       CONNECT_REST_PORT: 8083

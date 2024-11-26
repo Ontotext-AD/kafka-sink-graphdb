@@ -8,6 +8,7 @@ import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigValue;
+import org.apache.kafka.common.config.types.Password;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.runtime.ConnectorConfig;
 import org.apache.kafka.connect.runtime.WorkerConfig;
@@ -15,7 +16,6 @@ import org.apache.kafka.connect.runtime.errors.ToleranceType;
 import org.eclipse.rdf4j.rio.RDFFormat;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -42,24 +42,17 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	private final List<String> bootstrapServers;
 	private final long errorRetryTimeout;
 	private final long errorMaxDelayInMillis;
+	private final String serverUrl;
+	private final AuthenticationType authType;
+	private final String repositoryId;
+	private final String authBasicUser;
+	private final Password authBasicPassword;
 
 
 	public enum AuthenticationType {
 		NONE,
 		BASIC,
 		CUSTOM;
-
-		private static final Map<String, AuthenticationType> MAP = new HashMap<>();
-
-		static {
-			for (AuthenticationType type : values()) {
-				MAP.put(type.toString().toLowerCase(), type);
-			}
-		}
-
-		public static AuthenticationType of(String type) {
-			return MAP.get(type.toLowerCase());
-		}
 	}
 
 	public enum TransactionType {
@@ -67,17 +60,6 @@ public class GraphDBSinkConfig extends AbstractConfig {
 		REPLACE_GRAPH,
 		SMART_UPDATE;
 
-		private static final Map<String, TransactionType> MAP = new HashMap<>();
-
-		static {
-			for (TransactionType type : values()) {
-				MAP.put(type.toString().toLowerCase(), type);
-			}
-		}
-
-		public static TransactionType of(String type) {
-			return MAP.get(type.toLowerCase());
-		}
 	}
 
 	public static final String SERVER_URL = "graphdb.server.url";
@@ -127,11 +109,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 		super(CONFIG_DEFINITION, originals);
 		batchSize = getInt(BATCH_SIZE);
 		timeoutCommitMs = getLong(BATCH_COMMIT_SCHEDULER);
-		String trType = getString(TRANSACTION_TYPE);
-		transactionType = TransactionType.of(trType);
-		if (transactionType == null) {
-			throw new IllegalStateException(String.format("Invalid transaction type provided - %s", trType));
-		}
+		transactionType = TransactionType.valueOf(getString(TRANSACTION_TYPE).toUpperCase()); // NPE-safe because a default value is set for this field
 		rdfFormat = ValueUtil.getRDFFormat(getString(RDF_FORMAT));
 		templateId = getString(TEMPLATE_ID);
 		this.topicName = getString(DLQ_TOPIC_NAME_CONFIG);
@@ -139,6 +117,11 @@ public class GraphDBSinkConfig extends AbstractConfig {
 		this.bootstrapServers = getList(BOOTSTRAP_SERVERS_CONFIG);
 		this.errorRetryTimeout = getLong(ERRORS_RETRY_TIMEOUT_CONFIG);
 		this.errorMaxDelayInMillis = getLong(ERRORS_RETRY_MAX_DELAY_CONFIG);
+		this.serverUrl = getString(SERVER_URL);
+		this.authType = AuthenticationType.valueOf(getString(AUTH_TYPE).toUpperCase()); // NPE-safe because a default value is set for this field
+		this.repositoryId = getString(REPOSITORY);
+		this.authBasicUser = getString(AUTH_BASIC_USER);
+		this.authBasicPassword = getPassword(AUTH_BASIC_PASS);
 	}
 
 	private ToleranceType parseTolerance() {
@@ -339,6 +322,26 @@ public class GraphDBSinkConfig extends AbstractConfig {
 
 	public long getErrorMaxDelayInMillis() {
 		return errorMaxDelayInMillis;
+	}
+
+	public String getServerUrl() {
+		return serverUrl;
+	}
+
+	public AuthenticationType getAuthType() {
+		return authType;
+	}
+
+	public String getRepositoryId() {
+		return repositoryId;
+	}
+
+	public String getAuthBasicUser() {
+		return authBasicUser;
+	}
+
+	public Password getAuthBasicPassword() {
+		return authBasicPassword;
 	}
 
 	public static class GraphDBConfigDef extends ConfigDef {
