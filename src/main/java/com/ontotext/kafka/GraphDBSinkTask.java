@@ -45,7 +45,8 @@ public class GraphDBSinkTask extends SinkTask {
 		LOG.info("Starting the GraphDB sink task");
 		config = new GraphDBSinkConfig(properties);
 		repository = initializeRepository(repository, config);
-		LOG.info("Initializing repository");
+		LOG.info("Initialized GraphDB repository connection: repository {}, GraphDB instance {}, and Kafka topic {}", config.getRepositoryId(),
+			config.getServerUrl(), config.getTopicName());
 		recordProcessor = createProcessor();
 		recordProcessorThread = new Thread(recordProcessor);
 		shouldRun.set(true);
@@ -88,7 +89,6 @@ public class GraphDBSinkTask extends SinkTask {
 		String address = config.getServerUrl();
 		String repositoryId = config.getRepositoryId();
 		GraphDBSinkConfig.AuthenticationType authType = config.getAuthType();
-		LOG.trace("Fetching repository {} from {}", repositoryId, address);
 		HTTPRepository repository = new HTTPRepository(address, repositoryId);
 		switch (authType) {
 			case NONE:

@@ -241,3 +241,10 @@ services:
 > They cannot be provided as environment variables. </br>
 > If security configuration is not found in the properties file or as a runtime property the application </br>
 > will provide all resolved environment properties when the kafka producer is created
+
+> **Debugging the sink connectors** </br>
+> To debug a connector locally, you need to attach a remote debugger to the running JVM. To achieve this:
+>
+> Open the `docker-compose.yml`, find the service definition for the connector you want to debug,
+> find the `environment` section of the service, and uncomment the line that starts with `JAVA_TOOL_OPTIONS`
+> By default, the JVM debug listener will listen on port 5005, you can change the port accoding to your needs.

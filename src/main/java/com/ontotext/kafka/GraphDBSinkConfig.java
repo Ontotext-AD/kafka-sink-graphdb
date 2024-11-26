@@ -106,7 +106,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	public static final String DLQ_TOPIC_DISPLAY = "Dead Letter Queue Topic Name";
 
 	public GraphDBSinkConfig(Map<?, ?> originals) {
-		super(CONFIG_DEFINITION, originals);
+		super(CONFIG_DEFINITION, originals, true); // log the configuration after setup is complete
 		batchSize = getInt(BATCH_SIZE);
 		timeoutCommitMs = getLong(BATCH_COMMIT_SCHEDULER);
 		transactionType = TransactionType.valueOf(getString(TRANSACTION_TYPE).toUpperCase()); // NPE-safe because a default value is set for this field
