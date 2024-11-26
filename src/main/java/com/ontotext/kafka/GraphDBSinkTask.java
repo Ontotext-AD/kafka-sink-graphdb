@@ -6,7 +6,6 @@ import com.ontotext.kafka.service.SinkRecordsProcessor;
 import com.ontotext.kafka.service.UpdateRecordsProcessor;
 import com.ontotext.kafka.util.VersionUtil;
 import org.apache.commons.collections4.CollectionUtils;
-import org.apache.kafka.common.config.types.Password;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 import org.eclipse.rdf4j.repository.Repository;
@@ -45,14 +44,14 @@ public class GraphDBSinkTask extends SinkTask {
 	public void start(Map<String, String> properties) {
 		LOG.info("Starting the GraphDB sink task");
 		config = new GraphDBSinkConfig(properties);
-		if (repository == null) {
-			LOG.info("Initializing repository");
-			recordProcessor = createProcessor();
-			recordProcessorThread = new Thread(recordProcessor);
-			shouldRun.set(true);
-			recordProcessorThread.start();
-			LOG.info("Configuration complete.");
-		}
+		repository = initializeRepository(repository, config);
+		LOG.info("Initializing repository");
+		recordProcessor = createProcessor();
+		recordProcessorThread = new Thread(recordProcessor);
+		shouldRun.set(true);
+		recordProcessorThread.start();
+		LOG.info("Configuration complete.");
+
 
 		// no need to do anything as records are simply added to a concurrent queue
 	}
@@ -81,30 +80,28 @@ public class GraphDBSinkTask extends SinkTask {
 	}
 
 
-	private Repository initializeRepository(Repository repository, Map<String, ?> properties) {
-		return repository == null ? fetchRepository(properties) : repository;
+	private Repository initializeRepository(Repository repository, GraphDBSinkConfig config) {
+		return repository == null ? fetchRepository(config) : repository;
 	}
 
-	private static Repository fetchRepository(Map<String, ?> properties) {
-		String address = (String) properties.get(GraphDBSinkConfig.SERVER_URL);
-		String repositoryId = (String) properties.get(GraphDBSinkConfig.REPOSITORY);
+	private static Repository fetchRepository(GraphDBSinkConfig config) {
+		String address = config.getServerUrl();
+		String repositoryId = config.getRepositoryId();
+		GraphDBSinkConfig.AuthenticationType authType = config.getAuthType();
 		LOG.trace("Fetching repository {} from {}", repositoryId, address);
-		var repository = new HTTPRepository(address, repositoryId);
-		switch (GraphDBSinkConfig.AuthenticationType.of((String) properties.get(GraphDBSinkConfig.AUTH_TYPE))) {
+		HTTPRepository repository = new HTTPRepository(address, repositoryId);
+		switch (authType) {
 			case NONE:
 				return repository;
 			case BASIC:
 				if (LOG.isTraceEnabled()) {
-					LOG.trace("Initializing repository connection with user {}",
-						properties.get(GraphDBSinkConfig.AUTH_BASIC_USER));
+					LOG.trace("Initializing repository connection with user {}", config.getAuthBasicUser());
 				}
-				repository.setUsernameAndPassword(
-					(String) properties.get(GraphDBSinkConfig.AUTH_BASIC_USER),
-					((Password) properties.get(GraphDBSinkConfig.AUTH_BASIC_PASS)).value());
+				repository.setUsernameAndPassword(config.getAuthBasicUser(), config.getAuthBasicPassword().value());
 				return repository;
 			case CUSTOM:
-			default:
-				throw new UnsupportedOperationException(properties.get(GraphDBSinkConfig.AUTH_TYPE) + " not supported");
+			default: // Any other types which are valid, as per definition, but are not implemented yet
+				throw new UnsupportedOperationException(authType + " not supported");
 		}
 	}
 
