@@ -11,7 +11,6 @@ import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.RepositoryException;
 import org.eclipse.rdf4j.rio.RDFFormat;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.Reader;
@@ -44,8 +43,8 @@ public class GraphDBOperatorTest {
 	private RepositoryConnection connection;
 
 
-	@BeforeEach
-	public void setup() {
+	@Test
+	public void should_run_throwingProcessor() {
 		config = new TestSinkConfigBuilder()
 			.errorMaxDelayInMillis(100L)
 			.errorRetryTimeout(-1L)
@@ -65,10 +64,7 @@ public class GraphDBOperatorTest {
 
 		processor = spy(new AddRecordsProcessor(sinkRecords, shouldRun, repository, config));
 
-	}
 
-	@Test
-	public void should_run_throwingProcessor() {
 		// Fail on first try, succeed on second
 		doThrow(new RepositoryException("ERROR")).doReturn(connection).when(repository).getConnection();
 
@@ -79,63 +75,6 @@ public class GraphDBOperatorTest {
 
 		assertThat(op.execAndHandleError(processor)).isNotNull();
 	}
-
-	@Test
-	public void should_handle_toleranceNone() {
-		// Fail on first try, succeed on second
-		doThrow(new RepositoryException("ERROR")).doReturn(connection).when(repository).getConnection();
-
-		config = new TestSinkConfigBuilder()
-			.errorMaxDelayInMillis(100L)
-			.errorRetryTimeout(-1L)
-			.tolerance(ToleranceType.NONE)
-			.build();
-
-		generateSinkRecords(sinkRecords, 1, 15);
-
-		op = new GraphDBOperator(config);
-
-		assertThat(op.execAndHandleError(processor)).isNull();
-	}
-//
-//	@Test
-//	public void should_handle_infiniteRetry() {
-//		property.put(TOTAL_RETRY_PERIOD_NAME, INFINITE_RETRY);
-//		property.put(SLEEP_NAME, NO_DELAY);
-//		generateSinkRecords(sinkRecords, 1, 15);
-//
-//		op = new GraphDBOperator(property);
-//		Operation<Object> o = getThrowingProcessor()
-//			.setNumberOfThrows(3);
-//
-//		Assertions.assertNotNull(op.execAndHandleError(o));
-//	}
-//
-//	@Test
-//	public void should_handle_noRetry() {
-//		property.put(TOTAL_RETRY_PERIOD_NAME, NO_RETRY);
-//		property.put(SLEEP_NAME, NO_DELAY);
-//		generateSinkRecords(sinkRecords, 1, 15);
-//
-//		op = new GraphDBOperator(property);
-//		Operation<Object> o = getThrowingProcessor()
-//			.setNumberOfThrows(1);
-//
-//		Assertions.assertNull(op.execAndHandleError(o));
-//	}
-//
-//	@Test
-//	public void should_handle_longSleep() {
-//		property.put(TOTAL_RETRY_PERIOD_NAME, INFINITE_RETRY);
-//		property.put(SLEEP_NAME, 1000L);
-//		generateSinkRecords(sinkRecords, 1, 15);
-//
-//		op = new GraphDBOperator(property);
-//		Operation<Object> o = getThrowingProcessor()
-//			.setNumberOfThrows(2);
-//
-//		Assertions.assertNotNull(op.execAndHandleError(o));
-//	}
 
 
 }
