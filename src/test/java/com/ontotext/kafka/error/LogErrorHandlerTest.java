@@ -1,5 +1,6 @@
 package com.ontotext.kafka.error;
 
+import com.ontotext.kafka.GraphDBSinkConfig;
 import org.apache.kafka.common.config.types.Password;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -12,6 +13,7 @@ import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.Properties;
 
+import static com.ontotext.kafka.GraphDBSinkConfig.REPOSITORY;
 import static com.ontotext.kafka.GraphDBSinkConfig.SERVER_URL;
 import static com.ontotext.kafka.error.LogErrorHandler.*;
 import static java.util.Map.entry;
@@ -20,6 +22,7 @@ import static org.apache.kafka.clients.producer.ProducerConfig.CLIENT_ID_CONFIG;
 import static org.apache.kafka.common.config.SslConfigs.*;
 import static org.apache.kafka.connect.runtime.ConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static org.apache.kafka.connect.runtime.SinkConnectorConfig.DLQ_TOPIC_NAME_CONFIG;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -29,18 +32,21 @@ class LogErrorHandlerTest {
 	@SystemStub
 	private EnvironmentVariables environmentVariables;
 
-	private static final Map<String, Object> kafkaConnectProps = Map.of(ERRORS_TOLERANCE_CONFIG, "all",
-		SERVER_URL, "http://localhost:7200",
-		DLQ_TOPIC_NAME_CONFIG, "error_topic",
-		BOOTSTRAP_SERVERS_CONFIG, "localhost:9092",
-		PRODUCER_OVERRIDE_PREFIX + SSL_KEY_PASSWORD_CONFIG, new Password("my_pass"),
-		PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_CERTIFICATE_CHAIN_CONFIG, new Password("my_pass"),
-		PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_KEY_CONFIG, new Password("my_pass"),
-		PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_LOCATION_CONFIG, "/keystore_resource_file_path",
-		PRODUCER_OVERRIDE_PREFIX + SSL_ENGINE_FACTORY_CLASS_CONFIG, LogErrorHandlerTest.class,
-		PRODUCER_OVERRIDE_PREFIX + SSL_PROVIDER_CONFIG, "/path_to_ssl_provider_config");
+	private static final Map<String, Object> kafkaConnectProps = Map.ofEntries(
+		entry(ERRORS_TOLERANCE_CONFIG, "all"),
+		entry(SERVER_URL, "http://localhost:7200"),
+		entry(REPOSITORY, "test"),
+		entry(DLQ_TOPIC_NAME_CONFIG, "error_topic"),
+		entry(BOOTSTRAP_SERVERS_CONFIG, "localhost:9092"),
+		entry(PRODUCER_OVERRIDE_PREFIX + SSL_KEY_PASSWORD_CONFIG, new Password("my_pass")),
+		entry(PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_CERTIFICATE_CHAIN_CONFIG, new Password("my_pass")),
+		entry(PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_KEY_CONFIG, new Password("my_pass")),
+		entry(PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_LOCATION_CONFIG, "/keystore_resource_file_path"),
+		entry(PRODUCER_OVERRIDE_PREFIX + SSL_ENGINE_FACTORY_CLASS_CONFIG, LogErrorHandlerTest.class),
+		entry(PRODUCER_OVERRIDE_PREFIX + SSL_PROVIDER_CONFIG, "/path_to_ssl_provider_config"));
 
-	private static final Map<Object, Object> ENV_VARIABLES = Map.ofEntries(entry("CONNECT_BOOTSTRAP_SERVERS", "SSL://example.test.com:9094"),
+	private static final Map<Object, Object> ENV_VARIABLES = Map.ofEntries(
+		entry("CONNECT_BOOTSTRAP_SERVERS", "SSL://example.test.com:9094"),
 		entry("CONNECT_SSL_KEYSTORE_KEY", "this_pass"),
 		entry("CONNECT_SSL_KEYSTORE_LOCATION", "/keystore_another_resource_file_path"),
 		entry("CONNECT_SSL_PROVIDER", "/path_to_another_ssl_provider_config"),
@@ -88,28 +94,26 @@ class LogErrorHandlerTest {
 
 	@Test
 	void testFailedRecordProducerConfiguration() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
-		var mockedLockHandler = mock(LogErrorHandler.class);
-		Method getProperties = mockedLockHandler.getClass().getDeclaredMethod("getProperties", Map.class);
-		getProperties.setAccessible(true);
-		var convertedProps = (Properties) getProperties.invoke(mockedLockHandler, kafkaConnectProps);
-		for (var entry : convertedProps.entrySet()) {
-			var entryKey = entry.getKey();
-			var entryValue = entry.getValue();
-			if (ERRORS_TOLERANCE_CONFIG.equals(entryKey)
-				|| DLQ_TOPIC_NAME_CONFIG.equals(entryKey)
-				|| BOOTSTRAP_SERVERS_CONFIG.equals(entryKey)
-				|| SERVER_URL.equals(entryKey)
-				|| CLIENT_ID_CONFIG.equals(entryKey)) {
-				if (!CLIENT_ID_CONFIG.equals(entryKey)) {
-					assertTrue(kafkaConnectProps.containsKey(entryKey));
-					assertEquals(kafkaConnectProps.get(entryKey), entryValue);
-				}
-				continue;
-			}
-			var keyWithPrefix = PRODUCER_OVERRIDE_PREFIX + entryKey;
-			assertTrue(kafkaConnectProps.containsKey(keyWithPrefix));
-			assertEquals(kafkaConnectProps.get(keyWithPrefix), entryValue);
-		}
+		GraphDBSinkConfig config = new GraphDBSinkConfig(kafkaConnectProps);
+		LogErrorHandler handler = new LogErrorHandler(config);
+
+		Properties convertedProps = handler.getProperties(config);
+		assertThat(convertedProps).hasFieldOrPropertyWithValue(ERRORS_TOLERANCE_CONFIG, kafkaConnectProps.get(ERRORS_TOLERANCE_CONFIG));
+		assertThat(convertedProps).hasFieldOrPropertyWithValue(DLQ_TOPIC_NAME_CONFIG, kafkaConnectProps.get(DLQ_TOPIC_NAME_CONFIG));
+		assertThat(convertedProps).hasFieldOrPropertyWithValue(BOOTSTRAP_SERVERS_CONFIG, kafkaConnectProps.get(BOOTSTRAP_SERVERS_CONFIG));
+		assertThat(convertedProps).hasFieldOrPropertyWithValue(SERVER_URL, kafkaConnectProps.get(SERVER_URL));
+
+		assertThat(convertedProps).hasFieldOrPropertyWithValue(SSL_KEYSTORE_CERTIFICATE_CHAIN_CONFIG,
+			kafkaConnectProps.get(PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_CERTIFICATE_CHAIN_CONFIG));
+		assertThat(convertedProps).hasFieldOrPropertyWithValue(SSL_KEY_PASSWORD_CONFIG,
+			kafkaConnectProps.get(PRODUCER_OVERRIDE_PREFIX + SSL_KEY_PASSWORD_CONFIG));
+		assertThat(convertedProps).hasFieldOrPropertyWithValue(SSL_KEYSTORE_KEY_CONFIG,
+			kafkaConnectProps.get(PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_KEY_CONFIG));
+		assertThat(convertedProps).hasFieldOrPropertyWithValue(SSL_KEYSTORE_LOCATION_CONFIG,
+			kafkaConnectProps.get(PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_LOCATION_CONFIG));
+		assertThat(convertedProps).hasFieldOrPropertyWithValue(SSL_ENGINE_FACTORY_CLASS_CONFIG,
+			kafkaConnectProps.get(PRODUCER_OVERRIDE_PREFIX + SSL_ENGINE_FACTORY_CLASS_CONFIG));
+		assertThat(convertedProps).hasFieldOrPropertyWithValue(SSL_PROVIDER_CONFIG, kafkaConnectProps.get(PRODUCER_OVERRIDE_PREFIX + SSL_PROVIDER_CONFIG));
 	}
 
 	@Test

@@ -64,7 +64,7 @@ public class LogErrorHandler implements ErrorHandler {
 		return new FailedRecordProducer(topicName, getProperties(config));
 	}
 
-	private Properties getProperties(GraphDBSinkConfig config) {
+	Properties getProperties(GraphDBSinkConfig config) {
 		Properties props = new Properties();
 		resolveProducerProperties(config, props);
 		resolvePropertiesFromEnvironment(props);
