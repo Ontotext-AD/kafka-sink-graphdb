@@ -45,16 +45,13 @@ public class GraphDBSinkTask extends SinkTask {
 		LOG.info("Starting the GraphDB sink task");
 		config = new GraphDBSinkConfig(properties);
 		repository = initializeRepository(repository, config);
-		LOG.info("Initialized GraphDB repository connection: repository {}, GraphDB instance {}, and Kafka topic {}", config.getRepositoryId(),
-			config.getServerUrl(), config.getTopicName());
+		LOG.info("Initialized GraphDB repository connection: repository {}, GraphDB instance {}", config.getRepositoryId(),
+			config.getServerUrl());
 		recordProcessor = createProcessor();
 		recordProcessorThread = new Thread(recordProcessor);
 		shouldRun.set(true);
 		recordProcessorThread.start();
 		LOG.info("Configuration complete.");
-
-
-		// no need to do anything as records are simply added to a concurrent queue
 	}
 
 
@@ -106,7 +103,7 @@ public class GraphDBSinkTask extends SinkTask {
 	}
 
 	private SinkRecordsProcessor createProcessor() {
-		// This is guarnteed to always be non-null during config initialization
+		// This is guaranteed to always be non-null during config initialization
 		switch (config.getTransactionType()) {
 			case ADD:
 				return new AddRecordsProcessor(sinkRecords, shouldRun, repository, config);
