@@ -2,6 +2,7 @@ package com.ontotext.kafka.util;
 
 import com.ontotext.kafka.GraphDBSinkConfig;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang.StringUtils;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.kafka.common.config.Config;
@@ -114,7 +115,11 @@ public class ValidateGraphDBConnection {
 	private static void validateGraphDBAuthAndRepo(ArrayList<ConfigValue> confValues, HTTPRepository testRepo,
 												   ConfigValue authType) {
 		LOG.trace("Validating GraphDB authentication and repository");
-		AuthenticationType type = GraphDBSinkConfig.AuthenticationType.valueOf((String) authType.value());
+		String authTypeString = (String) authType.value();
+		if (StringUtils.isBlank(authTypeString)) {
+			throw new ConfigException(AUTH_TYPE, "Not provided");
+		}
+		AuthenticationType type = GraphDBSinkConfig.AuthenticationType.valueOf(authTypeString.toUpperCase());
 
 		switch (type) {
 			case NONE:
