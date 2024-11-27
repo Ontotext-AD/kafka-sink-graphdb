@@ -9,7 +9,7 @@ import uk.org.webcompere.systemstubs.jupiter.SystemStub;
 import uk.org.webcompere.systemstubs.jupiter.SystemStubsExtension;
 
 import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Properties;
 
@@ -23,27 +23,14 @@ import static org.apache.kafka.common.config.SslConfigs.*;
 import static org.apache.kafka.connect.runtime.ConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static org.apache.kafka.connect.runtime.SinkConnectorConfig.DLQ_TOPIC_NAME_CONFIG;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.mock;
 
 @ExtendWith(SystemStubsExtension.class)
 class LogErrorHandlerTest {
 	@SystemStub
 	private EnvironmentVariables environmentVariables;
-
-	private static final Map<String, Object> kafkaConnectProps = Map.ofEntries(
-		entry(ERRORS_TOLERANCE_CONFIG, "all"),
-		entry(SERVER_URL, "http://localhost:7200"),
-		entry(REPOSITORY, "test"),
-		entry(DLQ_TOPIC_NAME_CONFIG, "error_topic"),
-		entry(BOOTSTRAP_SERVERS_CONFIG, "localhost:9092"),
-		entry(PRODUCER_OVERRIDE_PREFIX + SSL_KEY_PASSWORD_CONFIG, new Password("my_pass")),
-		entry(PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_CERTIFICATE_CHAIN_CONFIG, new Password("my_pass")),
-		entry(PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_KEY_CONFIG, new Password("my_pass")),
-		entry(PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_LOCATION_CONFIG, "/keystore_resource_file_path"),
-		entry(PRODUCER_OVERRIDE_PREFIX + SSL_ENGINE_FACTORY_CLASS_CONFIG, LogErrorHandlerTest.class),
-		entry(PRODUCER_OVERRIDE_PREFIX + SSL_PROVIDER_CONFIG, "/path_to_ssl_provider_config"));
 
 	private static final Map<Object, Object> ENV_VARIABLES = Map.ofEntries(
 		entry("CONNECT_BOOTSTRAP_SERVERS", "SSL://example.test.com:9094"),
@@ -94,80 +81,94 @@ class LogErrorHandlerTest {
 
 	@Test
 	void testFailedRecordProducerConfiguration() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+		Map<String, Object> kafkaConnectProps = Map.ofEntries(
+			entry(ERRORS_TOLERANCE_CONFIG, "all"),
+			entry(SERVER_URL, "http://localhost:7200"),
+			entry(REPOSITORY, "test"),
+			entry(DLQ_TOPIC_NAME_CONFIG, "error_topic"),
+			entry(BOOTSTRAP_SERVERS_CONFIG, "localhost:9092"),
+			entry(PRODUCER_OVERRIDE_PREFIX + SSL_KEY_PASSWORD_CONFIG, new Password("my_pass")),
+			entry(PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_CERTIFICATE_CHAIN_CONFIG, new Password("my_pass")),
+			entry(PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_KEY_CONFIG, new Password("my_pass")),
+			entry(PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_LOCATION_CONFIG, "/keystore_resource_file_path"),
+			entry(PRODUCER_OVERRIDE_PREFIX + SSL_ENGINE_FACTORY_CLASS_CONFIG, LogErrorHandlerTest.class),
+			entry(PRODUCER_OVERRIDE_PREFIX + SSL_PROVIDER_CONFIG, "/path_to_ssl_provider_config"));
+
 		GraphDBSinkConfig config = new GraphDBSinkConfig(kafkaConnectProps);
 		LogErrorHandler handler = new LogErrorHandler(config);
 
 		Properties convertedProps = handler.getProperties(config);
-		assertThat(convertedProps).hasFieldOrPropertyWithValue(ERRORS_TOLERANCE_CONFIG, kafkaConnectProps.get(ERRORS_TOLERANCE_CONFIG));
-		assertThat(convertedProps).hasFieldOrPropertyWithValue(DLQ_TOPIC_NAME_CONFIG, kafkaConnectProps.get(DLQ_TOPIC_NAME_CONFIG));
-		assertThat(convertedProps).hasFieldOrPropertyWithValue(BOOTSTRAP_SERVERS_CONFIG, kafkaConnectProps.get(BOOTSTRAP_SERVERS_CONFIG));
-		assertThat(convertedProps).hasFieldOrPropertyWithValue(SERVER_URL, kafkaConnectProps.get(SERVER_URL));
+		assertThat(convertedProps).containsKey(BOOTSTRAP_SERVERS_CONFIG)
+			.containsValue(Collections.singletonList(kafkaConnectProps.get(BOOTSTRAP_SERVERS_CONFIG)));
+		assertThat(convertedProps).containsKey(CLIENT_ID_CONFIG).containsValue(FailedRecordProducer.class.getSimpleName());
 
-		assertThat(convertedProps).hasFieldOrPropertyWithValue(SSL_KEYSTORE_CERTIFICATE_CHAIN_CONFIG,
+		assertThat(convertedProps).containsKey(SSL_KEYSTORE_CERTIFICATE_CHAIN_CONFIG).containsValue(
 			kafkaConnectProps.get(PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_CERTIFICATE_CHAIN_CONFIG));
-		assertThat(convertedProps).hasFieldOrPropertyWithValue(SSL_KEY_PASSWORD_CONFIG,
+		assertThat(convertedProps).containsKey(SSL_KEY_PASSWORD_CONFIG).containsValue(
 			kafkaConnectProps.get(PRODUCER_OVERRIDE_PREFIX + SSL_KEY_PASSWORD_CONFIG));
-		assertThat(convertedProps).hasFieldOrPropertyWithValue(SSL_KEYSTORE_KEY_CONFIG,
+		assertThat(convertedProps).containsKey(SSL_KEYSTORE_KEY_CONFIG).containsValue(
 			kafkaConnectProps.get(PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_KEY_CONFIG));
-		assertThat(convertedProps).hasFieldOrPropertyWithValue(SSL_KEYSTORE_LOCATION_CONFIG,
+		assertThat(convertedProps).containsKey(SSL_KEYSTORE_LOCATION_CONFIG).containsValue(
 			kafkaConnectProps.get(PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_LOCATION_CONFIG));
-		assertThat(convertedProps).hasFieldOrPropertyWithValue(SSL_ENGINE_FACTORY_CLASS_CONFIG,
+		assertThat(convertedProps).containsKey(SSL_ENGINE_FACTORY_CLASS_CONFIG).containsValue(
 			kafkaConnectProps.get(PRODUCER_OVERRIDE_PREFIX + SSL_ENGINE_FACTORY_CLASS_CONFIG));
-		assertThat(convertedProps).hasFieldOrPropertyWithValue(SSL_PROVIDER_CONFIG, kafkaConnectProps.get(PRODUCER_OVERRIDE_PREFIX + SSL_PROVIDER_CONFIG));
+		assertThat(convertedProps).containsKey(SSL_PROVIDER_CONFIG).containsValue(kafkaConnectProps.get(PRODUCER_OVERRIDE_PREFIX + SSL_PROVIDER_CONFIG));
 	}
 
 	@Test
 	void testFailedRecordProducerConfigurationFromEnvironmentVariables() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
 		environmentVariables.set(ENV_VARIABLES);
-		var kafkaConnectProps = Map.of(ERRORS_TOLERANCE_CONFIG, "all",
+		Map<String, Object> kafkaConnectProps = Map.of(ERRORS_TOLERANCE_CONFIG, "all",
 			SERVER_URL, "http://localhost:7200",
+			REPOSITORY, "test",
 			DLQ_TOPIC_NAME_CONFIG, "error_topic");
-		var mockedLockHandler = mock(LogErrorHandler.class);
-		Method getProperties = mockedLockHandler.getClass().getDeclaredMethod("getProperties", Map.class);
-		getProperties.setAccessible(true);
-		var convertedProps = (Properties) getProperties.invoke(mockedLockHandler, kafkaConnectProps);
-		for (var entry : convertedProps.entrySet()) {
-			var entryKey = (String) entry.getKey();
-			var entryValue = entry.getValue();
-			if (ERRORS_TOLERANCE_CONFIG.equals(entryKey)
-				|| DLQ_TOPIC_NAME_CONFIG.equals(entryKey)
-				|| SERVER_URL.equals(entryKey)
-				|| CLIENT_ID_CONFIG.equals(entryKey)) {
-				if (!CLIENT_ID_CONFIG.equals(entryKey)) {
-					assertTrue(kafkaConnectProps.containsKey(entryKey));
-					assertEquals(kafkaConnectProps.get(entryKey), entryValue);
-				}
-				continue;
-			}
-			var keyWithPrefix = CONNECT_ENV_PREFIX + (entryKey.replace(".", "_").toUpperCase());
-			assertTrue(ENV_VARIABLES.containsKey(keyWithPrefix));
-			assertEquals(escapeNewLinesFromString((String) ENV_VARIABLES.get(keyWithPrefix)), entryValue);
-		}
+
+
+		GraphDBSinkConfig config = new GraphDBSinkConfig(kafkaConnectProps);
+		LogErrorHandler handler = mock(LogErrorHandler.class);
+		doCallRealMethod().when(handler).getProperties(eq(config));
+
+		Properties convertedProps = handler.getProperties(config);
+		assertThat(convertedProps).containsKey(CLIENT_ID_CONFIG).containsValue(FailedRecordProducer.class.getSimpleName());
+
+		convertedProps.remove(CLIENT_ID_CONFIG);
+		convertedProps.entrySet().forEach(entry -> {
+			String key = CONNECT_ENV_PREFIX + (entry.getKey().toString().replace(".", "_").toUpperCase());
+			Object value = entry.getValue();
+			assertThat(ENV_VARIABLES).containsKey(key);
+			assertThat(escapeNewLinesFromString((String) ENV_VARIABLES.get(key))).isEqualTo(value);
+		});
 	}
 
 	@Test
 	void testFailedRecordProducerConfigurationWillBeSetFromEnvVariables() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
 		environmentVariables.set(ENV_VARIABLES);
-		var mockedLockHandler = mock(LogErrorHandler.class);
-		Method getProperties = mockedLockHandler.getClass().getDeclaredMethod("getProperties", Map.class);
-		getProperties.setAccessible(true);
-		var convertedProps = (Properties) getProperties.invoke(mockedLockHandler, kafkaConnectProps);
-		for (var entry : convertedProps.entrySet()) {
-			var entryKey = (String) entry.getKey();
-			var entryValue = entry.getValue();
-			if (ERRORS_TOLERANCE_CONFIG.equals(entryKey)
-				|| DLQ_TOPIC_NAME_CONFIG.equals(entryKey)
-				|| SERVER_URL.equals(entryKey)
-				|| CLIENT_ID_CONFIG.equals(entryKey)) {
-				if (!CLIENT_ID_CONFIG.equals(entryKey)) {
-					assertTrue(kafkaConnectProps.containsKey(entryKey));
-					assertEquals(kafkaConnectProps.get(entryKey), entryValue);
-				}
-				continue;
-			}
-			var keyWithPrefix = CONNECT_ENV_PREFIX + (entryKey.replace(".", "_").toUpperCase());
-			assertTrue(ENV_VARIABLES.containsKey(keyWithPrefix));
-			assertEquals(escapeNewLinesFromString((String) ENV_VARIABLES.get(keyWithPrefix)), entryValue);
-		}
+		Map<String, Object> kafkaConnectProps = Map.ofEntries(
+			entry(ERRORS_TOLERANCE_CONFIG, "all"),
+			entry(SERVER_URL, "http://localhost:7200"),
+			entry(REPOSITORY, "test"),
+			entry(DLQ_TOPIC_NAME_CONFIG, "error_topic"),
+			entry(BOOTSTRAP_SERVERS_CONFIG, "localhost:9092"),
+			entry(PRODUCER_OVERRIDE_PREFIX + SSL_KEY_PASSWORD_CONFIG, new Password("my_pass")),
+			entry(PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_CERTIFICATE_CHAIN_CONFIG, new Password("my_pass")),
+			entry(PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_KEY_CONFIG, new Password("my_pass")),
+			entry(PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_LOCATION_CONFIG, "/keystore_resource_file_path"),
+			entry(PRODUCER_OVERRIDE_PREFIX + SSL_ENGINE_FACTORY_CLASS_CONFIG, LogErrorHandlerTest.class),
+			entry(PRODUCER_OVERRIDE_PREFIX + SSL_PROVIDER_CONFIG, "/path_to_ssl_provider_config"));
+
+		GraphDBSinkConfig config = new GraphDBSinkConfig(kafkaConnectProps);
+		LogErrorHandler handler = mock(LogErrorHandler.class);
+		doCallRealMethod().when(handler).getProperties(eq(config));
+
+		Properties convertedProps = handler.getProperties(config);
+		assertThat(convertedProps).containsKey(CLIENT_ID_CONFIG).containsValue(FailedRecordProducer.class.getSimpleName());
+
+		convertedProps.remove(CLIENT_ID_CONFIG);
+		convertedProps.entrySet().forEach(entry -> {
+			String key = CONNECT_ENV_PREFIX + (entry.getKey().toString().replace(".", "_").toUpperCase());
+			Object value = entry.getValue();
+			assertThat(ENV_VARIABLES).containsKey(key);
+			assertThat(escapeNewLinesFromString((String) ENV_VARIABLES.get(key))).isEqualTo(value);
+		});
 	}
 }
