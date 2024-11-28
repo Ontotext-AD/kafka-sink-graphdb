@@ -1,13 +1,16 @@
-package com.ontotext.kafka.service;
+package com.ontotext.kafka.processor;
 
 import com.ontotext.kafka.GraphDBSinkConfig;
 import com.ontotext.kafka.error.ErrorHandler;
 import com.ontotext.kafka.error.LogErrorHandler;
 import com.ontotext.kafka.operation.GraphDBOperator;
 import com.ontotext.kafka.operation.OperationHandler;
+import com.ontotext.kafka.util.ValueUtil;
+import org.apache.commons.lang.NotImplementedException;
 import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.runtime.errors.Operation;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.http.HTTPRepository;
@@ -16,10 +19,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
+
+import static com.ontotext.kafka.util.ValueUtil.convertValueToString;
 
 /**
  * A processor which batches sink records and flushes the updates to a given
@@ -30,55 +36,51 @@ import java.util.concurrent.locks.ReentrantLock;
  *
  * @author Tomas Kovachev tomas.kovachev@ontotext.com
  */
-public abstract class SinkRecordsProcessor implements Runnable, Operation<Object> {
+public final class SinkRecordsProcessor implements Runnable, Operation<Object> {
 
 	private static final Logger LOG = LoggerFactory.getLogger(SinkRecordsProcessor.class);
 	private static final Object SUCCESSES = new Object();
 
-	protected final Queue<Collection<SinkRecord>> sinkRecords;
-	protected final Queue<SinkRecord> recordsBatch;
-	protected final Repository repository;
-	protected final AtomicBoolean shouldRun;
-	protected final RDFFormat format;
-	protected final Timer commitTimer;
-	protected final ScheduleCommitter scheduleCommitter;
-	protected final ReentrantLock timeoutCommitLock;
-	protected final int batchSize;
-	protected final long timeoutCommitMs;
-	protected final ErrorHandler errorHandler;
-	protected final Set<SinkRecord> failedRecords;
-	protected final OperationHandler operator;
-	protected final String repositoryUrl;
+	private final Queue<Collection<SinkRecord>> sinkRecords;
+	private final Queue<SinkRecord> recordsBatch;
+	private final Repository repository;
+	private final AtomicBoolean shouldRun;
+	private final RDFFormat format;
+	private final Timer commitTimer;
+	private final ScheduleCommitter scheduleCommitter;
+	private final ReentrantLock timeoutCommitLock;
+	private final int batchSize;
+	private final long timeoutCommitMs;
+	private final ErrorHandler errorHandler;
+	private final Set<SinkRecord> failedRecords;
+	private final OperationHandler operator;
+	private final StringBuilder updateQueryBuilder;
+	private final String templateId;
+	private final RecordHandler recordHandler;
+	private final GraphDBSinkConfig.TransactionType transactionType;
 
 	public SinkRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun, Repository repository, GraphDBSinkConfig config) {
-		this(sinkRecords, new ConcurrentLinkedQueue<>(), repository, shouldRun, config.getRdfFormat(), config.getBatchSize(), config.getTimeoutCommitMs(),
-			new LogErrorHandler(config), new GraphDBOperator(config));
-	}
-
-	private SinkRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, ConcurrentLinkedQueue<SinkRecord> recordsBatch, Repository repository,
-								 AtomicBoolean shouldRun, RDFFormat format, int batchSize, long timeoutCommitMs, ErrorHandler errorHandler,
-								 OperationHandler operator) {
 		this.sinkRecords = sinkRecords;
-		this.recordsBatch = recordsBatch;
+		this.recordsBatch = new ConcurrentLinkedQueue<>();
 		this.repository = repository;
 		this.shouldRun = shouldRun;
-		this.format = format;
-		this.batchSize = batchSize;
-		this.timeoutCommitMs = timeoutCommitMs;
-		this.errorHandler = errorHandler;
-		this.operator = operator;
+		this.updateQueryBuilder = new StringBuilder();
+		this.templateId = config.getTemplateId();
+		this.format = config.getRdfFormat();
+		this.batchSize = config.getBatchSize();
+		this.timeoutCommitMs = config.getTimeoutCommitMs();
+		this.errorHandler = new LogErrorHandler(config);
+		this.operator = new GraphDBOperator(config);
 		this.commitTimer = new Timer(true);
 		this.scheduleCommitter = new ScheduleCommitter();
 		this.timeoutCommitLock = new ReentrantLock();
 		this.failedRecords = new HashSet<>();
-
+		this.transactionType = config.getTransactionType();
+		this.recordHandler = getRecordHandler(transactionType);
 		// repositoryUrl is used for logging purposes
-		if (repository instanceof HTTPRepository) {
-			this.repositoryUrl = ((HTTPRepository) repository).getRepositoryURL();
-		} else {
-			this.repositoryUrl = "unknown";
-		}
+		String repositoryUrl = (repository instanceof HTTPRepository) ? ((HTTPRepository) repository).getRepositoryURL() : "unknown";
 		MDC.put("RepositoryURL", repositoryUrl);
+
 
 	}
 
@@ -119,7 +121,7 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 		}
 	}
 
-	protected void consumeRecords(Collection<SinkRecord> messages) {
+	private void consumeRecords(Collection<SinkRecord> messages) {
 		try {
 			timeoutCommitLock.lock();
 			for (SinkRecord message : messages) {
@@ -135,7 +137,7 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 		}
 	}
 
-	protected void flushRecordUpdates() {
+	private void flushRecordUpdates() {
 		if (!recordsBatch.isEmpty()) {
 			LOG.debug("Cleared {} failed records.", failedRecords.size());
 			failedRecords.clear();
@@ -180,9 +182,26 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 		}
 	}
 
-	protected abstract void handleRecord(SinkRecord record, RepositoryConnection connection) throws RetriableException;
+	void handleRecord(SinkRecord record, RepositoryConnection connection) throws RetriableException {
+		long start = System.currentTimeMillis();
+		try {
+			LOG.trace("Executing {} operation......", transactionType.toString().toLowerCase());
+			recordHandler.handle(record, connection);
+		} catch (IOException e) {
+			throw new RetriableException(e.getMessage(), e);
+		} catch (Exception e) {
+			handleFailedRecord(record, e);
+		} finally {
+			if (LOG.isTraceEnabled()) {
+				LOG.trace("Record info: {}", ValueUtil.recordInfo(record));
+				long finish = System.currentTimeMillis();
+				LOG.trace("Converted the record and added it to the RDF4J connection for {} ms", finish - start);
+			}
+		}
 
-	protected void handleFailedRecord(SinkRecord record, Exception e) {
+	}
+
+	void handleFailedRecord(SinkRecord record, Exception e) {
 		failedRecords.add(record);
 		errorHandler.handleFailingRecord(record, e);
 	}
@@ -192,5 +211,58 @@ public abstract class SinkRecordsProcessor implements Runnable, Operation<Object
 		public void run() {
 			flushUpdates();
 		}
+	}
+
+	/**
+	 * Handles incoming {@link SinkRecord} based on specified @link {@link com.ontotext.kafka.GraphDBSinkConfig.TransactionType}.
+	 * Note: This is not NPE-safe, see @{@link ValueUtil#convertValueToString(Object)}
+	 *
+	 * @param transactionType Transaction type to use for record handling operation
+	 * @return The handler
+	 */
+	private RecordHandler getRecordHandler(GraphDBSinkConfig.TransactionType transactionType) {
+		switch (transactionType) {
+			case ADD:
+				return (record, connection) -> {
+					connection.add(ValueUtil.convertRDFData(record.value()), format);
+				};
+
+			case SMART_UPDATE:
+				return (record, connection) -> {
+					String query = getUpdateQuery(record.key());
+					connection.prepareUpdate(query).execute();
+					connection.add(ValueUtil.convertRDFData(record.value()), format);
+				};
+
+			case REPLACE_GRAPH:
+				return (record, connection) -> {
+					Resource context = ValueUtil.convertIRIKey(record.key());
+					connection.clear(context);
+					LOG.trace("Connection cleared context(IRI): {}", context.stringValue());
+					if (record.value() != null) {
+						connection.add(ValueUtil.convertRDFData(record.value()), format, context);
+					}
+				};
+			default:
+				throw new NotImplementedException(String.format("Handler for transaction type %s not implemented", transactionType));
+
+		}
+	}
+
+	private String getUpdateQuery(Object key) {
+		String templateBinding = convertValueToString(key);
+
+		updateQueryBuilder.setLength(0);
+		return updateQueryBuilder.append("PREFIX onto: <http://www.ontotext.com/>\n")
+			.append("insert data {\n")
+			.append("    onto:smart-update onto:sparql-template <").append(templateId).append(">;\n")
+			.append("               onto:template-binding-id <").append(templateBinding).append("> .\n")
+			.append("}\n")
+			.toString();
+	}
+
+
+	private interface RecordHandler {
+		void handle(SinkRecord record, RepositoryConnection connection) throws Exception;
 	}
 }

@@ -1,9 +1,6 @@
 package com.ontotext.kafka;
 
-import com.ontotext.kafka.service.AddRecordsProcessor;
-import com.ontotext.kafka.service.ReplaceGraphProcessor;
-import com.ontotext.kafka.service.SinkRecordsProcessor;
-import com.ontotext.kafka.service.UpdateRecordsProcessor;
+import com.ontotext.kafka.processor.SinkRecordsProcessor;
 import com.ontotext.kafka.util.VersionUtil;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -47,7 +44,7 @@ public class GraphDBSinkTask extends SinkTask {
 		repository = initializeRepository(repository, config);
 		LOG.info("Initialized GraphDB repository connection: repository {}, GraphDB instance {}", config.getRepositoryId(),
 			config.getServerUrl());
-		recordProcessor = createProcessor();
+		recordProcessor = new SinkRecordsProcessor(sinkRecords, shouldRun, repository, config);
 		recordProcessorThread = new Thread(recordProcessor);
 		shouldRun.set(true);
 		recordProcessorThread.start();
@@ -102,18 +99,5 @@ public class GraphDBSinkTask extends SinkTask {
 		}
 	}
 
-	private SinkRecordsProcessor createProcessor() {
-		// This is guaranteed to always be non-null during config initialization
-		switch (config.getTransactionType()) {
-			case ADD:
-				return new AddRecordsProcessor(sinkRecords, shouldRun, repository, config);
-			case REPLACE_GRAPH:
-				return new ReplaceGraphProcessor(sinkRecords, shouldRun, repository, config);
-			case SMART_UPDATE:
-				return new UpdateRecordsProcessor(sinkRecords, shouldRun, repository, config);
-			default:
-				throw new UnsupportedOperationException("Not implemented yet");
-		}
-	}
 }
 

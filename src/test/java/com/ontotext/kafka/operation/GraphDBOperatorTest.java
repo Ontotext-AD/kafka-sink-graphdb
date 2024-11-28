@@ -1,7 +1,7 @@
 package com.ontotext.kafka.operation;
 
 import com.ontotext.kafka.GraphDBSinkConfig;
-import com.ontotext.kafka.service.AddRecordsProcessor;
+import com.ontotext.kafka.processor.SinkRecordsProcessor;
 import com.ontotext.kafka.test.framework.ConnectionMockBuilder;
 import com.ontotext.kafka.test.framework.RepositoryMockBuilder;
 import com.ontotext.kafka.test.framework.TestSinkConfigBuilder;
@@ -39,7 +39,7 @@ public class GraphDBOperatorTest {
 	private Queue<Collection<SinkRecord>> sinkRecords;
 	private GraphDBOperator op;
 	private GraphDBSinkConfig config;
-	private AddRecordsProcessor processor;
+	private SinkRecordsProcessor processor;
 	private RepositoryConnection connection;
 
 
@@ -62,7 +62,7 @@ public class GraphDBOperatorTest {
 		shouldRun = new AtomicBoolean(true);
 		sinkRecords = new LinkedBlockingQueue<>();
 
-		processor = spy(new AddRecordsProcessor(sinkRecords, shouldRun, repository, config));
+		processor = spy(new SinkRecordsProcessor(sinkRecords, shouldRun, repository, config));
 
 
 		// Fail on first try, succeed on second
