@@ -1,4 +1,4 @@
-package com.ontotext.kafka.service;
+package com.ontotext.kafka.processor;
 
 import com.ontotext.kafka.GraphDBSinkConfig;
 import com.ontotext.kafka.test.framework.ConnectionMockBuilder;
@@ -30,7 +30,7 @@ import static com.ontotext.kafka.test.framework.RdfMockDataUtils.generateSinkRec
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
-public class UpdateRecordsProcessorTest {
+public class SinkRecordsProcessorTest {
 
 	private Queue<Reader> streams;
 	private Queue<RDFFormat> formats;
@@ -58,6 +58,7 @@ public class UpdateRecordsProcessorTest {
 	@Timeout(5)
 	void testShouldSkipInvalidRecord() throws InterruptedException, IOException {
 		GraphDBSinkConfig config = new TestSinkConfigBuilder()
+			.transactionType(GraphDBSinkConfig.TransactionType.SMART_UPDATE)
 			.batchSize(4)
 			.timeoutCommitMs(5000)
 			.tolerance(ToleranceType.ALL)
@@ -71,7 +72,7 @@ public class UpdateRecordsProcessorTest {
 		sinkRecords.add(Collections.singleton(invalidRecord));
 
 
-		UpdateRecordsProcessor processor = spy(new UpdateRecordsProcessor(sinkRecords, shouldRun, repository, config));
+		SinkRecordsProcessor processor = spy(new SinkRecordsProcessor(sinkRecords, shouldRun, repository, config));
 		processor.run(); //Should terminate once all records have been consumed, as per the mocked shouldRun variable (or timeout in case of a bug/failure)
 		assertThat(formats).isNotEmpty();
 		assertThat(streams).isNotEmpty();
@@ -87,6 +88,7 @@ public class UpdateRecordsProcessorTest {
 	@Timeout(5)
 	void testShouldSkipMultipleInvalidRecords() throws InterruptedException, IOException {
 		GraphDBSinkConfig config = new TestSinkConfigBuilder()
+			.transactionType(GraphDBSinkConfig.TransactionType.SMART_UPDATE)
 			.batchSize(4)
 			.timeoutCommitMs(5000)
 			.tolerance(ToleranceType.ALL)
@@ -104,7 +106,7 @@ public class UpdateRecordsProcessorTest {
 		sinkRecords.add(Collections.singleton(invalidRecord2));
 
 
-		UpdateRecordsProcessor processor = spy(new UpdateRecordsProcessor(sinkRecords, shouldRun, repository, config));
+		SinkRecordsProcessor processor = spy(new SinkRecordsProcessor(sinkRecords, shouldRun, repository, config));
 		processor.run(); //Should terminate once all records have been consumed, as per the mocked shouldRun variable (or timeout in case of a bug/failure)
 		assertThat(formats).isNotEmpty();
 		assertThat(streams).isNotEmpty();
