@@ -26,6 +26,9 @@ import static org.apache.kafka.connect.runtime.SinkConnectorConfig.*;
 /**
  * Config implementation used to store and validate main Connector properties including Authentication and Transaction Type.
  *
+ * This class is re-using the same {@link org.apache.kafka.common.config.Config:originals} map, without adding any new state,
+ * therefore {@link Object#equals(Object)} and {@link Object#hashCode()} are calculated by simply calling super()
+ *
  * @author Tomas Kovachev tomas.kovachev@ontotext.com
  */
 public class GraphDBSinkConfig extends AbstractConfig {
@@ -47,6 +50,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	private final String repositoryId;
 	private final String authBasicUser;
 	private final Password authBasicPassword;
+	private final String connectorName;
 
 
 	public enum AuthenticationType {
@@ -122,6 +126,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 		this.repositoryId = getString(REPOSITORY);
 		this.authBasicUser = getString(AUTH_BASIC_USER);
 		this.authBasicPassword = getPassword(AUTH_BASIC_PASS);
+		this.connectorName = getString(NAME_CONFIG);
 	}
 
 	private ToleranceType parseTolerance() {
@@ -344,10 +349,33 @@ public class GraphDBSinkConfig extends AbstractConfig {
 		return authBasicPassword;
 	}
 
+	public String getConnectorName() {
+		return connectorName;
+	}
+
 	public static class GraphDBConfigDef extends ConfigDef {
 		@Override
 		public Map<String, ConfigValue> validateAll(Map<String, String> props) {
 			return super.validateAll(props);
 		}
+	}
+
+
+	/**
+	 * Use the {@link org.apache.kafka.common.config.Config} equals implementation,
+	 * which calculates the hash on the {@link org.apache.kafka.common.config.Config:originals} map
+	 */
+	@Override
+	public boolean equals(Object o) {
+		return super.equals(o);
+	}
+
+	/**
+	 * Use the {@link org.apache.kafka.common.config.Config} hashcode implementation,
+	 * which calculates the hash on the {@link org.apache.kafka.common.config.Config:originals} map
+	 */
+	@Override
+	public int hashCode() {
+		return super.hashCode();
 	}
 }
