@@ -1,19 +1,16 @@
 package com.ontotext.kafka;
 
-import com.ontotext.kafka.processor.SinkRecordsProcessor;
+import com.ontotext.kafka.processor.ProcessorContext;
 import com.ontotext.kafka.util.VersionUtil;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
-import org.eclipse.rdf4j.repository.Repository;
-import org.eclipse.rdf4j.repository.http.HTTPRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * {@link SinkTask} implementation that sends the incoming {@link SinkRecord} messages to a synchronous queue for further processing downstream
@@ -23,32 +20,47 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class GraphDBSinkTask extends SinkTask {
 
-	private static final Logger LOG = LoggerFactory.getLogger(GraphDBSinkTask.class);
-	private Repository repository;
-	private final AtomicBoolean shouldRun = new AtomicBoolean(true);
-	private final ConcurrentLinkedQueue<Collection<SinkRecord>> sinkRecords = new ConcurrentLinkedQueue<>();
+	private static final Logger log = LoggerFactory.getLogger(GraphDBSinkTask.class);
+
+	/**
+	 * Use a single processor and queue for all tasks of a single unique connector.
+	 */
+	private static final Map<GraphDBSinkConfig, ProcessorContext> taskContextMap = new HashMap<>();
 	private GraphDBSinkConfig config;
-	private SinkRecordsProcessor recordProcessor;
-	private Thread recordProcessorThread;
+	private ProcessorContext processorContext;
 
 
-	@Override
-	public String version() {
-		return VersionUtil.getVersion();
-	}
 
 	@Override
 	public void start(Map<String, String> properties) {
-		LOG.info("Starting the GraphDB sink task");
-		config = new GraphDBSinkConfig(properties);
-		repository = initializeRepository(repository, config);
-		LOG.info("Initialized GraphDB repository connection: repository {}, GraphDB instance {}", config.getRepositoryId(),
-			config.getServerUrl());
-		recordProcessor = new SinkRecordsProcessor(sinkRecords, shouldRun, repository, config);
-		recordProcessorThread = new Thread(recordProcessor);
-		shouldRun.set(true);
-		recordProcessorThread.start();
-		LOG.info("Configuration complete.");
+		log.info("Starting the GraphDB sink task for connector {}", config.getConnectorName());
+		this.config = new GraphDBSinkConfig(properties);
+		this.processorContext = startProcessor(config);
+		log.info("Configuration complete.");
+	}
+
+	/**
+	 * Creates a new {@link ProcessorContext} and starts a Processor thread, for a corresponding connector {@link org.apache.kafka.common.config.Config}
+	 * If a context has already been created (i.e. from another task initialization for the same connector), return the existing queue, without starting
+	 * any new threads.
+	 *
+	 * @param config - The configuration for which to create the new context
+	 * @return ProcessorContext
+	 */
+	private ProcessorContext startProcessor(GraphDBSinkConfig config) {
+		if (taskContextMap.containsKey(config)) {
+			return taskContextMap.get(config);
+		}
+		synchronized (taskContextMap) {
+			if (taskContextMap.containsKey(config)) {
+				return taskContextMap.get(config);
+			}
+			log.info("Creating a new processor for connector {}", config.getConnectorName());
+			ProcessorContext ctx = new ProcessorContext(config);
+			ctx.startProcessor();
+			return ctx;
+
+		}
 	}
 
 
@@ -57,46 +69,19 @@ public class GraphDBSinkTask extends SinkTask {
 		if (CollectionUtils.isEmpty(collection)) {
 			return;
 		}
-		LOG.trace("Sink task received {} records", collection.size());
-		sinkRecords.add(collection);
+		log.trace("Sink task received {} records", collection.size());
+		this.processorContext.addSinkRecords(collection);
 	}
 
 	@Override
 	public void stop() {
-		try {
-			if (repository != null) {
-				repository.shutDown();
-			}
-		} finally {
-			repository = null;
-			shouldRun.set(false);
-			LOG.info("Task stopped.");
-		}
+		log.trace("Shutting down processor");
+		this.processorContext.shutdown();
 	}
 
-
-	private Repository initializeRepository(Repository repository, GraphDBSinkConfig config) {
-		return repository == null ? fetchRepository(config) : repository;
-	}
-
-	private static Repository fetchRepository(GraphDBSinkConfig config) {
-		String address = config.getServerUrl();
-		String repositoryId = config.getRepositoryId();
-		GraphDBSinkConfig.AuthenticationType authType = config.getAuthType();
-		HTTPRepository repository = new HTTPRepository(address, repositoryId);
-		switch (authType) {
-			case NONE:
-				return repository;
-			case BASIC:
-				if (LOG.isTraceEnabled()) {
-					LOG.trace("Initializing repository connection with user {}", config.getAuthBasicUser());
-				}
-				repository.setUsernameAndPassword(config.getAuthBasicUser(), config.getAuthBasicPassword().value());
-				return repository;
-			case CUSTOM:
-			default: // Any other types which are valid, as per definition, but are not implemented yet
-				throw new UnsupportedOperationException(authType + " not supported");
-		}
+	@Override
+	public String version() {
+		return VersionUtil.getVersion();
 	}
 
 }

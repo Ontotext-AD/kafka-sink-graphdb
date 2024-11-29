@@ -22,6 +22,8 @@ import org.slf4j.MDC;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -41,7 +43,7 @@ public final class SinkRecordsProcessor implements Runnable, Operation<Object> {
 	private static final Logger LOG = LoggerFactory.getLogger(SinkRecordsProcessor.class);
 	private static final Object SUCCESSES = new Object();
 
-	private final Queue<Collection<SinkRecord>> sinkRecords;
+	private final LinkedBlockingDeque<Collection<SinkRecord>> sinkRecords;
 	private final Queue<SinkRecord> recordsBatch;
 	private final Repository repository;
 	private final AtomicBoolean shouldRun;
@@ -59,7 +61,8 @@ public final class SinkRecordsProcessor implements Runnable, Operation<Object> {
 	private final RecordHandler recordHandler;
 	private final GraphDBSinkConfig.TransactionType transactionType;
 
-	public SinkRecordsProcessor(Queue<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun, Repository repository, GraphDBSinkConfig config) {
+	public SinkRecordsProcessor(LinkedBlockingDeque<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun, Repository repository,
+								GraphDBSinkConfig config) {
 		this.sinkRecords = sinkRecords;
 		this.recordsBatch = new ConcurrentLinkedQueue<>();
 		this.repository = repository;
@@ -89,7 +92,7 @@ public final class SinkRecordsProcessor implements Runnable, Operation<Object> {
 		try {
 			commitTimer.schedule(scheduleCommitter, timeoutCommitMs, timeoutCommitMs);
 			while (shouldRun.get()) {
-				Collection<SinkRecord> messages = sinkRecords.peek();
+				Collection<SinkRecord> messages = sinkRecords.pollLast(timeoutCommitMs, TimeUnit.MILLISECONDS));
 				if (messages != null) {
 					consumeRecords(messages);
 					sinkRecords.poll();
