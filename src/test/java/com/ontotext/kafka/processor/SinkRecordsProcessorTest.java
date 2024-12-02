@@ -22,6 +22,7 @@ import java.io.Reader;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Queue;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -36,7 +37,7 @@ public class SinkRecordsProcessorTest {
 	private Queue<RDFFormat> formats;
 	private Repository repository;
 	private AtomicBoolean shouldRun;
-	private Queue<Collection<SinkRecord>> sinkRecords;
+	private LinkedBlockingDeque<Collection<SinkRecord>> sinkRecords;
 
 	@BeforeEach
 	public void setup() {
@@ -49,7 +50,7 @@ public class SinkRecordsProcessorTest {
 
 		repository = RepositoryMockBuilder.createDefaultMockedRepository(connection);
 		shouldRun = mock(AtomicBoolean.class);
-		sinkRecords = new LinkedBlockingQueue<>();
+		sinkRecords = new LinkedBlockingDeque<>();
 		doReturn(CollectionUtils.isNotEmpty(sinkRecords)).when(shouldRun).get();
 	}
 
@@ -72,7 +73,7 @@ public class SinkRecordsProcessorTest {
 		sinkRecords.add(Collections.singleton(invalidRecord));
 
 
-		SinkRecordsProcessor processor = spy(new SinkRecordsProcessor(sinkRecords, shouldRun, repository, config));
+		SinkRecordsProcessor processor = spy(new SinkRecordsProcessor(config, sinkRecords, repository));
 		processor.run(); //Should terminate once all records have been consumed, as per the mocked shouldRun variable (or timeout in case of a bug/failure)
 		assertThat(formats).isNotEmpty();
 		assertThat(streams).isNotEmpty();
@@ -106,7 +107,7 @@ public class SinkRecordsProcessorTest {
 		sinkRecords.add(Collections.singleton(invalidRecord2));
 
 
-		SinkRecordsProcessor processor = spy(new SinkRecordsProcessor(sinkRecords, shouldRun, repository, config));
+		SinkRecordsProcessor processor = spy(new SinkRecordsProcessor(config, sinkRecords, repository));
 		processor.run(); //Should terminate once all records have been consumed, as per the mocked shouldRun variable (or timeout in case of a bug/failure)
 		assertThat(formats).isNotEmpty();
 		assertThat(streams).isNotEmpty();

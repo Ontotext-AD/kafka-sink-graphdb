@@ -60,9 +60,13 @@ public final class SinkRecordsProcessor implements Runnable, Operation<Object> {
 	private final GraphDBSinkConfig.TransactionType transactionType;
 
 	public SinkRecordsProcessor(GraphDBSinkConfig config) {
-		this.sinkRecords = new LinkedBlockingDeque<>();
+		this(config, new LinkedBlockingDeque<>(), initRepository(config));
+	}
+
+	public SinkRecordsProcessor(GraphDBSinkConfig config, LinkedBlockingDeque<Collection<SinkRecord>> sinkRecords, Repository repository) {
+		this.sinkRecords = sinkRecords;
 		this.recordsBatch = new ConcurrentLinkedQueue<>();
-		this.repository = initRepository(config);
+		this.repository = repository;
 		this.updateQueryBuilder = new StringBuilder();
 		this.templateId = config.getTemplateId();
 		this.format = config.getRdfFormat();
@@ -80,7 +84,8 @@ public final class SinkRecordsProcessor implements Runnable, Operation<Object> {
 		MDC.put("Connector", config.getConnectorName());
 	}
 
-	private Repository initRepository(GraphDBSinkConfig config) {
+
+	private static Repository initRepository(GraphDBSinkConfig config) {
 		String address = config.getServerUrl();
 		String repositoryId = config.getRepositoryId();
 		GraphDBSinkConfig.AuthenticationType authType = config.getAuthType();

@@ -126,7 +126,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 		this.repositoryId = getString(REPOSITORY);
 		this.authBasicUser = getString(AUTH_BASIC_USER);
 		this.authBasicPassword = getPassword(AUTH_BASIC_PASS);
-		this.connectorName = getString(NAME_CONFIG);
+		this.connectorName = (String) originals.get(NAME_CONFIG);
 	}
 
 	private ToleranceType parseTolerance() {

@@ -18,6 +18,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -36,7 +37,7 @@ public class GraphDBOperatorTest {
 
 	private Repository repository;
 	private AtomicBoolean shouldRun;
-	private Queue<Collection<SinkRecord>> sinkRecords;
+	private LinkedBlockingDeque<Collection<SinkRecord>> sinkRecords;
 	private GraphDBOperator op;
 	private GraphDBSinkConfig config;
 	private SinkRecordsProcessor processor;
@@ -60,9 +61,9 @@ public class GraphDBOperatorTest {
 		}, null).build();
 		repository = RepositoryMockBuilder.createDefaultMockedRepository(connection);
 		shouldRun = new AtomicBoolean(true);
-		sinkRecords = new LinkedBlockingQueue<>();
+		sinkRecords = new LinkedBlockingDeque<>();
 
-		processor = spy(new SinkRecordsProcessor(sinkRecords, shouldRun, repository, config));
+		processor = spy(new SinkRecordsProcessor(config, sinkRecords, repository));
 
 
 		// Fail on first try, succeed on second
