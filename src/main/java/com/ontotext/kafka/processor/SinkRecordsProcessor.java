@@ -1,11 +1,11 @@
 package com.ontotext.kafka.processor;
 
 import com.ontotext.kafka.GraphDBSinkConfig;
-import com.ontotext.kafka.error.ErrorHandler;
 import com.ontotext.kafka.error.LogErrorHandler;
 import com.ontotext.kafka.util.ValueUtil;
 import org.apache.commons.lang.NotImplementedException;
 import org.apache.kafka.common.utils.SystemTime;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.runtime.errors.ErrorHandlingMetrics;
 import org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperator;
@@ -14,6 +14,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
+import org.eclipse.rdf4j.repository.RepositoryException;
 import org.eclipse.rdf4j.repository.http.HTTPRepository;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.slf4j.Logger;
@@ -21,10 +22,11 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import java.io.IOException;
-import java.util.*;
-import java.util.concurrent.BlockingDeque;
+import java.util.Collection;
+import java.util.Queue;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -45,15 +47,14 @@ public final class SinkRecordsProcessor implements Runnable {
 	private static final ErrorHandlingMetrics METRICS = new GraphDBErrorHandlingMetrics();
 
 	private final UUID id = UUID.randomUUID();
-	private final LinkedBlockingDeque<Collection<SinkRecord>> sinkRecords;
+	private final LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords;
 	private final Queue<SinkRecord> recordsBatch;
 	private final Repository repository;
 	private final RDFFormat format;
 	private final ReentrantLock timeoutCommitLock;
 	private final int batchSize;
 	private final long timeoutCommitMs;
-	private final ErrorHandler errorHandler;
-	private final Set<SinkRecord> failedRecords;
+	private final LogErrorHandler errorHandler;
 	private final RetryWithToleranceOperator retryOperator;
 	private final StringBuilder updateQueryBuilder;
 	private final String templateId;
@@ -61,10 +62,10 @@ public final class SinkRecordsProcessor implements Runnable {
 	private final GraphDBSinkConfig.TransactionType transactionType;
 
 	public SinkRecordsProcessor(GraphDBSinkConfig config) {
-		this(config, new LinkedBlockingDeque<>(), initRepository(config));
+		this(config, new LinkedBlockingQueue<>(), initRepository(config));
 	}
 
-	public SinkRecordsProcessor(GraphDBSinkConfig config, LinkedBlockingDeque<Collection<SinkRecord>> sinkRecords, Repository repository) {
+	public SinkRecordsProcessor(GraphDBSinkConfig config, LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords, Repository repository) {
 		this.sinkRecords = sinkRecords;
 		this.recordsBatch = new ConcurrentLinkedQueue<>();
 		this.repository = repository;
@@ -75,7 +76,6 @@ public final class SinkRecordsProcessor implements Runnable {
 		this.timeoutCommitMs = config.getTimeoutCommitMs();
 		this.errorHandler = new LogErrorHandler(config);
 		this.timeoutCommitLock = new ReentrantLock();
-		this.failedRecords = new HashSet<>();
 		this.transactionType = config.getTransactionType();
 		this.recordHandler = getRecordHandler(transactionType);
 		this.retryOperator = new RetryWithToleranceOperator(config.getErrorRetryTimeout(), config.getErrorMaxDelayInMillis(), config.getTolerance(),
@@ -111,14 +111,9 @@ public final class SinkRecordsProcessor implements Runnable {
 	public void run() {
 		while (!Thread.currentThread().isInterrupted()) {
 			try {
-				Collection<SinkRecord> messages = sinkRecords.pollLast(timeoutCommitMs, TimeUnit.MILLISECONDS);
+				Collection<SinkRecord> messages = sinkRecords.poll(timeoutCommitMs, TimeUnit.MILLISECONDS);
 				if (messages != null) {
-//					try {
 					consumeRecords(messages);
-//					} catch (Exception e ){
-//						LOG.error("Caught exception while consuming records. Pushing all records back to the deque for retry.");
-//					}
-
 				} else {
 					LOG.trace("Did not receive any records (waited {} {}} ) for repository {}. Flushing all records in batch.", timeoutCommitMs,
 						TimeUnit.MILLISECONDS, repository);
@@ -134,12 +129,11 @@ public final class SinkRecordsProcessor implements Runnable {
 	}
 
 	private void shutdown() {
-		// commit any records left before shutdown
-		// TODO how much can we wait for this shutdown to complete?
+		// commit any records left before shutdown.
 		LOG.info("Commiting any records left before shutdown");
-		while (sinkRecords.peek() != null) {
-			consumeRecords(sinkRecords.peek());
-			sinkRecords.poll();
+		Collection<SinkRecord> records;
+		while ((records = sinkRecords.poll()) != null) {
+			consumeRecords(records);
 		}
 		// final flush after all messages have been batched
 		flushUpdates();
@@ -159,65 +153,63 @@ public final class SinkRecordsProcessor implements Runnable {
 
 	private void flushUpdates() {
 		if (!recordsBatch.isEmpty()) {
-			LOG.debug("Cleared {} failed records.", failedRecords.size());
-			failedRecords.clear();
-
-			retryOperator.execute(this::call, Stage.KAFKA_CONSUME, getClass());
-			if (retryOperator.failed()) {
-				//TODO Log failure, handle.
+			try {
+				retryOperator.execute(this::doFlush, Stage.KAFKA_CONSUME, getClass());
+				if (retryOperator.failed()) {
+					LOG.error("Failed to flush batch updates. This error is due to either repository connection failure, or transaction failure");
+					if (!retryOperator.withinToleranceLimits()) {
+						throw new ConnectException("Error tolerance exceeded.");
+					}
+				}
+			} catch (ConnectException e) {
+				// TODO We would need to push back all records to kafka
+				throw new RuntimeException("Got exception while flushing updates, cannot recover", e);
+			} catch (Exception e) {
+				throw new RuntimeException("Unhandled exception thrown during batch record flush", e);
 			}
 
-//
-//			if (operator.execAndHandleError(this) == null) {
-//				LOG.warn("Flushing failed to execute the update");
-//				if (!errorHandler.isTolerable()) {
-//					LOG.error("Errors are not tolerated in ErrorTolerance.NONE");
-//					throw new RuntimeException("Flushing failed to execute the update");
-//					// if retrying doesn't solve the problem
-//				} else {
-//					LOG.warn("ERROR is TOLERATED the operation continues...");
-//				}
-//			}
 		}
 	}
 
-
-	public Object call() throws RetriableException {
+	public Void doFlush() throws RetriableException {
 		long start = System.currentTimeMillis();
 		try (RepositoryConnection connection = repository.getConnection()) {
 			connection.begin();
 			int recordsInCurrentBatch = recordsBatch.size();
-			LOG.trace(
-				"Transaction started, batch size: {} , records in current batch: {}", batchSize, recordsInCurrentBatch);
-			for (SinkRecord record : recordsBatch) {
-				if (!failedRecords.contains(record)) {
-					handleRecord(record, connection);
+			LOG.trace("Transaction started, batch size: {} , records in current batch: {}", batchSize, recordsInCurrentBatch);
+			while (recordsBatch.peek() != null) {
+				SinkRecord record = recordsBatch.peek();
+				retryOperator.execute(() -> handleRecord(record, connection), Stage.KAFKA_CONSUME, getClass());
+				if (retryOperator.failed()) {
+					LOG.warn("Failed to commit record. Will handle failure, and remove from the batch");
+					errorHandler.handleFailingRecord(record, retryOperator.error());
+					if (!retryOperator.withinToleranceLimits()) {
+						throw new ConnectException("Error tolerance exceeded.");
+					}
 				}
+				recordsBatch.poll();
+
 			}
 			connection.commit();
 			LOG.trace("Transaction commited, Batch size: {} , Records in current batch: {}", batchSize, recordsInCurrentBatch);
-			LOG.debug("Cleared {} failed records.", failedRecords.size());
-			recordsBatch.clear();
-			failedRecords.clear();
 			if (LOG.isTraceEnabled()) {
 				long finish = System.currentTimeMillis();
 				LOG.trace("Finished batch processing for {} ms", finish - start);
 			}
-			return new Object();
-		} catch (Exception e) {
+			return null;
+		} catch (RepositoryException e) {
 			throw new RetriableException(e);
 		}
 	}
 
-	void handleRecord(SinkRecord record, RepositoryConnection connection) throws RetriableException {
+	Void handleRecord(SinkRecord record, RepositoryConnection connection) {
 		long start = System.currentTimeMillis();
 		try {
 			LOG.trace("Executing {} operation......", transactionType.toString().toLowerCase());
 			recordHandler.handle(record, connection);
+			return null;
 		} catch (IOException e) {
 			throw new RetriableException(e.getMessage(), e);
-		} catch (Exception e) {
-			handleFailedRecord(record, e);
 		} finally {
 			if (LOG.isTraceEnabled()) {
 				LOG.trace("Record info: {}", ValueUtil.recordInfo(record));
@@ -226,11 +218,6 @@ public final class SinkRecordsProcessor implements Runnable {
 			}
 		}
 
-	}
-
-	void handleFailedRecord(SinkRecord record, Exception e) {
-		failedRecords.add(record);
-		errorHandler.handleFailingRecord(record, e);
 	}
 
 	/**
@@ -285,11 +272,11 @@ public final class SinkRecordsProcessor implements Runnable {
 		return id;
 	}
 
-	public BlockingDeque<Collection<SinkRecord>> getDeque() {
+	public LinkedBlockingQueue<Collection<SinkRecord>> getQueue() {
 		return sinkRecords;
 	}
 
 	private interface RecordHandler {
-		void handle(SinkRecord record, RepositoryConnection connection) throws Exception;
+		void handle(SinkRecord record, RepositoryConnection connection) throws IOException;
 	}
 }

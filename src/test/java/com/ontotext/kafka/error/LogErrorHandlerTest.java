@@ -100,7 +100,7 @@ class LogErrorHandlerTest {
 		Properties convertedProps = handler.getProperties(config);
 		assertThat(convertedProps).containsKey(BOOTSTRAP_SERVERS_CONFIG)
 			.containsValue(Collections.singletonList(kafkaConnectProps.get(BOOTSTRAP_SERVERS_CONFIG)));
-		assertThat(convertedProps).containsKey(CLIENT_ID_CONFIG).containsValue(FailedRecordProducer.class.getSimpleName());
+		assertThat(convertedProps).containsKey(CLIENT_ID_CONFIG).containsValue(KafkaRecordProducer.class.getSimpleName());
 
 		assertThat(convertedProps).containsKey(SSL_KEYSTORE_CERTIFICATE_CHAIN_CONFIG).containsValue(
 			kafkaConnectProps.get(PRODUCER_OVERRIDE_PREFIX + SSL_KEYSTORE_CERTIFICATE_CHAIN_CONFIG));
@@ -129,7 +129,7 @@ class LogErrorHandlerTest {
 		doCallRealMethod().when(handler).getProperties(eq(config));
 
 		Properties convertedProps = handler.getProperties(config);
-		assertThat(convertedProps).containsKey(CLIENT_ID_CONFIG).containsValue(FailedRecordProducer.class.getSimpleName());
+		assertThat(convertedProps).containsKey(CLIENT_ID_CONFIG).containsValue(KafkaRecordProducer.class.getSimpleName());
 
 		convertedProps.remove(CLIENT_ID_CONFIG);
 		convertedProps.entrySet().forEach(entry -> {
@@ -161,7 +161,7 @@ class LogErrorHandlerTest {
 		doCallRealMethod().when(handler).getProperties(eq(config));
 
 		Properties convertedProps = handler.getProperties(config);
-		assertThat(convertedProps).containsKey(CLIENT_ID_CONFIG).containsValue(FailedRecordProducer.class.getSimpleName());
+		assertThat(convertedProps).containsKey(CLIENT_ID_CONFIG).containsValue(KafkaRecordProducer.class.getSimpleName());
 
 		convertedProps.remove(CLIENT_ID_CONFIG);
 		convertedProps.entrySet().forEach(entry -> {

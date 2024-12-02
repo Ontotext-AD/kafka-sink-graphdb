@@ -1,14 +1,13 @@
 package com.ontotext.kafka.error;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.ontotext.kafka.GraphDBSinkConfig;
 import com.ontotext.kafka.util.ValueUtil;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.runtime.errors.ToleranceType;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.eclipse.rdf4j.query.UpdateExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,45 +22,36 @@ import static org.apache.kafka.clients.CommonClientConfigs.BOOTSTRAP_SERVERS_CON
  * This custom error handler not only takes charge of error management but also enhances logging capabilities for improved diagnostics.
  */
 
-public class LogErrorHandler implements ErrorHandler {
+public class LogErrorHandler {
 
 	private static final Logger LOG = LoggerFactory.getLogger(LogErrorHandler.class);
 	public static final String PRODUCER_OVERRIDE_PREFIX = "producer.override.";
 	public static final String CONNECT_ENV_PREFIX = "CONNECT_";
-	private static final Logger LOGGER = LoggerFactory.getLogger(LogErrorHandler.class);
 
 	private final ToleranceType tolerance;
-	private final FailedProducer producer;
+	private final KafkaRecordProducer producer;
 
 	public LogErrorHandler(GraphDBSinkConfig config) {
 		this.tolerance = config.getTolerance();
 		this.producer = createProducer(config);
 	}
 
-	@Override
 	public void handleFailingRecord(SinkRecord record, Throwable ex) {
-		LOGGER.warn("Record failed: {}", ValueUtil.recordInfo(record), ex);
-		switch (tolerance) {
-			case NONE: {
-				LOGGER.warn("An Exception={} occurred in {} running in ToleranceType.NONE configuration", ex,
-						ValueUtil.recordInfo(record));
-				throw new UpdateExecutionException("Record failed", ex);
-			}
-			case ALL: {
-				if (producer != null) {
-					LOG.trace("Returning failed record to Kafka.....");
-					producer.returnFailed(record);
-				}
-			}
+		LOG.warn("Record failed: {}", ValueUtil.recordInfo(record), ex);
+		if (producer != null && ex != null && ex.getClass().isAssignableFrom(RetriableException.class)) {
+			LOG.trace("Returning failed record to Kafka.....");
+			producer.returnFailed(record);
+		} else {
+			LOG.error("Record update failed with a non-retriable exception, will not return record to Kafka");
 		}
 	}
 
-	private FailedRecordProducer createProducer(GraphDBSinkConfig config) {
-		String topicName = config.getTopicName();
+	private KafkaRecordProducer createProducer(GraphDBSinkConfig config) {
+		String topicName = config.getDlqTopicName();
 		if (tolerance.equals(ToleranceType.NONE) || StringUtils.isBlank(topicName)) {
 			return null;
 		}
-		return new FailedRecordProducer(topicName, getProperties(config));
+		return new KafkaRecordProducer(topicName, getProperties(config));
 	}
 
 	Properties getProperties(GraphDBSinkConfig config) {
@@ -69,20 +59,15 @@ public class LogErrorHandler implements ErrorHandler {
 		resolveProducerProperties(config, props);
 		resolvePropertiesFromEnvironment(props);
 
-		props.put(ProducerConfig.CLIENT_ID_CONFIG, FailedRecordProducer.class.getSimpleName());
+		props.put(ProducerConfig.CLIENT_ID_CONFIG, KafkaRecordProducer.class.getSimpleName());
 		logProperties(props);
 		return props;
-	}
-
-	@Override
-	public boolean isTolerable() {
-		return tolerance == ToleranceType.ALL;
 	}
 
 	private void logProperties(Properties props) {
 		StringBuilder sb = new StringBuilder("DLQ Properties:\n");
 		props.forEach((key, value) -> sb.append(key).append(" = ").append(value).append("\n"));
-		LOGGER.info(sb.toString());
+		LOG.info(sb.toString());
 	}
 
 	private void resolvePropertiesFromEnvironment(Properties props) {
@@ -106,8 +91,7 @@ public class LogErrorHandler implements ErrorHandler {
 		}
 	}
 
-	@VisibleForTesting
-	public static String escapeNewLinesFromString(String value) {
+	static String escapeNewLinesFromString(String value) {
 		return value.replace("\\" + System.lineSeparator(), "");
 	}
 }

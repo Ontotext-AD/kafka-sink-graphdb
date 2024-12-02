@@ -68,14 +68,7 @@ public class GraphDBSinkTask extends SinkTask {
 			return;
 		}
 		log.trace("Sink task received {} records", collection.size());
-		try {
-
-			this.processor.getDeque().putFirst(collection);
-		} catch (InterruptedException e) {
-			log.warn("Thread was interrupted, most probably due to an initiated shutdown. ");
-			// How would we handle this potential data loss?
-			Thread.interrupted();
-		}
+		this.processor.getQueue().add(collection);
 	}
 
 	@Override
