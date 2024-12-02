@@ -119,11 +119,11 @@ public final class SinkRecordsProcessor implements Runnable, Operation<Object> {
 				}
 			} catch (InterruptedException e) {
 				LOG.info("Thread was interrupted. Shutting down processor");
-				Thread.interrupted();
-				shutdown();
-				return;
+				break;
 			}
 		}
+		Thread.interrupted();
+		shutdown();
 	}
 
 	private void shutdown() {
@@ -136,6 +136,9 @@ public final class SinkRecordsProcessor implements Runnable, Operation<Object> {
 		}
 		// final flush after all messages have been batched
 		flushUpdates();
+		if (repository.isInitialized()) {
+			repository.shutDown();
+		}
 	}
 
 	private void consumeRecords(Collection<SinkRecord> messages) {
