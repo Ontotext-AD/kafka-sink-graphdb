@@ -21,10 +21,10 @@ import org.slf4j.MDC;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 
 import static com.ontotext.kafka.util.ValueUtil.convertValueToString;
@@ -43,13 +43,11 @@ public final class SinkRecordsProcessor implements Runnable, Operation<Object> {
 	private static final Logger LOG = LoggerFactory.getLogger(SinkRecordsProcessor.class);
 	private static final Object SUCCESSES = new Object();
 
+	private final UUID id = UUID.randomUUID();
 	private final LinkedBlockingDeque<Collection<SinkRecord>> sinkRecords;
 	private final Queue<SinkRecord> recordsBatch;
 	private final Repository repository;
-	private final AtomicBoolean shouldRun;
 	private final RDFFormat format;
-	private final Timer commitTimer;
-	private final ScheduleCommitter scheduleCommitter;
 	private final ReentrantLock timeoutCommitLock;
 	private final int batchSize;
 	private final long timeoutCommitMs;
@@ -61,12 +59,10 @@ public final class SinkRecordsProcessor implements Runnable, Operation<Object> {
 	private final RecordHandler recordHandler;
 	private final GraphDBSinkConfig.TransactionType transactionType;
 
-	public SinkRecordsProcessor(LinkedBlockingDeque<Collection<SinkRecord>> sinkRecords, AtomicBoolean shouldRun, Repository repository,
-								GraphDBSinkConfig config) {
-		this.sinkRecords = sinkRecords;
+	public SinkRecordsProcessor(GraphDBSinkConfig config) {
+		this.sinkRecords = new LinkedBlockingDeque<>();
 		this.recordsBatch = new ConcurrentLinkedQueue<>();
-		this.repository = repository;
-		this.shouldRun = shouldRun;
+		this.repository = initRepository(config);
 		this.updateQueryBuilder = new StringBuilder();
 		this.templateId = config.getTemplateId();
 		this.format = config.getRdfFormat();
@@ -74,8 +70,6 @@ public final class SinkRecordsProcessor implements Runnable, Operation<Object> {
 		this.timeoutCommitMs = config.getTimeoutCommitMs();
 		this.errorHandler = new LogErrorHandler(config);
 		this.operator = new GraphDBOperator(config);
-		this.commitTimer = new Timer(true);
-		this.scheduleCommitter = new ScheduleCommitter();
 		this.timeoutCommitLock = new ReentrantLock();
 		this.failedRecords = new HashSet<>();
 		this.transactionType = config.getTransactionType();
@@ -83,64 +77,77 @@ public final class SinkRecordsProcessor implements Runnable, Operation<Object> {
 		// repositoryUrl is used for logging purposes
 		String repositoryUrl = (repository instanceof HTTPRepository) ? ((HTTPRepository) repository).getRepositoryURL() : "unknown";
 		MDC.put("RepositoryURL", repositoryUrl);
+		MDC.put("Connector", config.getConnectorName());
+	}
 
-
+	private Repository initRepository(GraphDBSinkConfig config) {
+		String address = config.getServerUrl();
+		String repositoryId = config.getRepositoryId();
+		GraphDBSinkConfig.AuthenticationType authType = config.getAuthType();
+		HTTPRepository repository = new HTTPRepository(address, repositoryId);
+		switch (authType) {
+			case NONE:
+				return repository;
+			case BASIC:
+				if (LOG.isTraceEnabled()) {
+					LOG.trace("Initializing repository connection with user {}", config.getAuthBasicUser());
+				}
+				repository.setUsernameAndPassword(config.getAuthBasicUser(), config.getAuthBasicPassword().value());
+				return repository;
+			case CUSTOM:
+			default: // Any other types which are valid, as per definition, but are not implemented yet
+				throw new UnsupportedOperationException(authType + " not supported");
+		}
 	}
 
 	@Override
 	public void run() {
-		try {
-			commitTimer.schedule(scheduleCommitter, timeoutCommitMs, timeoutCommitMs);
-			while (shouldRun.get()) {
-				Collection<SinkRecord> messages = sinkRecords.pollLast(timeoutCommitMs, TimeUnit.MILLISECONDS));
+		while (!Thread.currentThread().isInterrupted()) {
+			try {
+				Collection<SinkRecord> messages = sinkRecords.pollLast(timeoutCommitMs, TimeUnit.MILLISECONDS);
 				if (messages != null) {
+//					try {
 					consumeRecords(messages);
-					sinkRecords.poll();
+//					} catch (Exception e ){
+//						LOG.error("Caught exception while consuming records. Pushing all records back to the deque for retry.");
+//					}
+
+				} else {
+					LOG.trace("Did not receive any records (waited {} {}} ) for repository {}. Flushing all records in batch.", timeoutCommitMs,
+						TimeUnit.MILLISECONDS, repository);
+					flushUpdates();
 				}
+			} catch (InterruptedException e) {
+				LOG.info("Thread was interrupted. Shutting down processor");
+				Thread.interrupted();
+				shutdown();
+				return;
 			}
-			// commit any records left before shutdown
-			LOG.info("Commiting any records left before shutdown");
-			while (sinkRecords.peek() != null) {
-				consumeRecords(sinkRecords.peek());
-				sinkRecords.poll();
-			}
-			// final flush after all messages have been batched
-			flushUpdates();
-		} finally {
-			// stop the scheduled committer
-			scheduleCommitter.cancel();
-			commitTimer.cancel();
 		}
 	}
 
-	public void flushUpdates() {
-		try {
-			timeoutCommitLock.lock();
-			flushRecordUpdates();
-		} finally {
-			if (timeoutCommitLock.isHeldByCurrentThread()) {
-				timeoutCommitLock.unlock();
-			}
+	private void shutdown() {
+		// commit any records left before shutdown
+		// TODO how much can we wait for this shutdown to complete?
+		LOG.info("Commiting any records left before shutdown");
+		while (sinkRecords.peek() != null) {
+			consumeRecords(sinkRecords.peek());
+			sinkRecords.poll();
 		}
+		// final flush after all messages have been batched
+		flushUpdates();
 	}
 
 	private void consumeRecords(Collection<SinkRecord> messages) {
-		try {
-			timeoutCommitLock.lock();
-			for (SinkRecord message : messages) {
-				recordsBatch.add(message);
-				if (batchSize <= recordsBatch.size()) {
-					flushUpdates();
-				}
-			}
-		} finally {
-			if (timeoutCommitLock.isHeldByCurrentThread()) {
-				timeoutCommitLock.unlock();
+		for (SinkRecord message : messages) {
+			recordsBatch.add(message);
+			if (batchSize <= recordsBatch.size()) {
+				flushUpdates();
 			}
 		}
 	}
 
-	private void flushRecordUpdates() {
+	private void flushUpdates() {
 		if (!recordsBatch.isEmpty()) {
 			LOG.debug("Cleared {} failed records.", failedRecords.size());
 			failedRecords.clear();
@@ -209,13 +216,6 @@ public final class SinkRecordsProcessor implements Runnable, Operation<Object> {
 		errorHandler.handleFailingRecord(record, e);
 	}
 
-	public class ScheduleCommitter extends TimerTask {
-		@Override
-		public void run() {
-			flushUpdates();
-		}
-	}
-
 	/**
 	 * Handles incoming {@link SinkRecord} based on specified @link {@link com.ontotext.kafka.GraphDBSinkConfig.TransactionType}.
 	 * Note: This is not NPE-safe, see @{@link ValueUtil#convertValueToString(Object)}
@@ -264,6 +264,13 @@ public final class SinkRecordsProcessor implements Runnable, Operation<Object> {
 			.toString();
 	}
 
+	public UUID getId() {
+		return id;
+	}
+
+	public BlockingDeque<Collection<SinkRecord>> getDeque() {
+		return sinkRecords;
+	}
 
 	private interface RecordHandler {
 		void handle(SinkRecord record, RepositoryConnection connection) throws Exception;
