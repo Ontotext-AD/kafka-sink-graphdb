@@ -3,12 +3,13 @@ package com.ontotext.kafka.processor;
 import com.ontotext.kafka.GraphDBSinkConfig;
 import com.ontotext.kafka.error.ErrorHandler;
 import com.ontotext.kafka.error.LogErrorHandler;
-import com.ontotext.kafka.operation.GraphDBOperator;
-import com.ontotext.kafka.operation.OperationHandler;
 import com.ontotext.kafka.util.ValueUtil;
 import org.apache.commons.lang.NotImplementedException;
+import org.apache.kafka.common.utils.SystemTime;
 import org.apache.kafka.connect.errors.RetriableException;
-import org.apache.kafka.connect.runtime.errors.Operation;
+import org.apache.kafka.connect.runtime.errors.ErrorHandlingMetrics;
+import org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperator;
+import org.apache.kafka.connect.runtime.errors.Stage;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.repository.Repository;
@@ -38,10 +39,10 @@ import static com.ontotext.kafka.util.ValueUtil.convertValueToString;
  *
  * @author Tomas Kovachev tomas.kovachev@ontotext.com
  */
-public final class SinkRecordsProcessor implements Runnable, Operation<Object> {
+public final class SinkRecordsProcessor implements Runnable {
 
 	private static final Logger LOG = LoggerFactory.getLogger(SinkRecordsProcessor.class);
-	private static final Object SUCCESSES = new Object();
+	private static final ErrorHandlingMetrics METRICS = new GraphDBErrorHandlingMetrics();
 
 	private final UUID id = UUID.randomUUID();
 	private final LinkedBlockingDeque<Collection<SinkRecord>> sinkRecords;
@@ -53,7 +54,7 @@ public final class SinkRecordsProcessor implements Runnable, Operation<Object> {
 	private final long timeoutCommitMs;
 	private final ErrorHandler errorHandler;
 	private final Set<SinkRecord> failedRecords;
-	private final OperationHandler operator;
+	private final RetryWithToleranceOperator retryOperator;
 	private final StringBuilder updateQueryBuilder;
 	private final String templateId;
 	private final RecordHandler recordHandler;
@@ -73,11 +74,12 @@ public final class SinkRecordsProcessor implements Runnable, Operation<Object> {
 		this.batchSize = config.getBatchSize();
 		this.timeoutCommitMs = config.getTimeoutCommitMs();
 		this.errorHandler = new LogErrorHandler(config);
-		this.operator = new GraphDBOperator(config);
 		this.timeoutCommitLock = new ReentrantLock();
 		this.failedRecords = new HashSet<>();
 		this.transactionType = config.getTransactionType();
 		this.recordHandler = getRecordHandler(transactionType);
+		this.retryOperator = new RetryWithToleranceOperator(config.getErrorRetryTimeout(), config.getErrorMaxDelayInMillis(), config.getTolerance(),
+			new SystemTime(), METRICS);
 		// repositoryUrl is used for logging purposes
 		String repositoryUrl = (repository instanceof HTTPRepository) ? ((HTTPRepository) repository).getRepositoryURL() : "unknown";
 		MDC.put("RepositoryURL", repositoryUrl);
@@ -159,20 +161,27 @@ public final class SinkRecordsProcessor implements Runnable, Operation<Object> {
 		if (!recordsBatch.isEmpty()) {
 			LOG.debug("Cleared {} failed records.", failedRecords.size());
 			failedRecords.clear();
-			if (operator.execAndHandleError(this) == null) {
-				LOG.warn("Flushing failed to execute the update");
-				if (!errorHandler.isTolerable()) {
-					LOG.error("Errors are not tolerated in ErrorTolerance.NONE");
-					throw new RuntimeException("Flushing failed to execute the update");
-					// if retrying doesn't solve the problem
-				} else {
-					LOG.warn("ERROR is TOLERATED the operation continues...");
-				}
+
+			retryOperator.execute(this::call, Stage.KAFKA_CONSUME, getClass());
+			if (retryOperator.failed()) {
+				//TODO Log failure, handle.
 			}
+
+//
+//			if (operator.execAndHandleError(this) == null) {
+//				LOG.warn("Flushing failed to execute the update");
+//				if (!errorHandler.isTolerable()) {
+//					LOG.error("Errors are not tolerated in ErrorTolerance.NONE");
+//					throw new RuntimeException("Flushing failed to execute the update");
+//					// if retrying doesn't solve the problem
+//				} else {
+//					LOG.warn("ERROR is TOLERATED the operation continues...");
+//				}
+//			}
 		}
 	}
 
-	@Override
+
 	public Object call() throws RetriableException {
 		long start = System.currentTimeMillis();
 		try (RepositoryConnection connection = repository.getConnection()) {
@@ -194,7 +203,7 @@ public final class SinkRecordsProcessor implements Runnable, Operation<Object> {
 				long finish = System.currentTimeMillis();
 				LOG.trace("Finished batch processing for {} ms", finish - start);
 			}
-			return SUCCESSES;
+			return new Object();
 		} catch (Exception e) {
 			throw new RetriableException(e);
 		}
