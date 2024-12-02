@@ -1,6 +1,6 @@
 package com.ontotext.kafka;
 
-import com.ontotext.kafka.processor.ProcessorContext;
+import com.ontotext.kafka.processor.SinkRecordsProcessor;
 import com.ontotext.kafka.util.VersionUtil;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -25,41 +25,39 @@ public class GraphDBSinkTask extends SinkTask {
 	/**
 	 * Use a single processor and queue for all tasks of a single unique connector.
 	 */
-	private static final Map<GraphDBSinkConfig, ProcessorContext> taskContextMap = new HashMap<>();
+	private static final Map<GraphDBSinkConfig, SinkRecordsProcessor> processors = new HashMap<>();
 	private GraphDBSinkConfig config;
-	private ProcessorContext processorContext;
-
+	private SinkRecordsProcessor processor;
 
 
 	@Override
 	public void start(Map<String, String> properties) {
 		log.info("Starting the GraphDB sink task for connector {}", config.getConnectorName());
 		this.config = new GraphDBSinkConfig(properties);
-		this.processorContext = startProcessor(config);
+		this.processor = startProcessor(config);
 		log.info("Configuration complete.");
 	}
 
 	/**
-	 * Creates a new {@link ProcessorContext} and starts a Processor thread, for a corresponding connector {@link org.apache.kafka.common.config.Config}
+	 * Creates a new {@link SinkRecordsProcessor} and starts its thread, for a corresponding connector {@link org.apache.kafka.common.config.Config}
 	 * If a context has already been created (i.e. from another task initialization for the same connector), return the existing queue, without starting
 	 * any new threads.
 	 *
 	 * @param config - The configuration for which to create the new context
 	 * @return ProcessorContext
 	 */
-	private ProcessorContext startProcessor(GraphDBSinkConfig config) {
-		if (taskContextMap.containsKey(config)) {
-			return taskContextMap.get(config);
+	private SinkRecordsProcessor startProcessor(GraphDBSinkConfig config) {
+		if (processors.containsKey(config)) {
+			return processors.get(config);
 		}
-		synchronized (taskContextMap) {
-			if (taskContextMap.containsKey(config)) {
-				return taskContextMap.get(config);
+		synchronized (processors) {
+			if (processors.containsKey(config)) {
+				return processors.get(config);
 			}
 			log.info("Creating a new processor for connector {}", config.getConnectorName());
-			ProcessorContext ctx = new ProcessorContext(config);
-			ctx.startProcessor();
-			return ctx;
-
+			SinkRecordsProcessor processor = new SinkRecordsProcessor(config);
+			SinkExecutor.getInstance().startNewProcessor(processor);
+			return processor;
 		}
 	}
 
@@ -70,13 +68,20 @@ public class GraphDBSinkTask extends SinkTask {
 			return;
 		}
 		log.trace("Sink task received {} records", collection.size());
-		this.processorContext.addSinkRecords(collection);
+		try {
+
+			this.processor.getDeque().putFirst(collection);
+		} catch (InterruptedException e) {
+			log.warn("Thread was interrupted, most probably due to an initiated shutdown. ");
+			// How would we handle this potential data loss?
+			Thread.interrupted();
+		}
 	}
 
 	@Override
 	public void stop() {
 		log.trace("Shutting down processor");
-		this.processorContext.shutdown();
+		SinkExecutor.getInstance().stopProcessor(processor);
 	}
 
 	@Override
