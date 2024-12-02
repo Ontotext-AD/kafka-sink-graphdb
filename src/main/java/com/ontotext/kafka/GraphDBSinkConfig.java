@@ -311,7 +311,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 		return tolerance;
 	}
 
-	public String getTopicName() {
+	public String getDlqTopicName() {
 		return topicName;
 	}
 

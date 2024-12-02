@@ -17,11 +17,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 
-public class FailedRecordProducerTest {
+public class KafkaRecordProducerTest {
 
 	private static final String TOPIC = "topic";
 	private List<SinkRecord> records;
-	private FailedProducer producer;
+	private KafkaRecordProducer producer;
 	private final SinkRecord record = new SinkRecord(TOPIC, 1, null, "key", null, "value", 1);
 
 	@BeforeEach
@@ -46,7 +46,7 @@ public class FailedRecordProducerTest {
 			return null;
 		}).when(mock).send(any(ProducerRecord.class), any(Callback.class));
 
-		producer = new FailedRecordProducer(mock);
+		producer = new KafkaRecordProducer(mock);
 		producer.returnFailed(record);
 
 		assertThat(records).hasSize(1);
@@ -63,7 +63,7 @@ public class FailedRecordProducerTest {
 			return null;
 		}).when(mock).send(any(ProducerRecord.class), any(Callback.class));
 
-		producer = new FailedRecordProducer(mock);
+		producer = new KafkaRecordProducer(mock);
 		producer.returnFailed(record);
 		producer.returnFailed(record);
 
