@@ -6,10 +6,10 @@ import org.apache.kafka.connect.runtime.errors.ToleranceType;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 import static com.ontotext.kafka.GraphDBSinkConfig.*;
-import static org.apache.kafka.connect.runtime.ConnectorConfig.ERRORS_RETRY_MAX_DELAY_CONFIG;
-import static org.apache.kafka.connect.runtime.ConnectorConfig.ERRORS_RETRY_TIMEOUT_CONFIG;
+import static org.apache.kafka.connect.runtime.ConnectorConfig.*;
 import static org.apache.kafka.connect.runtime.WorkerConfig.BOOTSTRAP_SERVERS_CONFIG;
 
 public class TestSinkConfigBuilder {
@@ -23,6 +23,7 @@ public class TestSinkConfigBuilder {
 	private void initDefaults() {
 		this.configProperties.put(SERVER_URL, "localhost");
 		this.configProperties.put(REPOSITORY, "repo");
+		this.configProperties.put(NAME_CONFIG, UUID.randomUUID().toString());
 
 	}
 
