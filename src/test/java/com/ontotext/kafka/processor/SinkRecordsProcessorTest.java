@@ -72,7 +72,7 @@ public class SinkRecordsProcessorTest {
 		sinkRecords.add(Collections.singleton(invalidRecord));
 
 
-		SinkRecordsProcessor processor = spy(new SinkRecordsProcessor(config, sinkRecords, repository));
+		SinkRecordsProcessor processor = spy(new SinkRecordsProcessor(config, sinkRecords, repository, null));
 		processor.run(); //Should terminate once all records have been consumed, as per the mocked shouldRun variable (or timeout in case of a bug/failure)
 		assertThat(formats).isNotEmpty();
 		assertThat(streams).isNotEmpty();
@@ -106,7 +106,7 @@ public class SinkRecordsProcessorTest {
 		sinkRecords.add(Collections.singleton(invalidRecord2));
 
 
-		SinkRecordsProcessor processor = spy(new SinkRecordsProcessor(config, sinkRecords, repository));
+		SinkRecordsProcessor processor = spy(new SinkRecordsProcessor(config, sinkRecords, repository, null));
 		processor.run(); //Should terminate once all records have been consumed, as per the mocked shouldRun variable (or timeout in case of a bug/failure)
 		assertThat(formats).isNotEmpty();
 		assertThat(streams).isNotEmpty();

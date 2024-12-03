@@ -26,9 +26,6 @@ import static org.apache.kafka.connect.runtime.SinkConnectorConfig.*;
 /**
  * Config implementation used to store and validate main Connector properties including Authentication and Transaction Type.
  *
- * This class is re-using the same {@link org.apache.kafka.common.config.Config:originals} map, without adding any new state,
- * therefore {@link Object#equals(Object)} and {@link Object#hashCode()} are calculated by simply calling super()
- *
  * @author Tomas Kovachev tomas.kovachev@ontotext.com
  */
 public class GraphDBSinkConfig extends AbstractConfig {
@@ -36,7 +33,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	public static final ConfigDef CONFIG_DEFINITION = createConfigDef();
 
 	private final int batchSize;
-	private final Long timeoutCommitMs;
+	private final Long processorRecordPollTimeoutMs;
 	private final TransactionType transactionType;
 	private final RDFFormat rdfFormat;
 	private final String templateId;
@@ -51,6 +48,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	private final String authBasicUser;
 	private final Password authBasicPassword;
 	private final String connectorName;
+	private final long backOffTimeoutMs;
 
 
 	public enum AuthenticationType {
@@ -99,9 +97,13 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	public static final int DEFAULT_BATCH_SIZE = 64;
 	public static final String BATCH_SIZE_DOC = "The number of sink records aggregated before being committed";
 
-	public static final String BATCH_COMMIT_SCHEDULER = "graphdb.batch.commit.limit.ms";
-	public static final long DEFAULT_BATCH_COMMIT_SCHEDULER = 3000;
-	public static final String BATCH_COMMIT_SCHEDULER_DOC = "The timeout applied per batch that is not full before it is committed";
+	public static final String RECORD_POLL_TIMEOUT = "graphdb.batch.commit.limit.ms";
+	public static final long DEFAULT_RECORD_POLL_TIMEOUT = 3000;
+	public static final String RECORD_POLL_TIMEOUT_DOC = "The timeout applied per batch that is not full before it is committed";
+
+	public static final String POLL_BACKOFF_TIMEOUT = "graphdb.sink.poll.backoff.timeout.ms";
+	public static final long DEFAULT_POLL_BACKOFF_TIMEOUT = 10000;
+	public static final String POLL_BACKOFF_TIMEOUT_DOC = "The timeout applied per batch that is not full before it is committed";
 
 	public static final String TEMPLATE_ID = "graphdb.template.id";
 	public static final String TEMPLATE_ID_DOC = "The id(IRI) of GraphDB Template to be used by in SPARQL Update";
@@ -111,11 +113,12 @@ public class GraphDBSinkConfig extends AbstractConfig {
 
 	public GraphDBSinkConfig(Map<?, ?> originals) {
 		super(CONFIG_DEFINITION, originals, true); // log the configuration after setup is complete
-		batchSize = getInt(BATCH_SIZE);
-		timeoutCommitMs = getLong(BATCH_COMMIT_SCHEDULER);
-		transactionType = TransactionType.valueOf(getString(TRANSACTION_TYPE).toUpperCase()); // NPE-safe because a default value is set for this field
-		rdfFormat = ValueUtil.getRDFFormat(getString(RDF_FORMAT));
-		templateId = getString(TEMPLATE_ID);
+		this.batchSize = getInt(BATCH_SIZE);
+		this.processorRecordPollTimeoutMs = getLong(RECORD_POLL_TIMEOUT);
+		this.backOffTimeoutMs = getLong(POLL_BACKOFF_TIMEOUT);
+		this.transactionType = TransactionType.valueOf(getString(TRANSACTION_TYPE).toUpperCase()); // NPE-safe because a default value is set for this field
+		this.rdfFormat = ValueUtil.getRDFFormat(getString(RDF_FORMAT));
+		this.templateId = getString(TEMPLATE_ID);
 		this.topicName = getString(DLQ_TOPIC_NAME_CONFIG);
 		this.tolerance = parseTolerance();
 		this.bootstrapServers = getList(BOOTSTRAP_SERVERS_CONFIG);
@@ -180,11 +183,18 @@ public class GraphDBSinkConfig extends AbstractConfig {
 				BATCH_SIZE_DOC
 			)
 			.define(
-				BATCH_COMMIT_SCHEDULER,
+				RECORD_POLL_TIMEOUT,
 				ConfigDef.Type.LONG,
-				DEFAULT_BATCH_COMMIT_SCHEDULER,
+				DEFAULT_RECORD_POLL_TIMEOUT,
 				ConfigDef.Importance.HIGH,
-				BATCH_COMMIT_SCHEDULER_DOC
+				RECORD_POLL_TIMEOUT_DOC
+			)
+			.define(
+				POLL_BACKOFF_TIMEOUT,
+				ConfigDef.Type.LONG,
+				DEFAULT_POLL_BACKOFF_TIMEOUT,
+				ConfigDef.Importance.HIGH,
+				POLL_BACKOFF_TIMEOUT_DOC
 			)
 			.define(
 				AUTH_TYPE,
@@ -291,8 +301,8 @@ public class GraphDBSinkConfig extends AbstractConfig {
 		return batchSize;
 	}
 
-	public Long getTimeoutCommitMs() {
-		return timeoutCommitMs;
+	public Long getProcessorRecordPollTimeoutMs() {
+		return processorRecordPollTimeoutMs;
 	}
 
 	public TransactionType getTransactionType() {
@@ -353,6 +363,14 @@ public class GraphDBSinkConfig extends AbstractConfig {
 		return connectorName;
 	}
 
+	public String getTopicName() {
+		return topicName;
+	}
+
+	public long getBackOffTimeoutMs() {
+		return backOffTimeoutMs;
+	}
+
 	public static class GraphDBConfigDef extends ConfigDef {
 		@Override
 		public Map<String, ConfigValue> validateAll(Map<String, String> props) {
@@ -360,22 +378,4 @@ public class GraphDBSinkConfig extends AbstractConfig {
 		}
 	}
 
-
-	/**
-	 * Use the {@link org.apache.kafka.common.config.Config} equals implementation,
-	 * which calculates the hash on the {@link org.apache.kafka.common.config.Config:originals} map
-	 */
-	@Override
-	public boolean equals(Object o) {
-		return super.equals(o);
-	}
-
-	/**
-	 * Use the {@link org.apache.kafka.common.config.Config} hashcode implementation,
-	 * which calculates the hash on the {@link org.apache.kafka.common.config.Config:originals} map
-	 */
-	@Override
-	public int hashCode() {
-		return super.hashCode();
-	}
 }

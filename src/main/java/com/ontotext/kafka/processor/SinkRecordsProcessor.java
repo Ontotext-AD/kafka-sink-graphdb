@@ -4,13 +4,11 @@ import com.ontotext.kafka.GraphDBSinkConfig;
 import com.ontotext.kafka.error.LogErrorHandler;
 import com.ontotext.kafka.util.ValueUtil;
 import org.apache.commons.lang.NotImplementedException;
-import org.apache.kafka.common.utils.SystemTime;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.RetriableException;
-import org.apache.kafka.connect.runtime.errors.ErrorHandlingMetrics;
-import org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperator;
 import org.apache.kafka.connect.runtime.errors.Stage;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.apache.kafka.connect.sink.SinkTaskContext;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
@@ -28,7 +26,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.ReentrantLock;
 
 import static com.ontotext.kafka.util.ValueUtil.convertValueToString;
 
@@ -37,49 +34,48 @@ import static com.ontotext.kafka.util.ValueUtil.convertValueToString;
  * GraphDB {@link org.eclipse.rdf4j.repository.http.HTTPRepository}.
  * <p>
  * Batches that do not meet the {@link com.ontotext.kafka.GraphDBSinkConfig#BATCH_SIZE} are flushed
- * after passing {@link com.ontotext.kafka.GraphDBSinkConfig#BATCH_COMMIT_SCHEDULER} threshold.
+ * after passing {@link com.ontotext.kafka.GraphDBSinkConfig#RECORD_POLL_TIMEOUT} threshold.
  *
  * @author Tomas Kovachev tomas.kovachev@ontotext.com
  */
 public final class SinkRecordsProcessor implements Runnable {
 
 	private static final Logger LOG = LoggerFactory.getLogger(SinkRecordsProcessor.class);
-	private static final ErrorHandlingMetrics METRICS = new GraphDBErrorHandlingMetrics();
 
 	private final UUID id = UUID.randomUUID();
 	private final LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords;
+	private final SinkTaskContext context;
 	private final Queue<SinkRecord> recordsBatch;
 	private final Repository repository;
 	private final RDFFormat format;
-	private final ReentrantLock timeoutCommitLock;
 	private final int batchSize;
 	private final long timeoutCommitMs;
 	private final LogErrorHandler errorHandler;
-	private final RetryWithToleranceOperator retryOperator;
 	private final StringBuilder updateQueryBuilder;
 	private final String templateId;
 	private final RecordHandler recordHandler;
 	private final GraphDBSinkConfig.TransactionType transactionType;
+	private final GraphDBSinkConfig config;
 
-	public SinkRecordsProcessor(GraphDBSinkConfig config) {
-		this(config, new LinkedBlockingQueue<>(), initRepository(config));
+	public SinkRecordsProcessor(GraphDBSinkConfig config, SinkTaskContext context) {
+		this(config, new LinkedBlockingQueue<>(), initRepository(config), context);
 	}
 
-	public SinkRecordsProcessor(GraphDBSinkConfig config, LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords, Repository repository) {
+	public SinkRecordsProcessor(GraphDBSinkConfig config, LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords, Repository repository,
+								SinkTaskContext context) {
+		this.config = config;
 		this.sinkRecords = sinkRecords;
+		this.context = context;
 		this.recordsBatch = new ConcurrentLinkedQueue<>();
 		this.repository = repository;
 		this.updateQueryBuilder = new StringBuilder();
 		this.templateId = config.getTemplateId();
 		this.format = config.getRdfFormat();
 		this.batchSize = config.getBatchSize();
-		this.timeoutCommitMs = config.getTimeoutCommitMs();
+		this.timeoutCommitMs = config.getProcessorRecordPollTimeoutMs();
 		this.errorHandler = new LogErrorHandler(config);
-		this.timeoutCommitLock = new ReentrantLock();
 		this.transactionType = config.getTransactionType();
 		this.recordHandler = getRecordHandler(transactionType);
-		this.retryOperator = new RetryWithToleranceOperator(config.getErrorRetryTimeout(), config.getErrorMaxDelayInMillis(), config.getTolerance(),
-			new SystemTime(), METRICS);
 		// repositoryUrl is used for logging purposes
 		String repositoryUrl = (repository instanceof HTTPRepository) ? ((HTTPRepository) repository).getRepositoryURL() : "unknown";
 		MDC.put("RepositoryURL", repositoryUrl);
@@ -122,6 +118,9 @@ public final class SinkRecordsProcessor implements Runnable {
 			} catch (InterruptedException e) {
 				LOG.info("Thread was interrupted. Shutting down processor");
 				break;
+			} catch (Exception e) {
+				LOG.error("Caught unhandled exception. Shutting down", e);
+				break;
 			}
 		}
 		Thread.interrupted();
@@ -129,38 +128,43 @@ public final class SinkRecordsProcessor implements Runnable {
 	}
 
 	private void shutdown() {
-		// commit any records left before shutdown.
+		// commit any records left before shutdown. Bypass batch checking, just add all records and flush downstream
 		LOG.info("Commiting any records left before shutdown");
 		Collection<SinkRecord> records;
 		while ((records = sinkRecords.poll()) != null) {
-			consumeRecords(records);
+
+			recordsBatch.addAll(records);
 		}
-		// final flush after all messages have been batched
 		flushUpdates();
 		if (repository.isInitialized()) {
 			repository.shutDown();
 		}
 	}
 
-	private void consumeRecords(Collection<SinkRecord> messages) {
+	private boolean consumeRecords(Collection<SinkRecord> messages) {
 		for (SinkRecord message : messages) {
-			recordsBatch.add(message);
-			if (batchSize <= recordsBatch.size()) {
-				flushUpdates();
+			if (batchSize > recordsBatch.size() || flushUpdates()) {
+				recordsBatch.add(message);
+			} else {
+				LOG.warn("Batch update was not successful. Will not consume the rest of the messages");
 			}
+
 		}
 	}
 
-	private void flushUpdates() {
+	private boolean flushUpdates() {
 		if (!recordsBatch.isEmpty()) {
-			try {
+			try (GraphDBRetryWithToleranceOperator retryOperator = new GraphDBRetryWithToleranceOperator(config)) {
 				retryOperator.execute(this::doFlush, Stage.KAFKA_CONSUME, getClass());
-				if (retryOperator.failed()) {
-					LOG.error("Failed to flush batch updates. This error is due to either repository connection failure, or transaction failure");
+				boolean failed = retryOperator.failed();
+				if (failed) {
+					LOG.error("Failed to flush batch updates. Underlying exception - {}", retryOperator.error().getMessage());
 					if (!retryOperator.withinToleranceLimits()) {
 						throw new ConnectException("Error tolerance exceeded.");
 					}
+					LOG.warn("Errors are tolerated (tolerance = {})", config.getTolerance());
 				}
+				return !failed;
 			} catch (ConnectException e) {
 				// TODO We would need to push back all records to kafka
 				throw new RuntimeException("Got exception while flushing updates, cannot recover", e);
@@ -179,15 +183,17 @@ public final class SinkRecordsProcessor implements Runnable {
 			LOG.trace("Transaction started, batch size: {} , records in current batch: {}", batchSize, recordsInCurrentBatch);
 			while (recordsBatch.peek() != null) {
 				SinkRecord record = recordsBatch.peek();
-				retryOperator.execute(() -> handleRecord(record, connection), Stage.KAFKA_CONSUME, getClass());
-				if (retryOperator.failed()) {
-					LOG.warn("Failed to commit record. Will handle failure, and remove from the batch");
-					errorHandler.handleFailingRecord(record, retryOperator.error());
-					if (!retryOperator.withinToleranceLimits()) {
-						throw new ConnectException("Error tolerance exceeded.");
+				try (GraphDBRetryWithToleranceOperator retryOperator = new GraphDBRetryWithToleranceOperator(config)) {
+					retryOperator.execute(() -> handleRecord(record, connection), Stage.KAFKA_CONSUME, getClass());
+					if (retryOperator.failed()) {
+						LOG.warn("Failed to commit record. Will handle failure, and remove from the batch");
+						errorHandler.handleFailingRecord(record, retryOperator.error());
+						if (!retryOperator.withinToleranceLimits()) {
+							throw new ConnectException("Error tolerance exceeded.");
+						}
 					}
+					recordsBatch.poll();
 				}
-				recordsBatch.poll();
 
 			}
 			connection.commit();
