@@ -26,6 +26,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.ontotext.kafka.util.ValueUtil.convertValueToString;
 
@@ -44,7 +45,6 @@ public final class SinkRecordsProcessor implements Runnable {
 
 	private final UUID id = UUID.randomUUID();
 	private final LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords;
-	private final SinkTaskContext context;
 	private final Queue<SinkRecord> recordsBatch;
 	private final Repository repository;
 	private final RDFFormat format;
@@ -56,16 +56,15 @@ public final class SinkRecordsProcessor implements Runnable {
 	private final RecordHandler recordHandler;
 	private final GraphDBSinkConfig.TransactionType transactionType;
 	private final GraphDBSinkConfig config;
+	private AtomicBoolean backOff = new AtomicBoolean(false);
 
 	public SinkRecordsProcessor(GraphDBSinkConfig config, SinkTaskContext context) {
-		this(config, new LinkedBlockingQueue<>(), initRepository(config), context);
+		this(config, new LinkedBlockingQueue<>(), initRepository(config));
 	}
 
-	public SinkRecordsProcessor(GraphDBSinkConfig config, LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords, Repository repository,
-								SinkTaskContext context) {
+	public SinkRecordsProcessor(GraphDBSinkConfig config, LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords, Repository repository) {
 		this.config = config;
 		this.sinkRecords = sinkRecords;
-		this.context = context;
 		this.recordsBatch = new ConcurrentLinkedQueue<>();
 		this.repository = repository;
 		this.updateQueryBuilder = new StringBuilder();
@@ -107,6 +106,10 @@ public final class SinkRecordsProcessor implements Runnable {
 	public void run() {
 		while (!Thread.currentThread().isInterrupted()) {
 			try {
+				if (backOff.getAndSet(false)) {
+					LOG.info("Retrying flush");
+					flushUpdates();
+				}
 				Collection<SinkRecord> messages = sinkRecords.poll(timeoutCommitMs, TimeUnit.MILLISECONDS);
 				if (messages != null) {
 					consumeRecords(messages);
@@ -115,11 +118,25 @@ public final class SinkRecordsProcessor implements Runnable {
 						TimeUnit.MILLISECONDS, repository);
 					flushUpdates();
 				}
-			} catch (InterruptedException e) {
-				LOG.info("Thread was interrupted. Shutting down processor");
-				break;
+			} catch (RetriableException e) {
+				long backoffTimeoutMs = config.getBackOffTimeoutMs();
+				backOff.set(true);
+				LOG.warn("Caught a retriable exception while flushing the current batch. " +
+					"Will sleep for {}ms and will try to flush the records again", backoffTimeoutMs);
+				try {
+					Thread.sleep(backoffTimeoutMs);
+				} catch (InterruptedException iex) {
+					LOG.info("Thread was interrupted during backoff. Shutting down");
+					break;
+				}
+
+
 			} catch (Exception e) {
-				LOG.error("Caught unhandled exception. Shutting down", e);
+				if (e instanceof InterruptedException) {
+					LOG.info("Thread was interrupted. Shutting down processor");
+				} else {
+					LOG.error("Caught an exception, cannot recover.  Shutting down", e);
+				}
 				break;
 			}
 		}
@@ -135,7 +152,13 @@ public final class SinkRecordsProcessor implements Runnable {
 
 			recordsBatch.addAll(records);
 		}
-		flushUpdates();
+		try {
+			flushUpdates();
+		} catch (Exception e) {
+			// We did ou best. Just log the exception and shut down
+			LOG.warn("While shutting down, failed to flush updates due to exception", e);
+		}
+
 		if (repository.isInitialized()) {
 			repository.shutDown();
 		}
@@ -150,6 +173,12 @@ public final class SinkRecordsProcessor implements Runnable {
 		}
 	}
 
+	/**
+	 * Flush all records in batch downstream.
+	 *
+	 * @throws RetriableException if the repository connection has failed, either during initialization, or commit
+	 * @throws ConnectException   if the flush has failed, but there is no tolerance for error
+	 */
 	private void flushUpdates() {
 		if (!recordsBatch.isEmpty()) {
 			try (GraphDBRetryWithToleranceOperator retryOperator = new GraphDBRetryWithToleranceOperator(config)) {
@@ -161,19 +190,20 @@ public final class SinkRecordsProcessor implements Runnable {
 					}
 					LOG.warn("Errors are tolerated (tolerance = {}). Clearing the batch", config.getTolerance());
 					// TODO: this is not optimal - we clear all reacords when they fail to flush downstream. THink of a way to retry again with some backoff
-					recordsBatch.clear();
+//					recordsBatch.clear();
+					throw new RetriableException("Failed to flush updates", retryOperator.error());
 				}
-			} catch (ConnectException e) {
-				// TODO We would need to push back all records to kafka
-				throw new RuntimeException("Got exception while flushing updates, cannot recover", e);
-			} catch (Exception e) {
-				throw new RuntimeException("Unhandled exception thrown during batch record flush", e);
 			}
-
 		}
 	}
 
-	public Void doFlush() throws RetriableException {
+	/**
+	 * Perform flush with a retry mechanism, for both the entire batch, and every single record
+	 *
+	 * @throws RetriableException if the repository connection has failed, either during initialization, or commit
+	 * @throws ConnectException   if the flush has failed, but there is no tolerance for error
+	 */
+	public Void doFlush() {
 		long start = System.currentTimeMillis();
 		try (RepositoryConnection connection = repository.getConnection()) {
 			connection.begin();
@@ -282,5 +312,9 @@ public final class SinkRecordsProcessor implements Runnable {
 
 	private interface RecordHandler {
 		void handle(SinkRecord record, RepositoryConnection connection) throws IOException;
+	}
+
+	public boolean shouldBackOff() {
+		return backOff.get();
 	}
 }
