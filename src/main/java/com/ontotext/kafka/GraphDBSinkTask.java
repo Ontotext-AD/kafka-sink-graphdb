@@ -3,6 +3,7 @@ package com.ontotext.kafka;
 import com.ontotext.kafka.processor.SinkRecordsProcessor;
 import com.ontotext.kafka.util.VersionUtil;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
@@ -68,8 +69,13 @@ public class GraphDBSinkTask extends SinkTask {
 		if (CollectionUtils.isEmpty(collection)) {
 			return;
 		}
+		if (processor.shouldBackOff()) {
+			log.info("Congestion in processor, backing off");
+			context.timeout(config.getBackOffTimeoutMs());
+			throw new RetriableException("Congestion in processor, retry later");
+		}
 		log.trace("Sink task received {} records", collection.size());
-		this.processor.getQueue().add(collection);
+		processor.getQueue().add(collection);
 	}
 
 	@Override
