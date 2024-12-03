@@ -141,30 +141,28 @@ public final class SinkRecordsProcessor implements Runnable {
 		}
 	}
 
-	private boolean consumeRecords(Collection<SinkRecord> messages) {
+	private void consumeRecords(Collection<SinkRecord> messages) {
 		for (SinkRecord message : messages) {
-			if (batchSize > recordsBatch.size() || flushUpdates()) {
-				recordsBatch.add(message);
-			} else {
-				LOG.warn("Batch update was not successful. Will not consume the rest of the messages");
+			recordsBatch.add(message);
+			if (batchSize <= recordsBatch.size()) {
+				flushUpdates();
 			}
-
 		}
 	}
 
-	private boolean flushUpdates() {
+	private void flushUpdates() {
 		if (!recordsBatch.isEmpty()) {
 			try (GraphDBRetryWithToleranceOperator retryOperator = new GraphDBRetryWithToleranceOperator(config)) {
 				retryOperator.execute(this::doFlush, Stage.KAFKA_CONSUME, getClass());
-				boolean failed = retryOperator.failed();
-				if (failed) {
+				if (retryOperator.failed()) {
 					LOG.error("Failed to flush batch updates. Underlying exception - {}", retryOperator.error().getMessage());
 					if (!retryOperator.withinToleranceLimits()) {
 						throw new ConnectException("Error tolerance exceeded.");
 					}
-					LOG.warn("Errors are tolerated (tolerance = {})", config.getTolerance());
+					LOG.warn("Errors are tolerated (tolerance = {}). Clearing the batch", config.getTolerance());
+					// TODO: this is not optimal - we clear all reacords when they fail to flush downstream. THink of a way to retry again with some backoff
+					recordsBatch.clear();
 				}
-				return !failed;
 			} catch (ConnectException e) {
 				// TODO We would need to push back all records to kafka
 				throw new RuntimeException("Got exception while flushing updates, cannot recover", e);
