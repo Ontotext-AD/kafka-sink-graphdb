@@ -34,7 +34,7 @@ public class TestSinkConfigBuilder {
 	}
 
 	public TestSinkConfigBuilder timeoutCommitMs(long ms) {
-		this.configProperties.put(BATCH_COMMIT_SCHEDULER, ms);
+		this.configProperties.put(RECORD_POLL_TIMEOUT, ms);
 		return this;
 	}
 

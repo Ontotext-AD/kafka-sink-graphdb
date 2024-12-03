@@ -25,21 +25,21 @@ public class GraphDBSinkTask extends SinkTask {
 	/**
 	 * Use a single processor and queue for all tasks of a single unique connector.
 	 */
-	private static final Map<GraphDBSinkConfig, SinkRecordsProcessor> processors = new HashMap<>();
+	private static final Map<String, SinkRecordsProcessor> processors = new HashMap<>();
 	private GraphDBSinkConfig config;
 	private SinkRecordsProcessor processor;
 
 
 	@Override
 	public void start(Map<String, String> properties) {
-		log.info("Starting the GraphDB sink task for connector {}", config.getConnectorName());
 		this.config = new GraphDBSinkConfig(properties);
+		log.info("Starting the GraphDB sink task for connector {}", config.getConnectorName());
 		this.processor = startProcessor(config);
 		log.info("Configuration complete.");
 	}
 
 	/**
-	 * Creates a new {@link SinkRecordsProcessor} and starts its thread, for a corresponding connector {@link org.apache.kafka.common.config.Config}
+	 * Creates a new {@link SinkRecordsProcessor} and starts its thread, for a corresponding connector name.
 	 * If a context has already been created (i.e. from another task initialization for the same connector), return the existing queue, without starting
 	 * any new threads.
 	 *
@@ -47,15 +47,16 @@ public class GraphDBSinkTask extends SinkTask {
 	 * @return ProcessorContext
 	 */
 	private SinkRecordsProcessor startProcessor(GraphDBSinkConfig config) {
-		if (processors.containsKey(config)) {
-			return processors.get(config);
+		String connectorName = config.getConnectorName();
+		if (processors.containsKey(connectorName)) {
+			return processors.get(connectorName);
 		}
 		synchronized (processors) {
-			if (processors.containsKey(config)) {
-				return processors.get(config);
+			if (processors.containsKey(connectorName)) {
+				return processors.get(connectorName);
 			}
-			log.info("Creating a new processor for connector {}", config.getConnectorName());
-			SinkRecordsProcessor processor = new SinkRecordsProcessor(config);
+			log.info("Creating a new processor for connector {}", connectorName);
+			SinkRecordsProcessor processor = processors.compute(connectorName, (s, sinkRecordsProcessor) -> new SinkRecordsProcessor(config, context));
 			SinkExecutor.getInstance().startNewProcessor(processor);
 			return processor;
 		}

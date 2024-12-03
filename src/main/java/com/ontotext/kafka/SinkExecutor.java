@@ -32,7 +32,7 @@ public final class SinkExecutor {
             LOG.warn("Processor with id {} already started", processorId);
             return;
         }
-        runningProcessors.put(processorId, executorService.submit((Runnable) processor));
+		runningProcessors.put(processorId, executorService.submit(processor));
     }
 
     public void stopProcessor(SinkRecordsProcessor processor) {
