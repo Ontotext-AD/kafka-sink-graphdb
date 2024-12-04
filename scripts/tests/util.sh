@@ -98,3 +98,11 @@ function rand {
 	LENGTH=${1:-13}
 	tr -dc A-Za-z0-9 </dev/urandom | head -c "${LENGTH}"; echo
 }
+
+function min {
+	echo $(( $1 < $2 ? $1 : $2 ))
+}
+
+function max {
+	echo $(( $1 < $2 ? $2 : $1 ))
+}

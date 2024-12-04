@@ -369,6 +369,7 @@ fi
 # verbose mode
 if [[ "${arg_v:?}" = "1" ]]; then
   set -o verbose
+  LOG_LEVEL="7"
 fi
 
 # no color mode
@@ -387,6 +388,7 @@ fi
 ##############################################################################
 
 [[ "${LOG_LEVEL:-}" ]] || emergency "Cannot continue without LOG_LEVEL. "
+export LOG_LEVEL
 
 ### Runtime
 ##############################################################################
@@ -410,8 +412,9 @@ fi
 function run_test_case() {
     if [[ "${arg_D:?}" = "1" ]]; then
     	/bin/bash "$1"
-    fi
-	/bin/bash "$1" --interactive
+    else
+		/bin/bash "$1" --interactive
+	fi
 }
 
 ARGS=""
