@@ -4,7 +4,7 @@
 #  - Runs the golden test case
 #
 # Exit on error. Append "|| true" if you expect an error.
-set -o errexit
+#set -o errexit
 # Exit on error inside any functions or subshells.
 set -o errtrace
 # Do not allow use of undefined vars. Use ${VAR:-} to use an undefined VAR
@@ -130,7 +130,8 @@ function help () {
   -e --tolerance        [arg]	The tolerance limit. Can be any of [all, none]. Default=none
   -p --poll-timeout 	[arg]	The polling timeout in ms (i.e. how quickly will the processor respond to lack of records and commit batches that are not filled). Default=5000
   -T --total-data    	[arg]	The total amount of records to send. Must be a number. Default=1000
-  -P --parallel-send 	[arg]	The number of parallel data send operations. Must be a number. Higher operations will be stressful on your personal machine. Default=15
+  -B --batch-send    	[arg]	The number of records to send in batch. Must be a number. Default=200
+  -P --parallel-send 	[arg]	The number of parallel threads to send data batches. Must be a number. Default=15
   -i --interactive              Interactively ask for parameters
   -v               				Enable verbose mode, print script as it is executed
   -d --debug       				Enables debug mode
@@ -364,14 +365,13 @@ __b3bp_err_report() {
 if [[ "${arg_d:?}" = "1" ]]; then
   set -o xtrace
   PS4='+(${BASH_SOURCE}:${LINENO}): ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
-  LOG_LEVEL="7"
   # Enable error backtracing
   trap '__b3bp_err_report "${FUNCNAME:-.}" ${LINENO}' ERR
 fi
 
 # verbose mode
 if [[ "${arg_v:?}" = "1" ]]; then
-  set -o verbose
+  LOG_LEVEL="7"
 fi
 
 # no color mode
@@ -384,7 +384,6 @@ if [[ "${arg_h:?}" = "1" ]]; then
   # Help exists with code 1
   help "Help using ${0}"
 fi
-
 function interactive {
 	read -rp "Batch size [10]: " arg
     arg_s=${arg:-10}
@@ -398,7 +397,10 @@ function interactive {
     read -rp "Tolerance type [none]: " arg
     arg_e=${arg:-none}
 
-    read -rp "Parallel send threads [15] " arg
+    read -rp "Records batch size (to send to Kafka) [200] " arg
+    arg_B=${arg:-200}
+
+	read -rp "Parallel threads to send data batches to Kafka [15] " arg
     arg_P=${arg:-15}
 
     read -rp "Total data to send [1000] " arg
@@ -416,14 +418,16 @@ fi
 (is_number "${arg_s}" && [[ ${arg_s} -gt 0 ]] ) || emergency "Batch size must be a number (provided ${arg_s})"
 (is_number "${arg_t}"  && [[ ${arg_t} -gt 0 ]] ) || emergency "Number of tasks must be a number (provided ${arg_t})"
 is_number "${arg_p}" || emergency "Record polling timeout must be a number (provided ${arg_p})"
+(is_number "${arg_B}" && [[ ${arg_B} -gt 0 ]] ) || emergency "Data batch size must be a number (provided ${arg_B})"
 (is_number "${arg_P}" && [[ ${arg_P} -gt 0 ]] ) || emergency "Number of parallel send threads must be a number (provided ${arg_P})"
 (is_number "${arg_T}" && [[ ${arg_T} -gt 0 ]] ) || emergency "Total amount of data sent must be a number (provided ${arg_T})"
 is_valid_tolerance "${arg_e}" || emergency "Invalid tolerance type ${arg_e}"
 
 set -o nounset # no more unbound variable references expected
 
-ITERATIONS=$(( ($arg_T+$arg_P-1) / $arg_P ))
-SLEEP_BEFORE_VALIDATION=$(( 2*(($arg_p+999) / 1000) ))
+ITERATIONS=$(( ($arg_T+($arg_P*$arg_B)-1) / ($arg_B*$arg_P) ))
+#SLEEP_BEFORE_VALIDATION=$(( $ITERATIONS*(${arg_P}*${arg_B})/(1000*3) + 10 ))
+SLEEP_BEFORE_VALIDATION=$(max $(( (${arg_T}/ 1000 ) * (${arg_B}/ 1000 ) )) 10)
 cat<<EOF
 								############### STARTING TEST ###############
 								Test Parameters
@@ -431,9 +435,11 @@ cat<<EOF
 								Number of parallel tasks (tasks.max): ${arg_t}
 								Record poll timeout (graphdb.batch.commit.limit.ms): ${arg_p} ms
 								Total amount of data to send: ${arg_T} records
-								Record send parallelism: ${arg_P} threads
-								Number of data send iterations ceil(total amount / parallelism) : ${ITERATIONS} iterations
+								Records in a single batch: ${arg_B} records
+								Number of parallel threads to send record batches: ${arg_P} threads
+								Number of data send iterations ceil(total amount / ( parallelism * batch) ) : ${ITERATIONS} iterations
 								Error tolerance: ${arg_e}
+								Wait time before validation: ${SLEEP_BEFORE_VALIDATION} seconds
 EOF
 
 info "Starting docker composition"
@@ -449,30 +455,51 @@ info "Creating a sink connector, providing test parameters"
 create_kafka_sink_connector test-sink test ${arg_t} ${arg_e} test ${arg_s} ${arg_p} &>/dev/null
 
 
-sent=0
+function send_data() {
+	BATCH_SIZE="${1}"
+	if [[ ${BATCH_SIZE} -gt 0 ]]; then
+		DAT_FILE=$(mktemp)
+		debug "Sending ${BATCH_SIZE} records to Kafka"
+		for a in $(seq ${BATCH_SIZE}); do
+			dat="<urn:GOLDEN-CASE> <urn:$(rand 20)> <urn:$(rand 20)> ."
+			debug "Writing data itme ${dat}" to ${DAT_FILE}
+			echo "${dat}" >> ${DAT_FILE}
+		done
+		debug "Sending data file ${DAT_FILE}"
+		docker cp ${DAT_FILE} broker:${DAT_FILE} &>/dev/null
+		docker exec -i broker sh -c "/usr/bin/kafka-console-producer --request-required-acks 1 --broker-list localhost:29092 --topic test < ${DAT_FILE}"
+		rm ${DAT_FILE}
+	fi
+}
+
+REMAINING=${arg_T}
 info "Starting data threads"
 for i in $(seq $ITERATIONS); do
 	info "Iteration: ${i} out of ${ITERATIONS}"
-	for a in $(seq ${arg_P}); do
-		if [[ $sent -lt ${arg_T} ]]; then
-			dat="<urn:GOLDEN-CASE> <urn:$(rand 20)> <urn:$(rand 20)> ."
-			info "Sending test data: ${dat}"
-			echo "${dat}" |  docker container exec -i broker /usr/bin/kafka-console-producer --request-required-acks 1 --broker-list localhost:29092 --topic test &
-			sent=$(( sent + 1 ))
-		fi
+	for p in $(seq ${arg_P}); do
+		batch_size=$(min $arg_B $REMAINING)
+		debug "Thread $p will send ${batch_size} records to Kafka"
+		send_data ${batch_size} &
+		REMAINING=$(( ${REMAINING} - ${batch_size} ))
 	done
 	wait
 done
 
-echo "Test data sent. Waiting for ${SLEEP_BEFORE_VALIDATION} seconds before checking results"
-sleep $SLEEP_BEFORE_VALIDATION
 
-amount_of_items=$(curl --location 'http://localhost:7200/repositories/test?query=select+*+where+%7B+%3Curn%3AGOLDEN-CASE%3E+%3Fp+%3Fo+.%0A%7D+limit+1000' 2>/dev/null | grep -c  'urn')
 
-info "GraphDB successfully ingested ${amount_of_items} records"
+info "Test data sent. Waiting for ${SLEEP_BEFORE_VALIDATION} seconds before checking results"
+while [[ $SLEEP_BEFORE_VALIDATION -gt 0 ]]; do
+   echo -ne "$SLEEP_BEFORE_VALIDATION\033[0K\r"
+   sleep 1
+   SLEEP_BEFORE_VALIDATION=$(( $SLEEP_BEFORE_VALIDATION-1 ))
+done
+
+debug "Checking results"
+amount_of_items=$(curl --location 'http://localhost:7200/repositories/test?query=select+*+where+%7B+%3Curn%3AGOLDEN-CASE%3E+%3Fp+%3Fo+.%0A%7D' 2>/dev/null| grep -c  'urn')
+debug "GraphDB successfully ingested ${amount_of_items} records"
 
 if [[ ${amount_of_items} -eq ${arg_T} ]]; then
-	info "GraphDB successfully ingested all items that were sent. Test completed successfully"
+	info "GraphDB successfully ingested all items [${amount_of_items}] that were sent [${arg_T}]. Test completed successfully"
 else
 	error "GraphDB successfully ingested ${amount_of_items} records, but ${arg_T} records were sent in general. Test failed"
 fi
