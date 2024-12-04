@@ -1,12 +1,5 @@
 package com.ontotext.kafka.util;
 
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.io.StringReader;
-import java.util.Objects;
-
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.model.Resource;
@@ -17,6 +10,9 @@ import java.io.*;
 import java.util.Objects;
 
 public class ValueUtil {
+
+
+	private static final StringBuilder updateQueryBuilder = new StringBuilder();
 
 	private ValueUtil() {
 	}
@@ -100,4 +96,15 @@ public class ValueUtil {
 		return obj == null ? "null" : convertValueToString(obj);
 	}
 
+	public static String createRecordUpdateQuery(Object key, String templateId) {
+		String templateBinding = convertValueToString(key);
+
+		updateQueryBuilder.setLength(0);
+		return updateQueryBuilder.append("PREFIX onto: <http://www.ontotext.com/>\n")
+			.append("insert data {\n")
+			.append("    onto:smart-update onto:sparql-template <").append(templateId).append(">;\n")
+			.append("               onto:template-binding-id <").append(templateBinding).append("> .\n")
+			.append("}\n")
+			.toString();
+	}
 }

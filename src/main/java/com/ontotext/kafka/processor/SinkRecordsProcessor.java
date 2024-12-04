@@ -3,32 +3,25 @@ package com.ontotext.kafka.processor;
 import com.ontotext.kafka.GraphDBSinkConfig;
 import com.ontotext.kafka.error.LogErrorHandler;
 import com.ontotext.kafka.util.ValueUtil;
-import org.apache.commons.lang.NotImplementedException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.runtime.errors.Stage;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
-import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.RepositoryException;
 import org.eclipse.rdf4j.repository.http.HTTPRepository;
-import org.eclipse.rdf4j.rio.RDFFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import java.io.IOException;
-import java.util.Collection;
-import java.util.Queue;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import static com.ontotext.kafka.util.ValueUtil.convertValueToString;
 
 /**
  * A processor which batches sink records and flushes the updates to a given
@@ -47,16 +40,20 @@ public final class SinkRecordsProcessor implements Runnable {
 	private final LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords;
 	private final Queue<SinkRecord> recordsBatch;
 	private final Repository repository;
-	private final RDFFormat format;
 	private final int batchSize;
 	private final long timeoutCommitMs;
 	private final LogErrorHandler errorHandler;
-	private final StringBuilder updateQueryBuilder;
-	private final String templateId;
 	private final RecordHandler recordHandler;
 	private final GraphDBSinkConfig.TransactionType transactionType;
 	private final GraphDBSinkConfig config;
 	private AtomicBoolean backOff = new AtomicBoolean(false);
+	private static final Map<GraphDBSinkConfig.TransactionType, RecordHandler> RECORD_HANDLERS = new HashMap<>();
+
+	static {
+		RECORD_HANDLERS.put(GraphDBSinkConfig.TransactionType.ADD, RecordHandler.addHandler());
+		RECORD_HANDLERS.put(GraphDBSinkConfig.TransactionType.REPLACE_GRAPH, RecordHandler.replaceHandler());
+		RECORD_HANDLERS.put(GraphDBSinkConfig.TransactionType.SMART_UPDATE, RecordHandler.updateHandler());
+	}
 
 	public SinkRecordsProcessor(GraphDBSinkConfig config, SinkTaskContext context) {
 		this(config, new LinkedBlockingQueue<>(), initRepository(config));
@@ -67,14 +64,11 @@ public final class SinkRecordsProcessor implements Runnable {
 		this.sinkRecords = sinkRecords;
 		this.recordsBatch = new ConcurrentLinkedQueue<>();
 		this.repository = repository;
-		this.updateQueryBuilder = new StringBuilder();
-		this.templateId = config.getTemplateId();
-		this.format = config.getRdfFormat();
 		this.batchSize = config.getBatchSize();
 		this.timeoutCommitMs = config.getProcessorRecordPollTimeoutMs();
 		this.errorHandler = new LogErrorHandler(config);
 		this.transactionType = config.getTransactionType();
-		this.recordHandler = getRecordHandler(transactionType);
+		this.recordHandler = RECORD_HANDLERS.get(transactionType);
 		// repositoryUrl is used for logging purposes
 		String repositoryUrl = (repository instanceof HTTPRepository) ? ((HTTPRepository) repository).getRepositoryURL() : "unknown";
 		MDC.put("RepositoryURL", repositoryUrl);
@@ -149,7 +143,6 @@ public final class SinkRecordsProcessor implements Runnable {
 		LOG.info("Commiting any records left before shutdown");
 		Collection<SinkRecord> records;
 		while ((records = sinkRecords.poll()) != null) {
-
 			recordsBatch.addAll(records);
 		}
 		try {
@@ -240,7 +233,7 @@ public final class SinkRecordsProcessor implements Runnable {
 		long start = System.currentTimeMillis();
 		try {
 			LOG.trace("Executing {} operation......", transactionType.toString().toLowerCase());
-			recordHandler.handle(record, connection);
+			recordHandler.handle(record, connection, config);
 			return null;
 		} catch (IOException e) {
 			throw new RetriableException(e.getMessage(), e);
@@ -254,64 +247,12 @@ public final class SinkRecordsProcessor implements Runnable {
 
 	}
 
-	/**
-	 * Handles incoming {@link SinkRecord} based on specified @link {@link com.ontotext.kafka.GraphDBSinkConfig.TransactionType}.
-	 * Note: This is not NPE-safe, see @{@link ValueUtil#convertValueToString(Object)}
-	 *
-	 * @param transactionType Transaction type to use for record handling operation
-	 * @return The handler
-	 */
-	private RecordHandler getRecordHandler(GraphDBSinkConfig.TransactionType transactionType) {
-		switch (transactionType) {
-			case ADD:
-				return (record, connection) -> {
-					connection.add(ValueUtil.convertRDFData(record.value()), format);
-				};
-
-			case SMART_UPDATE:
-				return (record, connection) -> {
-					String query = getUpdateQuery(record.key());
-					connection.prepareUpdate(query).execute();
-					connection.add(ValueUtil.convertRDFData(record.value()), format);
-				};
-
-			case REPLACE_GRAPH:
-				return (record, connection) -> {
-					Resource context = ValueUtil.convertIRIKey(record.key());
-					connection.clear(context);
-					LOG.trace("Connection cleared context(IRI): {}", context.stringValue());
-					if (record.value() != null) {
-						connection.add(ValueUtil.convertRDFData(record.value()), format, context);
-					}
-				};
-			default:
-				throw new NotImplementedException(String.format("Handler for transaction type %s not implemented", transactionType));
-
-		}
-	}
-
-	private String getUpdateQuery(Object key) {
-		String templateBinding = convertValueToString(key);
-
-		updateQueryBuilder.setLength(0);
-		return updateQueryBuilder.append("PREFIX onto: <http://www.ontotext.com/>\n")
-			.append("insert data {\n")
-			.append("    onto:smart-update onto:sparql-template <").append(templateId).append(">;\n")
-			.append("               onto:template-binding-id <").append(templateBinding).append("> .\n")
-			.append("}\n")
-			.toString();
-	}
-
 	public UUID getId() {
 		return id;
 	}
 
 	public LinkedBlockingQueue<Collection<SinkRecord>> getQueue() {
 		return sinkRecords;
-	}
-
-	private interface RecordHandler {
-		void handle(SinkRecord record, RepositoryConnection connection) throws IOException;
 	}
 
 	public boolean shouldBackOff() {
