@@ -59,7 +59,7 @@ public class GraphDBRetryWithToleranceOperator extends RetryWithToleranceOperato
 
 		@Override
 		public void recordRetry() {
-			LOG.info("Retrying operation");
+			LOG.warn("Retrying operation");
 			super.recordRetry();
 		}
 

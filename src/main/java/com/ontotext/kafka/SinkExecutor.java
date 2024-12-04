@@ -19,8 +19,7 @@ public final class SinkExecutor {
     private static final Logger LOG = LoggerFactory.getLogger(SinkExecutor.class);
 
     private SinkExecutor() {
-
-    }
+	}
 
     public static SinkExecutor getInstance() {
         return INSTANCE;
