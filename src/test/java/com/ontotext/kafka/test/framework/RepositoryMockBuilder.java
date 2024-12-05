@@ -2,8 +2,8 @@ package com.ontotext.kafka.test.framework;
 
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
-import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
+import org.eclipse.rdf4j.repository.http.HTTPRepository;
 import org.mockito.stubbing.Answer;
 
 import java.io.File;
@@ -12,10 +12,10 @@ import static org.mockito.Mockito.*;
 
 public class RepositoryMockBuilder {
 
-	private final Repository mocked;
+	private final HTTPRepository mocked;
 
 	public RepositoryMockBuilder() {
-		this.mocked = mock(Repository.class);
+		this.mocked = mock(HTTPRepository.class);
 	}
 
 	public RepositoryMockBuilder dataDir(File dataDir) {
@@ -53,16 +53,22 @@ public class RepositoryMockBuilder {
 		return this;
 	}
 
-	public Repository createRepository() {
+	public RepositoryMockBuilder url(String url) {
+		doReturn(url).when(mocked).getRepositoryURL();
+		return this;
+	}
+
+	public HTTPRepository createRepository() {
 		return mocked;
 	}
 
-	public static Repository createDefaultMockedRepository(RepositoryConnection connection) {
+	public static HTTPRepository createDefaultMockedRepository(RepositoryConnection connection) {
 		return new RepositoryMockBuilder()
 			.writable()
 			.initialize()
 			.connection(connection)
 			.valueFactory(SimpleValueFactory.getInstance())
+			.url("TestRepository")
 			.createRepository();
 	}
 

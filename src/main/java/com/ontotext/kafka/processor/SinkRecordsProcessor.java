@@ -2,16 +2,14 @@ package com.ontotext.kafka.processor;
 
 import com.ontotext.kafka.GraphDBSinkConfig;
 import com.ontotext.kafka.error.LogErrorHandler;
+import com.ontotext.kafka.rdf.repository.RepositoryManager;
 import com.ontotext.kafka.util.ValueUtil;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.runtime.errors.Stage;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.apache.kafka.connect.sink.SinkTaskContext;
-import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.RepositoryException;
-import org.eclipse.rdf4j.repository.http.HTTPRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -39,14 +37,14 @@ public final class SinkRecordsProcessor implements Runnable {
 	private final UUID id = UUID.randomUUID();
 	private final LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords;
 	private final Queue<SinkRecord> recordsBatch;
-	private final Repository repository;
+	private final RepositoryManager repositoryManager;
 	private final int batchSize;
 	private final long timeoutCommitMs;
 	private final LogErrorHandler errorHandler;
 	private final RecordHandler recordHandler;
 	private final GraphDBSinkConfig.TransactionType transactionType;
 	private final GraphDBSinkConfig config;
-	private AtomicBoolean backOff = new AtomicBoolean(false);
+	private final AtomicBoolean backOff = new AtomicBoolean(false);
 	private static final Map<GraphDBSinkConfig.TransactionType, RecordHandler> RECORD_HANDLERS = new HashMap<>();
 
 	static {
@@ -55,46 +53,25 @@ public final class SinkRecordsProcessor implements Runnable {
 		RECORD_HANDLERS.put(GraphDBSinkConfig.TransactionType.SMART_UPDATE, RecordHandler.updateHandler());
 	}
 
-	public SinkRecordsProcessor(GraphDBSinkConfig config, SinkTaskContext context) {
-		this(config, new LinkedBlockingQueue<>(), initRepository(config));
+	public SinkRecordsProcessor(GraphDBSinkConfig config) {
+		this(config, new LinkedBlockingQueue<>(), new RepositoryManager(config));
 	}
 
-	public SinkRecordsProcessor(GraphDBSinkConfig config, LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords, Repository repository) {
+	public SinkRecordsProcessor(GraphDBSinkConfig config, LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords, RepositoryManager repositoryManager) {
 		this.config = config;
 		this.sinkRecords = sinkRecords;
 		this.recordsBatch = new ConcurrentLinkedQueue<>();
-		this.repository = repository;
+		this.repositoryManager = repositoryManager;
 		this.batchSize = config.getBatchSize();
 		this.timeoutCommitMs = config.getProcessorRecordPollTimeoutMs();
 		this.errorHandler = new LogErrorHandler(config);
 		this.transactionType = config.getTransactionType();
 		this.recordHandler = RECORD_HANDLERS.get(transactionType);
 		// repositoryUrl is used for logging purposes
-		String repositoryUrl = (repository instanceof HTTPRepository) ? ((HTTPRepository) repository).getRepositoryURL() : "unknown";
-		MDC.put("RepositoryURL", repositoryUrl);
+		MDC.put("RepositoryURL", repositoryManager.getRepositoryURL());
 		MDC.put("Connector", config.getConnectorName());
 	}
 
-
-	private static Repository initRepository(GraphDBSinkConfig config) {
-		String address = config.getServerUrl();
-		String repositoryId = config.getRepositoryId();
-		GraphDBSinkConfig.AuthenticationType authType = config.getAuthType();
-		HTTPRepository repository = new HTTPRepository(address, repositoryId);
-		switch (authType) {
-			case NONE:
-				return repository;
-			case BASIC:
-				if (LOG.isTraceEnabled()) {
-					LOG.trace("Initializing repository connection with user {}", config.getAuthBasicUser());
-				}
-				repository.setUsernameAndPassword(config.getAuthBasicUser(), config.getAuthBasicPassword().value());
-				return repository;
-			case CUSTOM:
-			default: // Any other types which are valid, as per definition, but are not implemented yet
-				throw new UnsupportedOperationException(authType + " not supported");
-		}
-	}
 
 	@Override
 	public void run() {
@@ -104,12 +81,12 @@ public final class SinkRecordsProcessor implements Runnable {
 					LOG.info("Retrying flush");
 					flushUpdates();
 				}
-				Collection<SinkRecord> messages = sinkRecords.poll(timeoutCommitMs, TimeUnit.MILLISECONDS);
+				Collection<SinkRecord> messages = pollForMessages();
 				if (messages != null) {
 					consumeRecords(messages);
 				} else {
 					LOG.trace("Did not receive any records (waited {} {}} ) for repository {}. Flushing all records in batch.", timeoutCommitMs,
-						TimeUnit.MILLISECONDS, repository);
+						TimeUnit.MILLISECONDS, repositoryManager);
 					flushUpdates();
 				}
 			} catch (RetriableException e) {
@@ -123,8 +100,6 @@ public final class SinkRecordsProcessor implements Runnable {
 					LOG.info("Thread was interrupted during backoff. Shutting down");
 					break;
 				}
-
-
 			} catch (Exception e) {
 				if (e instanceof InterruptedException) {
 					LOG.info("Thread was interrupted. Shutting down processor");
@@ -136,6 +111,10 @@ public final class SinkRecordsProcessor implements Runnable {
 		}
 		Thread.interrupted();
 		shutdown();
+	}
+
+	Collection<SinkRecord> pollForMessages() throws InterruptedException {
+		return sinkRecords.poll(timeoutCommitMs, TimeUnit.MILLISECONDS);
 	}
 
 	private void shutdown() {
@@ -152,9 +131,7 @@ public final class SinkRecordsProcessor implements Runnable {
 			LOG.warn("While shutting down, failed to flush updates due to exception", e);
 		}
 
-		if (repository.isInitialized()) {
-			repository.shutDown();
-		}
+		repositoryManager.shutDownRepository();
 	}
 
 	private void consumeRecords(Collection<SinkRecord> messages) {
@@ -198,7 +175,7 @@ public final class SinkRecordsProcessor implements Runnable {
 	 */
 	public Void doFlush() {
 		long start = System.currentTimeMillis();
-		try (RepositoryConnection connection = repository.getConnection()) {
+		try (RepositoryConnection connection = repositoryManager.newConnection()) {
 			connection.begin();
 			int recordsInCurrentBatch = recordsBatch.size();
 			LOG.trace("Transaction started, batch size: {} , records in current batch: {}", batchSize, recordsInCurrentBatch);
