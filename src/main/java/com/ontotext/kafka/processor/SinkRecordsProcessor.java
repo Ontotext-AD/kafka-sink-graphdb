@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Queue;
 import java.util.UUID;
@@ -181,6 +182,8 @@ public final class SinkRecordsProcessor implements Runnable {
 	 * @throws ConnectException   if the flush has failed, but there is no tolerance for error
 	 */
 	Void doFlush(Queue<SinkRecord> recordsBatch) {
+		// Keep a copy of all consumed records, so that records are not lost if the transaction fails to commit
+		Collection<SinkRecord> consumedRecords = new ArrayList<>();
 		long start = System.currentTimeMillis();
 		try (RepositoryConnection connection = repositoryManager.newConnection()) {
 			connection.begin();
@@ -196,12 +199,26 @@ public final class SinkRecordsProcessor implements Runnable {
 						if (!retryOperator.withinToleranceLimits()) {
 							throw new ConnectException("Error tolerance exceeded.");
 						}
+						recordsBatch.poll();
+					} else {
+						consumedRecords.add(recordsBatch.poll());
 					}
-					recordsBatch.poll();
 				}
 
 			}
-			connection.commit();
+			try {
+				connection.commit();
+			} catch (RepositoryException e) {
+				LOG.error(
+					"Failed to commit transaction due to exception. Restoring consumed records so that they can be flushed later, and rolling back the transaction",
+					e);
+				recordsBatch.addAll(consumedRecords);
+				if (connection.isActive()) {
+					connection.rollback();
+				}
+				throw e;
+			}
+
 			LOG.trace("Transaction commited, Batch size: {} , Records in current batch: {}", batchSize, recordsInCurrentBatch);
 			if (LOG.isTraceEnabled()) {
 				long finish = System.currentTimeMillis();
