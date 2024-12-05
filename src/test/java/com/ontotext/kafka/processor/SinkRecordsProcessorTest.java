@@ -1,14 +1,18 @@
 package com.ontotext.kafka.processor;
 
+import com.google.common.collect.Streams;
 import com.ontotext.kafka.GraphDBSinkConfig;
 import com.ontotext.kafka.processor.record.handler.RecordHandler;
 import com.ontotext.kafka.rdf.repository.MockRepositoryManager;
 import com.ontotext.kafka.rdf.repository.RepositoryManager;
 import com.ontotext.kafka.test.framework.RepositoryMockBuilder;
 import com.ontotext.kafka.test.framework.TestSinkConfigBuilder;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.RetriableException;
+import org.apache.kafka.connect.runtime.errors.ToleranceType;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
+import org.eclipse.rdf4j.repository.RepositoryException;
 import org.eclipse.rdf4j.repository.http.HTTPRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,12 +21,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Queue;
+import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.stream.Collectors;
 
 import static com.ontotext.kafka.test.framework.RdfMockDataUtils.generateSinkRecord;
 import static com.ontotext.kafka.test.framework.RdfMockDataUtils.generateSinkRecords;
@@ -300,5 +302,171 @@ public class SinkRecordsProcessorTest {
 
 	}
 
+	@Test
+	@Timeout(5)
+	void test_doFlush_failCommit_rollback_ok() {
+
+		RepositoryConnection mockConnection = mock(RepositoryConnection.class);
+		doReturn(mockConnection).when(repositoryMgr).newConnection();
+
+		doNothing().when(mockConnection).rollback();
+		doNothing().when(mockConnection).begin();
+		doThrow(new RepositoryException("Fail")).when(mockConnection).commit();
+
+		Collection<SinkRecord> records = generateSinkRecords(10, 20);
+		Queue<SinkRecord> recordBatch = new ConcurrentLinkedQueue<>(records);
+
+		Collection<SinkRecord> consumedRecords = new ArrayList<>();
+
+
+		RecordHandler handler = (record, connection, config1) -> {
+			consumedRecords.add(record);
+		};
+		try (MockedStatic<RecordHandler> mock = mockStatic(RecordHandler.class)) {
+			mock.when(() -> RecordHandler.getRecordHandler(any())).thenReturn(handler);
+
+			processor = spy(new SinkRecordsProcessor(config, sinkRecords, repositoryMgr));
+
+			assertThatCode(() -> processor.doFlush(recordBatch)).isInstanceOf(RetriableException.class);
+
+
+		}
+		assertThat(recordBatch).as("All records must have been consumed").isNotEmpty().containsAll(records);
+		assertThat(records).containsAll(consumedRecords);
+
+	}
+
+
+	@Test
+	@Timeout(5)
+	void test_doFlush_failCommit_backOff_tryAgain_ok() {
+
+		config = new TestSinkConfigBuilder()
+			.timeoutCommitMs(10) // some small timeout to not have to wait a long time
+			.backOffRetryTimeoutMs(10)
+			.errorRetryTimeout(1) // A very small retry timeout value, so that the retry operator does not attempt further retries
+			.batchSize(10)
+			.tolerance(ToleranceType.ALL)
+			.build();
+
+		RepositoryConnection mockConnection = mock(RepositoryConnection.class);
+		doReturn(mockConnection).when(repositoryMgr).newConnection();
+
+		doNothing().when(mockConnection).rollback();
+		doNothing().when(mockConnection).begin();
+		// Fail first time, suceed second time
+		doThrow(new RepositoryException("Fail")).doNothing().when(mockConnection).commit();
+
+		Collection<SinkRecord> records = generateSinkRecords(10, 20);
+
+		sinkRecords.add(records);
+
+		Set<SinkRecord> consumedRecords = new HashSet<>();
+
+
+		RecordHandler handler = (record, connection, config1) -> {
+			consumedRecords.add(record);
+		};
+		try (MockedStatic<RecordHandler> mock = mockStatic(RecordHandler.class)) {
+			mock.when(() -> RecordHandler.getRecordHandler(any())).thenReturn(handler);
+
+			processor = spy(new SinkRecordsProcessor(config, sinkRecords, repositoryMgr));
+			// First pass - get records and try to flush, catch Retriable exception, second pass flush records after backoff wait, then exit
+			doReturn(true).doReturn(true).doReturn(false).when(processor).shouldRun();
+
+			processor.run();
+
+		}
+		assertThat(records).containsAll(consumedRecords);
+
+	}
+
+	@Test
+	@Timeout(5)
+	void test_doFlush_withInvalidRecords_failCommit_backOff_tryAgain_secondTimeFlushWithValidRecordsOnly() {
+
+		config = new TestSinkConfigBuilder()
+			.timeoutCommitMs(10) // some small timeout to not have to wait a long time
+			.backOffRetryTimeoutMs(10)
+			.errorRetryTimeout(1) // A very small retry timeout value, so that the retry operator does not attempt further retries
+			.batchSize(10)
+			.tolerance(ToleranceType.ALL)
+			.build();
+
+		RepositoryConnection mockConnection = mock(RepositoryConnection.class);
+		doReturn(mockConnection).when(repositoryMgr).newConnection();
+
+		doNothing().when(mockConnection).rollback();
+		doNothing().when(mockConnection).begin();
+		// Fail first time, suceed second time
+		doThrow(new RepositoryException("Fail")).doNothing().when(mockConnection).commit();
+
+		Collection<SinkRecord> records = generateSinkRecords(5, 20);
+		Collection<SinkRecord> invalidRecords = generateSinkRecords(5, 20);
+		Queue<SinkRecord> allRecords = new ConcurrentLinkedQueue<>(Streams.concat(records.stream(), invalidRecords.stream()).collect(Collectors.toList()));
+
+		sinkRecords.add(allRecords);
+
+		Set<SinkRecord> consumedRecords = new HashSet<>();
+
+
+		RecordHandler handler = (record, connection, config1) -> {
+			if (records.contains(record)) {
+				consumedRecords.add(record);
+			} else {
+				throw new RepositoryException("Invalid record");
+			}
+		};
+		try (MockedStatic<RecordHandler> mock = mockStatic(RecordHandler.class)) {
+			mock.when(() -> RecordHandler.getRecordHandler(any())).thenReturn(handler);
+
+			processor = spy(new SinkRecordsProcessor(config, sinkRecords, repositoryMgr));
+			// First pass - get records and try to flush, catch Retriable exception, second pass flush records after backoff wait, then exit
+			doReturn(true).doReturn(true).doReturn(false).when(processor).shouldRun();
+
+			processor.run();
+
+		}
+		assertThat(records).containsAll(consumedRecords).doesNotContainAnyElementsOf(invalidRecords);
+
+
+	}
+
+	@Test
+	@Timeout(5)
+	void test_doFlush_error_noTolerance_fail() {
+
+		config = new TestSinkConfigBuilder()
+			.timeoutCommitMs(10) // some small timeout to not have to wait a long time
+			.backOffRetryTimeoutMs(10)
+			.errorRetryTimeout(1) // A very small retry timeout value, so that the retry operator does not attempt further retries
+			.batchSize(10)
+			.tolerance(ToleranceType.NONE)
+			.build();
+
+		RepositoryConnection mockConnection = mock(RepositoryConnection.class);
+		doReturn(mockConnection).when(repositoryMgr).newConnection();
+
+		doNothing().when(mockConnection).rollback();
+		doNothing().when(mockConnection).begin();
+		// Fail first time, suceed second time
+		doThrow(new RepositoryException("Fail")).doNothing().when(mockConnection).commit();
+
+		Collection<SinkRecord> records = generateSinkRecords(5, 20);
+		Queue<SinkRecord> batch = new ConcurrentLinkedQueue<>(records);
+
+		RecordHandler handler = (record, connection, config1) -> {
+		};
+		try (MockedStatic<RecordHandler> mock = mockStatic(RecordHandler.class)) {
+			mock.when(() -> RecordHandler.getRecordHandler(any())).thenReturn(handler);
+
+			processor = spy(new SinkRecordsProcessor(config, sinkRecords, repositoryMgr));
+			// First pass - get records and try to flush, catch Retriable exception, second pass flush records after backoff wait, then exit
+			doReturn(true).doReturn(true).doReturn(false).when(processor).shouldRun();
+
+			assertThatCode(() -> processor.flushUpdates(batch)).isInstanceOf(ConnectException.class).hasMessageContaining("Error tolerance exceeded.");
+
+		}
+	}
 
 }
