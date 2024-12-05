@@ -78,6 +78,7 @@ public final class SinkRecordsProcessor implements Runnable {
 				if (backOff.getAndSet(false)) {
 					LOG.info("Retrying flush");
 					flushUpdates(this.recordsBatch);
+					LOG.info("Flush (on retry) successful");
 				}
 				Collection<SinkRecord> messages = pollForMessages();
 				if (messages != null) {
@@ -162,7 +163,7 @@ public final class SinkRecordsProcessor implements Runnable {
 					if (!retryOperator.withinToleranceLimits()) {
 						throw new ConnectException("Error tolerance exceeded.");
 					}
-					LOG.warn("Errors are tolerated (tolerance = {}). Clearing the batch", config.getTolerance());
+					LOG.warn("Errors are tolerated (tolerance = {}).", config.getTolerance());
 					throw new RetriableException("Failed to flush updates", retryOperator.error());
 				}
 			}
