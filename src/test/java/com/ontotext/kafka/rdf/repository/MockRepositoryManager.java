@@ -2,10 +2,12 @@ package com.ontotext.kafka.rdf.repository;
 
 import org.eclipse.rdf4j.repository.http.HTTPRepository;
 
+import static org.mockito.Mockito.spy;
+
 public class MockRepositoryManager {
 
-	public static RepositoryManager createManager(HTTPRepository repository) {
-		return new RepositoryManager(repository);
+	public static RepositoryManager createManagerSpy(HTTPRepository repository) {
+		return spy(new RepositoryManager(repository));
 	}
 
 }

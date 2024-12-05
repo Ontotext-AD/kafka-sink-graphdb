@@ -426,7 +426,6 @@ is_valid_tolerance "${arg_e}" || emergency "Invalid tolerance type ${arg_e}"
 set -o nounset # no more unbound variable references expected
 
 ITERATIONS=$(( ($arg_T+($arg_P*$arg_B)-1) / ($arg_B*$arg_P) ))
-#SLEEP_BEFORE_VALIDATION=$(( $ITERATIONS*(${arg_P}*${arg_B})/(1000*3) + 10 ))
 SLEEP_BEFORE_VALIDATION=$(max $(( (${arg_T}/ 1000 ) * (${arg_B}/ 1000 ) )) 10)
 cat<<EOF
 								############### STARTING TEST ###############
@@ -488,11 +487,8 @@ done
 
 
 info "Test data sent. Waiting for ${SLEEP_BEFORE_VALIDATION} seconds before checking results"
-while [[ $SLEEP_BEFORE_VALIDATION -gt 0 ]]; do
-   echo -ne "$SLEEP_BEFORE_VALIDATION\033[0K\r"
-   sleep 1
-   SLEEP_BEFORE_VALIDATION=$(( $SLEEP_BEFORE_VALIDATION-1 ))
-done
+countdown ${SLEEP_BEFORE_VALIDATION}
+
 
 debug "Checking results"
 amount_of_items=$(curl --location 'http://localhost:7200/repositories/test?query=select+*+where+%7B+%3Curn%3AGOLDEN-CASE%3E+%3Fp+%3Fo+.%0A%7D' 2>/dev/null| grep -c  'urn')

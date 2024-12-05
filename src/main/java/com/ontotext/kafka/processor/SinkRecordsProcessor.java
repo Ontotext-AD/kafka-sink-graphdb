@@ -2,6 +2,8 @@ package com.ontotext.kafka.processor;
 
 import com.ontotext.kafka.GraphDBSinkConfig;
 import com.ontotext.kafka.error.LogErrorHandler;
+import com.ontotext.kafka.processor.record.handler.RecordHandler;
+import com.ontotext.kafka.processor.retry.GraphDBRetryWithToleranceOperator;
 import com.ontotext.kafka.rdf.repository.RepositoryManager;
 import com.ontotext.kafka.util.ValueUtil;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -15,7 +17,9 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.Collection;
+import java.util.Queue;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -45,13 +49,6 @@ public final class SinkRecordsProcessor implements Runnable {
 	private final GraphDBSinkConfig.TransactionType transactionType;
 	private final GraphDBSinkConfig config;
 	private final AtomicBoolean backOff = new AtomicBoolean(false);
-	private static final Map<GraphDBSinkConfig.TransactionType, RecordHandler> RECORD_HANDLERS = new HashMap<>();
-
-	static {
-		RECORD_HANDLERS.put(GraphDBSinkConfig.TransactionType.ADD, RecordHandler.addHandler());
-		RECORD_HANDLERS.put(GraphDBSinkConfig.TransactionType.REPLACE_GRAPH, RecordHandler.replaceHandler());
-		RECORD_HANDLERS.put(GraphDBSinkConfig.TransactionType.SMART_UPDATE, RecordHandler.updateHandler());
-	}
 
 	public SinkRecordsProcessor(GraphDBSinkConfig config) {
 		this(config, new LinkedBlockingQueue<>(), new RepositoryManager(config));
@@ -66,7 +63,7 @@ public final class SinkRecordsProcessor implements Runnable {
 		this.timeoutCommitMs = config.getProcessorRecordPollTimeoutMs();
 		this.errorHandler = new LogErrorHandler(config);
 		this.transactionType = config.getTransactionType();
-		this.recordHandler = RECORD_HANDLERS.get(transactionType);
+		this.recordHandler = RecordHandler.getRecordHandler(transactionType);
 		// repositoryUrl is used for logging purposes
 		MDC.put("RepositoryURL", repositoryManager.getRepositoryURL());
 		MDC.put("Connector", config.getConnectorName());
@@ -75,19 +72,19 @@ public final class SinkRecordsProcessor implements Runnable {
 
 	@Override
 	public void run() {
-		while (!Thread.currentThread().isInterrupted()) {
+		while (shouldRun()) {
 			try {
 				if (backOff.getAndSet(false)) {
 					LOG.info("Retrying flush");
-					flushUpdates();
+					flushUpdates(this.recordsBatch);
 				}
 				Collection<SinkRecord> messages = pollForMessages();
 				if (messages != null) {
 					consumeRecords(messages);
 				} else {
-					LOG.trace("Did not receive any records (waited {} {}} ) for repository {}. Flushing all records in batch.", timeoutCommitMs,
+					LOG.trace("Did not receive any records (waited {} {} ) for repository {}. Flushing all records in batch.", timeoutCommitMs,
 						TimeUnit.MILLISECONDS, repositoryManager);
-					flushUpdates();
+					flushUpdates(this.recordsBatch);
 				}
 			} catch (RetriableException e) {
 				long backoffTimeoutMs = config.getBackOffTimeoutMs();
@@ -113,11 +110,15 @@ public final class SinkRecordsProcessor implements Runnable {
 		shutdown();
 	}
 
+	boolean shouldRun() {
+		return !Thread.currentThread().isInterrupted();
+	}
+
 	Collection<SinkRecord> pollForMessages() throws InterruptedException {
 		return sinkRecords.poll(timeoutCommitMs, TimeUnit.MILLISECONDS);
 	}
 
-	private void shutdown() {
+	void shutdown() {
 		// commit any records left before shutdown. Bypass batch checking, just add all records and flush downstream
 		LOG.info("Commiting any records left before shutdown");
 		Collection<SinkRecord> records;
@@ -125,7 +126,7 @@ public final class SinkRecordsProcessor implements Runnable {
 			recordsBatch.addAll(records);
 		}
 		try {
-			flushUpdates();
+			flushUpdates(this.recordsBatch);
 		} catch (Exception e) {
 			// We did ou best. Just log the exception and shut down
 			LOG.warn("While shutting down, failed to flush updates due to exception", e);
@@ -134,11 +135,11 @@ public final class SinkRecordsProcessor implements Runnable {
 		repositoryManager.shutDownRepository();
 	}
 
-	private void consumeRecords(Collection<SinkRecord> messages) {
+	void consumeRecords(Collection<SinkRecord> messages) {
 		for (SinkRecord message : messages) {
 			recordsBatch.add(message);
 			if (batchSize <= recordsBatch.size()) {
-				flushUpdates();
+				flushUpdates(recordsBatch);
 			}
 		}
 	}
@@ -146,34 +147,40 @@ public final class SinkRecordsProcessor implements Runnable {
 	/**
 	 * Flush all records in batch downstream.
 	 *
+	 * @param recordsBatch The batch of records to flush downstream
+	 *
 	 * @throws RetriableException if the repository connection has failed, either during initialization, or commit
 	 * @throws ConnectException   if the flush has failed, but there is no tolerance for error
 	 */
-	private void flushUpdates() {
+	void flushUpdates(Queue<SinkRecord> recordsBatch) {
 		if (!recordsBatch.isEmpty()) {
-			try (GraphDBRetryWithToleranceOperator retryOperator = new GraphDBRetryWithToleranceOperator(config)) {
-				retryOperator.execute(this::doFlush, Stage.KAFKA_CONSUME, getClass());
+			try (GraphDBRetryWithToleranceOperator retryOperator = createOperator()) {
+				retryOperator.execute(() -> doFlush(recordsBatch), Stage.KAFKA_CONSUME, getClass());
 				if (retryOperator.failed()) {
 					LOG.error("Failed to flush batch updates. Underlying exception - {}", retryOperator.error().getMessage());
 					if (!retryOperator.withinToleranceLimits()) {
 						throw new ConnectException("Error tolerance exceeded.");
 					}
 					LOG.warn("Errors are tolerated (tolerance = {}). Clearing the batch", config.getTolerance());
-					// TODO: this is not optimal - we clear all reacords when they fail to flush downstream. THink of a way to retry again with some backoff
-//					recordsBatch.clear();
 					throw new RetriableException("Failed to flush updates", retryOperator.error());
 				}
 			}
 		}
 	}
 
+	GraphDBRetryWithToleranceOperator createOperator() {
+		return new GraphDBRetryWithToleranceOperator(config);
+	}
+
 	/**
 	 * Perform flush with a retry mechanism, for both the entire batch, and every single record
+	 *
+	 * @param  recordsBatch The batch of records to flush
 	 *
 	 * @throws RetriableException if the repository connection has failed, either during initialization, or commit
 	 * @throws ConnectException   if the flush has failed, but there is no tolerance for error
 	 */
-	public Void doFlush() {
+	Void doFlush(Queue<SinkRecord> recordsBatch) {
 		long start = System.currentTimeMillis();
 		try (RepositoryConnection connection = repositoryManager.newConnection()) {
 			connection.begin();
@@ -181,7 +188,7 @@ public final class SinkRecordsProcessor implements Runnable {
 			LOG.trace("Transaction started, batch size: {} , records in current batch: {}", batchSize, recordsInCurrentBatch);
 			while (recordsBatch.peek() != null) {
 				SinkRecord record = recordsBatch.peek();
-				try (GraphDBRetryWithToleranceOperator retryOperator = new GraphDBRetryWithToleranceOperator(config)) {
+				try (GraphDBRetryWithToleranceOperator retryOperator = createOperator()) {
 					retryOperator.execute(() -> handleRecord(record, connection), Stage.KAFKA_CONSUME, getClass());
 					if (retryOperator.failed()) {
 						LOG.warn("Failed to commit record. Will handle failure, and remove from the batch");
