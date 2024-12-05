@@ -57,7 +57,7 @@ public class GraphDBSinkTask extends SinkTask {
 				return processors.get(connectorName);
 			}
 			log.info("Creating a new processor for connector {}", connectorName);
-			SinkRecordsProcessor processor = processors.compute(connectorName, (s, sinkRecordsProcessor) -> new SinkRecordsProcessor(config, context));
+			SinkRecordsProcessor processor = processors.compute(connectorName, (s, sinkRecordsProcessor) -> new SinkRecordsProcessor(config));
 			SinkExecutor.getInstance().startNewProcessor(processor);
 			return processor;
 		}
