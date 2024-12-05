@@ -397,7 +397,7 @@ if [[ "${arg_l:?}" = "1" ]]; then
 		fl="$(basename "${c}")"
 		echo "${fl%.sh}"
 	done
-#	exit 0
+	exit 0
 fi
 
 if [[ -n "${arg_c}" ]] ; then
@@ -405,57 +405,60 @@ if [[ -n "${arg_c}" ]] ; then
 	[[ ! -f "${TEST_CASE}" ]] && emergency "Cannot find test case $(basename "${TEST_CASE}")"
 	info "Printing usage for test case $(basename "${TEST_CASE}")"
 	/bin/bash "${TEST_CASE}" --help
+	exit 0
 fi
 
 
 
 function run_test_case() {
+	TEST_CASE="$1"
+	shift
     if [[ "${arg_D:?}" = "1" ]]; then
-    	/bin/bash "$1"
+    	/bin/bash "${TEST_CASE}"
+    elif [[ -n ${2:-} ]]; then
+    	/bin/bash "${TEST_CASE}" "$@"
     else
-		/bin/bash "$1" --interactive
+		/bin/bash "${TEST_CASE}" --interactive
 	fi
 }
 
-ARGS=""
+ARGS=()
 if [[ -n "${arg_t:-}" ]] && declare -p arg_t 2> /dev/null | grep -q '^declare \-a'; then
 	for test_case in "${arg_t[@]}"; do
-#	if echo "${test_case}" | grep ':'; then
-#		# Split args
-#		t=$(echo "${test_case}" | cut -d ":" -f1)
-#		TEST_CASE="${__dir}/cases/${t%%.sh}.sh"
-#		a=$(echo "${test_case}" | cut -d ":" -f2)
-#		IFS=","
-#		for arg in ${a}; do
-#			ARGS="${ARGS} --$(echo "${arg}" | cut -d "=" -f1)=$(echo "${arg}" | cut -d "=" -f2)}"
-#		done
-#		unset IFS
-#	else
-	TEST_CASE="${__dir}/cases/${test_case%%.sh}.sh"
-#	fi
+	if echo "${test_case}" | grep ':'; then
+		# Split args
+		t=$(echo "${test_case}" | cut -d ":" -f1)
+		TEST_CASE="${__dir}/cases/${t%%.sh}.sh"
+		a=$(echo "${test_case}" | cut -d ":" -f2)
+		IFS=',' read -r -a array <<< "${a}"
+		for arg in "${array[@]}"; do
+			ARGS+=("--${arg}")
+		done
+	else
+		TEST_CASE="${__dir}/cases/${test_case%%.sh}.sh"
+	fi
 	[[ ! -f ${TEST_CASE} ]] && emergency "Test case $(basename "${TEST_CASE}") not found"
 	info "Running test case $(basename "${TEST_CASE}"), args: ${ARGS:-N/A}"
-	run_test_case "${TEST_CASE}"
+	run_test_case "${TEST_CASE}" "${ARGS[@]}"
 	# In case any script forgets to stop docker compose
 	stop_composition
   done
 elif [[ -n "${arg_t:-}" ]]; then
-#	if echo "${test_case}" | grep ':'; then
-#		# Split args
-#		t=$(echo "${test_case}" | cut -d ":" -f1)
-#		TEST_CASE="${__dir}/cases/${t%%.sh}.sh"
-#		a=$(echo "${test_case}" | cut -d ":" -f2)
-#		IFS=","
-#		for arg in ${a}; do
-#			ARGS="${ARGS} --$(echo "${arg}" | cut -d "=" -f1)=$(echo "${arg}" | cut -d "=" -f2)"
-#		done
-#		unset IFS
-#	else
-	TEST_CASE="${__dir}/cases/${arg_t%%.sh}.sh"
-#	fi
+	if echo "${test_case}" | grep ':'; then
+		# Split args
+		t=$(echo "${test_case}" | cut -d ":" -f1)
+		TEST_CASE="${__dir}/cases/${t%%.sh}.sh"
+		a=$(echo "${test_case}" | cut -d ":" -f2)
+		IFS=',' read -r -a array <<< "${a}"
+		for arg in "${array[@]}"; do
+			ARGS+=("--${arg}")
+		done
+	else
+		TEST_CASE="${__dir}/cases/${arg_t%%.sh}.sh"
+	fi
 	[[ ! -f ${TEST_CASE} ]] && emergency "Test case $(basename "${TEST_CASE}") not found"
 	info "Running test case $(basename "${TEST_CASE}"), args: ${ARGS:-N/A}"
-	run_test_case "${TEST_CASE}"
+	run_test_case "${TEST_CASE}" "${ARGS[@]}"
 	# In case any script forgets to stop docker compose
 	stop_composition
 else

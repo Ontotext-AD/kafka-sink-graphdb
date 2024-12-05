@@ -73,11 +73,11 @@ __dir="$(cd "$(dirname "${BASH_SOURCE[${__b3bp_tmp_source_idx:-0}]}")" && pwd)"
 __root="$(cd "${__dir}"/../../ && pwd)"
 
 function start_composition {
-	( cd "${__root}"/docker-compose && ${DOCKER_COMPOSE_CMD} up -d connect-1 broker zookeeper graphdb )
+	( cd "${__root}"/docker-compose && ${DOCKER_COMPOSE_CMD} up -d connect-1 broker zookeeper graphdb 2>/dev/null)
 }
 
 function stop_composition {
-	( cd "${__root}"/docker-compose && ${DOCKER_COMPOSE_CMD} down )
+	( cd "${__root}"/docker-compose && ${DOCKER_COMPOSE_CMD} down &>/dev/null)
 }
 
 function is_number {
@@ -105,4 +105,18 @@ function min {
 
 function max {
 	echo $(( $1 < $2 ? $2 : $1 ))
+}
+
+function abs {
+	echo ${1#-}
+}
+
+function countdown {
+	VAL="$1"
+    while [[ VAL -gt 0 ]]; do
+#       echo -ne "$(date -d@${VAL} -u +%H:%M:%S)\033[0K\r"
+       echo -ne "$VAL\033[0K\r"
+       sleep 1
+       VAL=$(( VAL-1 ))
+    done
 }
