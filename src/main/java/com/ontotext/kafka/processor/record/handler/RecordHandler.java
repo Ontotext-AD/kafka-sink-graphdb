@@ -1,4 +1,4 @@
-package com.ontotext.kafka.processor;
+package com.ontotext.kafka.processor.record.handler;
 
 
 import com.ontotext.kafka.GraphDBSinkConfig;
@@ -10,6 +10,8 @@ import org.eclipse.rdf4j.repository.RepositoryConnection;
 import java.io.IOException;
 
 public interface RecordHandler {
+
+
 	void handle(SinkRecord record, RepositoryConnection connection, GraphDBSinkConfig config) throws IOException;
 
 
@@ -35,6 +37,21 @@ public interface RecordHandler {
 				connection.add(ValueUtil.convertRDFData(record.value()), config.getRdfFormat(), context);
 			}
 		};
+	}
+
+
+	static RecordHandler getRecordHandler(GraphDBSinkConfig.TransactionType transactionType) {
+		switch (transactionType) {
+			case ADD:
+				return addHandler();
+			case REPLACE_GRAPH:
+				return replaceHandler();
+			case SMART_UPDATE:
+				return updateHandler();
+			default:
+				throw new IllegalArgumentException(String.format("No handler for transaction type %s", transactionType));
+		}
+
 	}
 
 }

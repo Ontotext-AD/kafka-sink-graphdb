@@ -72,4 +72,14 @@ public class RepositoryMockBuilder {
 			.createRepository();
 	}
 
+	public static HTTPRepository createDefaultMockedRepository() {
+		return new RepositoryMockBuilder()
+			.writable()
+			.initialize()
+			.connection(mock(RepositoryConnection.class))
+			.valueFactory(SimpleValueFactory.getInstance())
+			.url("TestRepository")
+			.createRepository();
+	}
+
 }

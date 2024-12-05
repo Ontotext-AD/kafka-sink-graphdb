@@ -114,8 +114,9 @@ function abs {
 function countdown {
 	VAL="$1"
     while [[ VAL -gt 0 ]]; do
-#       echo -ne "$(date -d@${VAL} -u +%H:%M:%S)\033[0K\r"
-       echo -ne "$VAL\033[0K\r"
+    	format="$(date -d@${VAL} -u +%H:%M:%S)"
+       	echo -ne "$format\033[0K\r"
+#       echo -ne "$VAL\033[0K\r"
        sleep 1
        VAL=$(( VAL-1 ))
     done

@@ -1,4 +1,4 @@
-package com.ontotext.kafka.processor;
+package com.ontotext.kafka.processor.retry;
 
 import com.ontotext.kafka.GraphDBSinkConfig;
 import org.apache.kafka.common.utils.SystemTime;
@@ -16,6 +16,11 @@ import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.Map;
 
+
+/**
+ * A {@link RetryWithToleranceOperator} which relaxes the Exception tolerance for errors. This is required if an execution must not
+ * throw a non-recoverable exception ({@link java.net.ConnectException}, but rather delegate handling the failure scenario to the caller.
+ */
 public class GraphDBRetryWithToleranceOperator extends RetryWithToleranceOperator {
 
 	private static final ErrorHandlingMetrics METRICS = new GraphDBErrorHandlingMetrics();

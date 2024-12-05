@@ -3,6 +3,7 @@ package com.ontotext.kafka.test.framework;
 import com.ontotext.kafka.GraphDBSinkConfig;
 import org.apache.kafka.connect.runtime.ConnectorConfig;
 import org.apache.kafka.connect.runtime.errors.ToleranceType;
+import org.eclipse.rdf4j.rio.RDFFormat;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -78,6 +79,11 @@ public class TestSinkConfigBuilder {
 		return this;
 	}
 
+	public TestSinkConfigBuilder backOffRetryTimeoutMs(long ms) {
+		this.configProperties.put(POLL_BACKOFF_TIMEOUT, ms);
+		return this;
+	}
+
 	public TestSinkConfigBuilder prop(String key, Object val) {
 		this.configProperties.put(key, val);
 		return this;
@@ -88,4 +94,13 @@ public class TestSinkConfigBuilder {
 	}
 
 
+	public static GraphDBSinkConfig createDefaultConfig() {
+		return new TestSinkConfigBuilder()
+			.transactionType(GraphDBSinkConfig.TransactionType.SMART_UPDATE)
+			.batchSize(4)
+			.timeoutCommitMs(5000)
+			.tolerance(ToleranceType.ALL)
+			.rdfFormat(RDFFormat.NQUADS.getDefaultFileExtension())
+			.build();
+	}
 }

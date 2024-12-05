@@ -127,7 +127,6 @@ function help () {
 [[ "${__usage+x}" ]] || read -r -d '' __usage <<-'EOF' || true # exits non-zero when EOF encountered
   -t --num-tasks 		[arg]	The number of parallel tasks for this connector. Must be a number. Default=1
   -s --batch-size 		[arg]	The batch size. Must be a number. Default=10
-  -e --tolerance        [arg]	The tolerance limit. Can be any of [all, none]. Default=none
   -p --poll-timeout 	[arg]	The polling timeout in ms (i.e. how quickly will the processor respond to lack of records and commit batches that are not filled). Default=5000
   -T --total-data    	[arg]	The total amount of records to send. Must be a number. Default=1000
   -P --parallel-send 	[arg]	The number of parallel data send operations. Must be a number. Higher operations will be stressful on your personal machine. Default=15
@@ -394,9 +393,6 @@ function interactive {
     read -rp "Record poll timeout [5000]: " arg
     arg_p=${arg:-5000}
 
-    read -rp "Tolerance type [none]: " arg
-    arg_e=${arg:-none}
-
     read -rp "Records batch size (to send to Kafka) [200] " arg
     arg_B=${arg:-200}
 
@@ -425,7 +421,6 @@ is_number "${arg_p}" || emergency "Record polling timeout must be a number (prov
 (is_number "${arg_P}" && [[ ${arg_P} -gt 0 ]] ) || emergency "Number of parallel send threads must be a number (provided ${arg_P})"
 (is_number "${arg_T}" && [[ ${arg_T} -gt 0 ]] ) || emergency "Total amount of data sent must be a number (provided ${arg_T})"
 (is_number "${arg_I}"  && [[ ${arg_I} -ge 0 ]] && [[ ${arg_I} -le 100 ]] ) || emergency "Percent invalid records must be a number between 0 adn 100 (provided ${arg_I})"
-is_valid_tolerance "${arg_e}" || emergency "Invalid tolerance type ${arg_e}"
 
 set -o nounset # no more unbound variable references expected
 
@@ -442,7 +437,6 @@ cat<<EOF
 								Records in a single batch: ${arg_B} records
 								Number of parallel threads to send record batches: ${arg_P} threads
 								Number of data send iterations ceil(total amount / ( parallelism * batch) ) : ${ITERATIONS} iterations
-								Error tolerance: ${arg_e}
 								Percent invalid records: ${arg_I}%
 								Wait time before validation: ${SLEEP_BEFORE_VALIDATION} seconds
 EOF
@@ -457,7 +451,7 @@ create_graphdb_repo test &>/dev/null
 
 info "Creating a sink connector, providing test parameters"
 # check util.sh on how params are passed
-create_kafka_sink_connector test-sink test ${arg_t} ${arg_e} test ${arg_s} ${arg_p} &>/dev/null
+create_kafka_sink_connector test-sink test ${arg_t} all test ${arg_s} ${arg_p} &>/dev/null
 
 function shuffle {
 	INDEX=$1
@@ -473,7 +467,8 @@ function send_data() {
 	BATCH_SIZE="${1}"
 	PERCENT_INVALID="${2:-0}"
 	NUM_INVALID_RECORDS=$(($PERCENT_INVALID <= 0 ? 0 : $(( ( ($PERCENT_INVALID*$BATCH_SIZE)+100-1 )/100 ))))
-	info "For batch size ${BATCH_SIZE}, and invalid records ${PERCENT_INVALID}%, number of invalid records to create - ${NUM_INVALID_RECORDS}"
+	info "Will write ${NUM_INVALID_RECORDS} which is ${PERCENT_INVALID}% from batch ${BATCH_SIZE}"
+	debug "For batch size ${BATCH_SIZE}, and invalid records ${PERCENT_INVALID}%, number of invalid records to create - ${NUM_INVALID_RECORDS}"
 	INVALID_RECORDS_CREATED=0
 	if [[ ${BATCH_SIZE} -gt 0 ]]; then
 		DAT_FILE=$(mktemp)
@@ -486,20 +481,20 @@ function send_data() {
 				debug "Shuffle - Got int : $random"
 				if [[ ${random} -le $a ]]; then
 					debug "Generating invalid record"
-					dat="<urn:GOLDEN-CASE <urn:$(rand 20)> <urn:$(rand 20)>"
+					dat="<urn:test-data <urn:$(rand 20)> <urn:$(rand 20)>"
 					NUM_INVALID_RECORDS=$((NUM_INVALID_RECORDS-1))
 					INVALID_RECORDS_CREATED=$((INVALID_RECORDS_CREATED+1))
 				else
 					debug "Generating record"
-					dat="<urn:GOLDEN-CASE> <urn:$(rand 20)> <urn:$(rand 20)> ."
+					dat="<urn:test-data> <urn:$(rand 20)> <urn:$(rand 20)> ."
 				fi
 			else
-				dat="<urn:GOLDEN-CASE> <urn:$(rand 20)> <urn:$(rand 20)> ."
+				dat="<urn:test-data> <urn:$(rand 20)> <urn:$(rand 20)> ."
 			fi
 			debug "Writing data itme ${dat}" to ${DAT_FILE}
 			echo "${dat}" >> ${DAT_FILE}
 		done
-		debug "Wrote $INVALID_RECORDS_CREATED invalid records, out of $BATCH_SIZE"
+		info "Wrote $INVALID_RECORDS_CREATED invalid records, out of $BATCH_SIZE"
 		debug "Sending data file ${DAT_FILE}"
 		docker cp ${DAT_FILE} broker:${DAT_FILE} &>/dev/null
 		docker exec -i broker sh -c "/usr/bin/kafka-console-producer --request-required-acks 1 --broker-list localhost:29092 --topic test < ${DAT_FILE}"
@@ -508,6 +503,8 @@ function send_data() {
 }
 
 REMAINING=${arg_T}
+TOTAL_NUM_INVALID_RECORDS=$((${arg_I} <= 0 ? 0 : $(( ( (${arg_I}*$REMAINING)+100-1 )/100 ))))
+TOTAL_NUM_VALID_RECORDS=$((${arg_T}-${TOTAL_NUM_INVALID_RECORDS}))
 info "Starting data threads"
 for i in $(seq $ITERATIONS); do
 	info "Iteration: ${i} out of ${ITERATIONS}"
@@ -524,11 +521,11 @@ info "Test data sent. Waiting for ${SLEEP_BEFORE_VALIDATION} seconds before chec
 countdown ${SLEEP_BEFORE_VALIDATION}
 
 debug "Checking results"
-amount_of_items=$(curl --location 'http://localhost:7200/repositories/test?query=select+*+where+%7B+%3Curn%3AGOLDEN-CASE%3E+%3Fp+%3Fo+.%0A%7D' 2>/dev/null| grep -c  'urn')
+amount_of_items=$(curl --location 'http://localhost:7200/repositories/test?query=select+*+where+%7B+%3Curn%3Atest-data%3E+%3Fp+%3Fo+.%0A%7D' 2>/dev/null| grep -c  'urn')
 debug "GraphDB successfully ingested ${amount_of_items} records"
 
-if [[ ${amount_of_items} -eq ${arg_T} ]]; then
-	info "GraphDB successfully ingested all items [${amount_of_items}] that were sent [${arg_T}]. Test completed successfully"
+if [[ ${amount_of_items} -eq ${TOTAL_NUM_VALID_RECORDS} ]]; then
+	info "GraphDB successfully ingested all valid items [${amount_of_items}] that were sent [${TOTAL_NUM_VALID_RECORDS}]. Test completed successfully"
 else
-	error "GraphDB successfully ingested ${amount_of_items} records, but ${arg_T} records were sent in general. Test failed"
+	error "GraphDB successfully ingested ${amount_of_items} records, but ${TOTAL_NUM_VALID_RECORDS} valid records were sent in general. Test failed"
 fi

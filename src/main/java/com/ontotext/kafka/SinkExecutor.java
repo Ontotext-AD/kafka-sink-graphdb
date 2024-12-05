@@ -11,6 +11,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+/**
+ * A singleton instance responsible for managing the lifecycle of all {@link SinkRecordsProcessor} threads.
+ * Stores all running processors, and only starts new ones (based on the processor UUID)
+ * <p>
+ * Starting and stopping a new processor instance are thread-safe operations
+ */
 public final class SinkExecutor {
 
     private static final SinkExecutor INSTANCE = new SinkExecutor();
@@ -32,9 +38,9 @@ public final class SinkExecutor {
             return;
         }
 		runningProcessors.put(processorId, executorService.submit(processor));
-    }
+	}
 
-    public void stopProcessor(SinkRecordsProcessor processor) {
+	public synchronized void stopProcessor(SinkRecordsProcessor processor) {
         UUID processorId = processor.getId();
         if (runningProcessors.containsKey(processorId)) {
             LOG.info("Stopping processor with id {}", processorId);
