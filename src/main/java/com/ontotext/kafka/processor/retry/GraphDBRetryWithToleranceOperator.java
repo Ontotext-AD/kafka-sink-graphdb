@@ -6,6 +6,7 @@ import org.apache.kafka.connect.runtime.ConnectMetrics;
 import org.apache.kafka.connect.runtime.ConnectorConfig;
 import org.apache.kafka.connect.runtime.errors.ErrorHandlingMetrics;
 import org.apache.kafka.connect.runtime.errors.Operation;
+import org.apache.kafka.connect.runtime.errors.ProcessingContext;
 import org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperator;
 import org.apache.kafka.connect.runtime.standalone.StandaloneConfig;
 import org.apache.kafka.connect.storage.StringConverter;
@@ -21,7 +22,7 @@ import java.util.Map;
  * A {@link RetryWithToleranceOperator} which relaxes the Exception tolerance for errors. This is required if an execution must not
  * throw a non-recoverable exception ({@link java.net.ConnectException}, but rather delegate handling the failure scenario to the caller.
  */
-public class GraphDBRetryWithToleranceOperator extends RetryWithToleranceOperator {
+public class GraphDBRetryWithToleranceOperator<T> extends RetryWithToleranceOperator<T> {
 
 	private static final ErrorHandlingMetrics METRICS = new GraphDBErrorHandlingMetrics();
 
@@ -40,8 +41,8 @@ public class GraphDBRetryWithToleranceOperator extends RetryWithToleranceOperato
 	 * @return
 	 */
 	@Override
-	protected <V> V execAndHandleError(Operation<V> operation, Class<? extends Exception> tolerated) {
-		return super.execAndHandleError(operation, Exception.class);
+	protected <V> V execAndHandleError(ProcessingContext<T> context, Operation<V> operation, Class<? extends Exception> tolerated) {
+		return super.execAndHandleError(context, operation, Exception.class);
 	}
 
 	private static class GraphDBErrorHandlingMetrics extends ErrorHandlingMetrics {

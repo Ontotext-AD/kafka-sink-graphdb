@@ -35,7 +35,7 @@ public class GraphDBSinkTask extends SinkTask {
 	public void start(Map<String, String> properties) {
 		this.config = new GraphDBSinkConfig(properties);
 		log.info("Starting the GraphDB sink task for connector {}", config.getConnectorName());
-		this.processor = startProcessor(config);
+		this.processor = createAndStartProcessor(config);
 		log.info("Configuration complete.");
 	}
 
@@ -47,7 +47,7 @@ public class GraphDBSinkTask extends SinkTask {
 	 * @param config - The configuration for which to create the new context
 	 * @return ProcessorContext
 	 */
-	private SinkRecordsProcessor startProcessor(GraphDBSinkConfig config) {
+	private SinkRecordsProcessor createAndStartProcessor(GraphDBSinkConfig config) {
 		String connectorName = config.getConnectorName();
 		if (processors.containsKey(connectorName)) {
 			return processors.get(connectorName);
