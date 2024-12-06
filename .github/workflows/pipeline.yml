@@ -18,13 +18,23 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
           cache: maven
-      - name: Build with Maven
-        run: mvn -B clean package --file pom.xml
+      - name: Compile, test and create package
+        run: mvn -B clean verify package
+      - name: Coverage report
+        id: jacoco
+        uses: madrapps/jacoco-report@v1.7.1
+        with:
+          paths: ${{ github.workspace }}/**/target/reports/jacoco.xml
+          token: ${{ github.token }}
+          title: Code Coverage
+          update-comment: true
+          min-coverage-overall: 40
+          min-coverage-changed-files: 70
+          pass-emoji: ':white_check_mark:'
       - uses: actions/upload-artifact@v4
         with:
           name: Package
           path: target
-
 
   image:
     runs-on: ubuntu-latest

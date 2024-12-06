@@ -39,8 +39,9 @@
 		<maven.surefire.plugin.version>3.0.0-M3</maven.surefire.plugin.version>
 		<mockito.version>5.2.0</mockito.version>
 		<system-stubs-jupiter.version>2.1.3</system-stubs-jupiter.version>
-
+		<jacoco.maven.plugin>0.8.12</jacoco.maven.plugin>
 		<docker.maven.version>0.40.2</docker.maven.version>
+		<diff.coverage.maven.plugin>0.3.3</diff.coverage.maven.plugin>
 		<dockerImageTag>${project.version}</dockerImageTag>
 
 		<internal.repo>https://maven.ontotext.com/content/repositories/owlim-releases</internal.repo>
@@ -67,12 +68,65 @@
 					<encoding>UTF-8</encoding>
 				</configuration>
 			</plugin>
+			<plugin> <!-- Make sure JaCoCo plugin is applied -->
+				<groupId>org.jacoco</groupId>
+				<artifactId>jacoco-maven-plugin</artifactId>
+				<version>${jacoco.maven.plugin}</version>
+				<configuration>
+					<outputDirectory>${project.build.directory}/reports</outputDirectory>
+				</configuration>
+				<executions>
+					<execution>
+						<id>coverage-initialize</id>
+						<goals>
+							<goal>prepare-agent</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>coverage-report</id>
+						<goals>
+							<goal>report</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<!--			<plugin>-->
+			<!--				<groupId>com.github.surpsg</groupId>-->
+			<!--				<artifactId>diff-coverage-maven-plugin</artifactId>-->
+			<!--				<version>${diff.coverage.maven.plugin}</version>-->
+			<!--				<configuration>-->
+			<!--					<diffSource>-->
+			<!--						<git>origin/main</git> &lt;!&ndash; compares current HEAD and all uncommited with this <git> &ndash;&gt;-->
+			<!--					</diffSource>-->
+			<!--					<violations>-->
+			<!--						&lt;!&ndash; Default 'false'. Fail build if violation rules weren't met  &ndash;&gt;-->
+			<!--						<failOnViolation>false</failOnViolation>-->
+
+			<!--						&lt;!&ndash; Sets min coverage rule for: instructions, lines, branches &ndash;&gt;-->
+			<!--						<minCoverage>0.7</minCoverage>-->
+
+			<!--						&lt;!&ndash; Each rule could be configured separately &ndash;&gt;-->
+			<!--						&lt;!&ndash; Default '0.0'. If value is '0.0' then the rule is disabled &ndash;&gt;-->
+			<!--						&lt;!&ndash;						<minLines>0.1</minLines>&ndash;&gt;-->
+			<!--						&lt;!&ndash;						<minBranches>0.7</minBranches>&ndash;&gt;-->
+			<!--						&lt;!&ndash;						<minInstructions>1.0</minInstructions>&ndash;&gt;-->
+			<!--					</violations>-->
+
+			<!--				</configuration>-->
+			<!--				<executions>-->
+			<!--					<execution>-->
+			<!--						<goals>-->
+			<!--							<goal>diffCoverage</goal>-->
+			<!--						</goals>-->
+			<!--					</execution>-->
+			<!--				</executions>-->
+			<!--			</plugin>-->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
 				<version>${maven.surefire.plugin.version}</version>
 				<configuration>
-					<argLine>${argLine} ${extraArgLine}</argLine>
+					<argLine>@{argLine} ${argLine} ${extraArgLine}</argLine>
 				</configuration>
 			</plugin>
 
