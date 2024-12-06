@@ -73,13 +73,20 @@ jobs:
 #          # Adds more detail to both client and server-side analysis logs, activating DEBUG mode for the scanner, and adding client-side environment variables and system properties to the server-side log of analysis report processing.
 #          #-Dsonar.verbose= # optional, default is false
 
-#  func-test:
+#  func-test-golden:
 #    runs-on: ubuntu-latest
 #    steps:
 #      - uses: actions/checkout@v4
-#      - name: Build the Docker image
-#        run: docker build . --file Dockerfile --tag my-image-name:$(date +%s)
-#      - uses: actions/upload-artifact@v4
-#        with:
-#          name: Package
-#          path: staging
+#      - name: Prepare compose
+#        run: docker compose -f docker-compose/docker-compose.yml build
+#      - name: Start test
+#        run: /bin/bash scripts/tests/test.sh --test-case golden_case
+#
+#  func-test-invalid-simple:
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@v4
+#      - name: Prepare compose
+#        run: docker compose -f docker-compose/docker-compose.yml build
+#      - name: Start test
+#        run: /bin/bash scripts/tests/test.sh --test-case garbage_data_simple
