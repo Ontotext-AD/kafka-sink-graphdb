@@ -1,4 +1,7 @@
 # kafka-sink-graphdb
+
+[![Kafka Sink CI/CD](https://github.com/Ontotext-AD/kafka-sink-graphdb/actions/workflows/pipeline.yml/badge.svg)](https://github.com/Ontotext-AD/kafka-sink-graphdb/actions/workflows/pipeline.yml)
+
 Kafka Sink Connector for RDF update streaming to GraphDB
 
 For the current version of Apache Kafka in project is 3.8.x and the Kafka worker is 7.7.x. For compatibility matrix, 
