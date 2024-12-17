@@ -106,6 +106,7 @@
 							<include>com.github.jsonld-java:*</include>
 							<include>com.fasterxml.jackson.core:*</include>
 							<include>org.eclipse.rdf4j:* </include>
+							<include>com.github.luben:* </include>
 						</includes>
 					</artifactSet>
 				</configuration>
@@ -314,6 +315,12 @@
 				<artifactId>jetty-client</artifactId>
 				<version>${jetty.version}</version>
 			</dependency>
+			<dependency>
+				<groupId>com.github.luben</groupId>
+				<artifactId>zstd-jni</artifactId>
+				<version>1.5.5-1</version>
+			</dependency>
+
 		</dependencies>
 	</dependencyManagement>
 
