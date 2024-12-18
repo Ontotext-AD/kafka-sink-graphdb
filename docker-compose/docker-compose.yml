@@ -74,7 +74,7 @@ services:
       CONNECT_STATUS_STORAGE_TOPIC: docker-connect-status-1
       CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_ZOOKEEPER_CONNECT: zookeeper:2181
-      CONNECT_LOG4J_LOGGERS: org.apache.zookeeper=DEBUG,org.I0Itec.zkclient=DEBUG,org.reflections=ERROR
+      CONNECT_LOG4J_LOGGERS: org.apache.zookeeper=DEBUG,org.I0Itec.zkclient=DEBUG,org.reflections=ERROR,com.ontotext.kafka=TRACE
 
   connect-2:
     build:
@@ -107,7 +107,7 @@ services:
       CONNECT_STATUS_STORAGE_TOPIC: docker-connect-status-2
       CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_ZOOKEEPER_CONNECT: zookeeper:2181
-      CONNECT_LOG4J_LOGGERS: org.apache.zookeeper=DEBUG,org.I0Itec.zkclient=DEBUG,org.reflections=ERROR
+      CONNECT_LOG4J_LOGGERS: org.apache.zookeeper=DEBUG,org.I0Itec.zkclient=DEBUG,org.reflections=ERROR,com.ontotext.kafka=TRACE
 
   connect-3:
     build:
@@ -140,4 +140,4 @@ services:
       CONNECT_STATUS_STORAGE_TOPIC: docker-connect-status-3
       CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_ZOOKEEPER_CONNECT: zookeeper:2181
-      CONNECT_LOG4J_LOGGERS: org.apache.zookeeper=DEBUG,org.I0Itec.zkclient=DEBUG,org.reflections=ERROR
+      CONNECT_LOG4J_LOGGERS: org.apache.zookeeper=DEBUG,org.I0Itec.zkclient=DEBUG,org.reflections=ERROR,com.ontotext.kafka=TRACE
