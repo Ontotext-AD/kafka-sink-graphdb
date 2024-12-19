@@ -164,6 +164,8 @@ public final class SinkRecordsProcessor implements Runnable {
 	void flushUpdates(Queue<SinkRecord> recordsBatch) {
 		LOG.warn("FLUSHING MESSAGE!"+recordsBatch.size());
 		if (!recordsBatch.isEmpty()) {
+			LOG.warn("FLUSHING MESSAGE 2!"+recordsBatch.size());
+
 			ProcessingContext<Queue<SinkRecord>> ctx = new ProcessingContext<>(recordsBatch);
 			batchRetryOperator.execute(ctx, () -> doFlush(recordsBatch), Stage.KAFKA_CONSUME, getClass());
 			if (ctx.failed()) {
@@ -186,12 +188,16 @@ public final class SinkRecordsProcessor implements Runnable {
 	 * @throws ConnectException   if the flush has failed, but there is no tolerance for error
 	 */
 	Void doFlush(Queue<SinkRecord> recordsBatch) {
+		LOG.warn("DOFLUSH MESSAGE!"+recordsBatch.size());
+
 		// Keep a copy of all consumed records, so that records are not lost if the transaction fails to commit
 		Collection<SinkRecord> consumedRecords = new ArrayList<>();
 		long start = System.currentTimeMillis();
-		try (RepositoryConnection connection = repositoryManager.newConnection()) {
+		try (RepositoryConnection connection = repositoryManager.newConnection()) {		LOG.warn("DOFLUSH MESSAGE 2!"+recordsBatch.size());
+
 			connection.begin();
 			int recordsInCurrentBatch = recordsBatch.size();
+
 			LOG.trace("Transaction started, batch size: {} , records in current batch: {}", batchSize, recordsInCurrentBatch);
 			while (recordsBatch.peek() != null) {
 				SinkRecord record = recordsBatch.peek();
@@ -228,6 +234,8 @@ public final class SinkRecordsProcessor implements Runnable {
 			}
 			return null;
 		} catch (RepositoryException e) {
+			LOG.warn("DOFLUSH FAIL!"+recordsBatch.size());
+
 			throw new RetriableException(e);
 		}
 	}
