@@ -167,6 +167,8 @@ public final class SinkRecordsProcessor implements Runnable {
 			LOG.warn("FLUSHING MESSAGE 2!"+recordsBatch.size());
 
 			ProcessingContext<Queue<SinkRecord>> ctx = new ProcessingContext<>(recordsBatch);
+			LOG.warn("FLUSHING MESSAGE 3!"+recordsBatch.size());
+
 			batchRetryOperator.execute(ctx, () -> doFlush(recordsBatch), Stage.KAFKA_CONSUME, getClass());
 			if (ctx.failed()) {
 				LOG.error("Failed to flush batch updates. Underlying exception - {}", ctx.error().getMessage());
