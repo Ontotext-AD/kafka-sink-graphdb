@@ -144,6 +144,8 @@ public final class SinkRecordsProcessor implements Runnable {
 
 	void consumeRecords(Collection<SinkRecord> messages) {
 		for (SinkRecord message : messages) {
+			LOG.warn("CONSUMING MESSAGE!"+message.toString());
+
 			recordsBatch.add(message);
 			if (batchSize <= recordsBatch.size()) {
 				flushUpdates(recordsBatch);
@@ -160,6 +162,7 @@ public final class SinkRecordsProcessor implements Runnable {
 	 * @throws ConnectException   if the flush has failed, but there is no tolerance for error
 	 */
 	void flushUpdates(Queue<SinkRecord> recordsBatch) {
+		LOG.warn("FLUSHING MESSAGE!"+recordsBatch.size());
 		if (!recordsBatch.isEmpty()) {
 			ProcessingContext<Queue<SinkRecord>> ctx = new ProcessingContext<>(recordsBatch);
 			batchRetryOperator.execute(ctx, () -> doFlush(recordsBatch), Stage.KAFKA_CONSUME, getClass());
