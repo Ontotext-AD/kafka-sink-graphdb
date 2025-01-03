@@ -103,7 +103,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 
 	public static final String POLL_BACKOFF_TIMEOUT = "graphdb.sink.poll.backoff.timeout.ms";
 	public static final long DEFAULT_POLL_BACKOFF_TIMEOUT = 10000;
-	public static final String POLL_BACKOFF_TIMEOUT_DOC = "The timeout applied per batch that is not full before it is committed";
+	public static final String POLL_BACKOFF_TIMEOUT_DOC = "Backoff time (in ms) which forces the task to pause ingestion in case of retriable exceptions downstream";
 
 	public static final String TEMPLATE_ID = "graphdb.template.id";
 	public static final String TEMPLATE_ID_DOC = "The id(IRI) of GraphDB Template to be used by in SPARQL Update";
