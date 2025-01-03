@@ -4,17 +4,17 @@
 
 Kafka Sink Connector for RDF update streaming to GraphDB
 
-For the current version of Apache Kafka in project is 3.8.x and the Kafka worker is 7.7.x. For compatibility matrix, 
+For the current version of Apache Kafka in project is 3.8.x and the Kafka worker is 7.8.x. For compatibility matrix,
 please refer to the confluent official [documentation](https://docs.confluent.io/platform/current/installation/versions-interoperability.html#cp-and-apache-ak-compatibility).
-io/platform/current/installation/versions-interoperability.html#cp-and-apache-ak-compatibility) 
+io/platform/current/installation/versions-interoperability.html#cp-and-apache-ak-compatibility)
 
-This means you can leverage the latest enhancements in both Apache Kafka and Confluent Platform to enhance the 
+This means you can leverage the latest enhancements in both Apache Kafka and Confluent Platform to enhance the
 performance, scalability, and features of your streaming applications.
 
 ## Upgrading Kafka Version
 
-When upgrading your Apache Kafka installation, it's crucial to ensure compatibility between Confluent and Apache 
-Kafka versions. Follow the guidelines provided by the Confluent documentation to guarantee a smooth upgrade process. 
+When upgrading your Apache Kafka installation, it's crucial to ensure compatibility between Confluent and Apache
+Kafka versions. Follow the guidelines provided by the Confluent documentation to guarantee a smooth upgrade process.
 Ensure that you refer to the compatibility matrix to find the suitable Confluent Platform version for your desired Apache Kafka version. The matrix can be found at the following link:
 
 [Confluent Platform and Apache Kafka Compatibility Matrix](https://docs.confluent.io/platform/current/installation/versions-interoperability.html#cp-and-apache-ak-compatibility)
@@ -24,18 +24,18 @@ Follow these steps to upgrade your Kafka installation:
 1. Review the compatibility matrix to identify the Confluent Platform version that matches your target Apache Kafka version.
 2. Follow the upgrade instructions provided by Confluent for the chosen Confluent Platform version.
 
-It's recommended to perform thorough testing in a staging environment before applying the upgrade to your production 
+It's recommended to perform thorough testing in a staging environment before applying the upgrade to your production
 environment. For detailed instructions and additional information, consult the official Confluent documentation.
 
 # Docker & Docker Compose
 
-A [Dockerfile](./Dockerfile) is available for building the sink connector as a docker image. It is a multistage 
+A [Dockerfile](./Dockerfile) is available for building the sink connector as a docker image. It is a multistage
 dockerfile which builds, tests and in the final stage copies the connector on the `plugin.path`.
 
 The image is based on Confluent Kafka Connect [confluentinc/cp-kafka-connect](https://hub.docker.
 com/r/confluentinc/cp-kafka-connect) image. To build the image navigate to the project root directory and execute `docker build -t kafka-sink-graphdb .`
 
-Inside the [docker-compose](./docker-compose) directory there is an example compose file that sets everything up - 
+Inside the [docker-compose](./docker-compose) directory there is an example compose file that sets everything up -
 ZooKeeper, Kafka, GraphDB and Kafka Connect. In the same directory the [run.sh](./docker-compose/run.sh) script can be used to quickly test the sink connector.
 
 The script will do the following:
