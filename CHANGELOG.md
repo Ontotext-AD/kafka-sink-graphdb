@@ -25,6 +25,7 @@ optimizing resources
 ### Updated
 
 - Updated internal component dependencies to address detected vulnerabilities
+-
 
 ### Fixed
 - Fixed a synchronization issue in which two distinct tasks would flush record to a single repository downstream
@@ -36,4 +37,4 @@ optimizing resources
 - Improved error handling
 - Minimized record loss on failure
 - Added setting in `docker-compose.yml` for setting up remote debug on connector instances (for development and troubleshooting purposes).
-These settings are disablbed by default
+  These settings are disabled by default
