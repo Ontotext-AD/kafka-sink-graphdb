@@ -13,3 +13,6 @@ will be retried at a later point in time. The default value is set to `10000` ms
 Because the connector is stateless, no data is kept on disk where the connector is running. Therefore, upgrading the version of the connector would simply require
 a restart of the services and re-configuration of the connector instances.
 
+### Use of Kafka producer
+
+The existing producer runtime, which eases the creation of Kafka records and their subsequent ingestion, has been removed
