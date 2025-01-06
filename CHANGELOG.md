@@ -12,6 +12,7 @@
 
 ### Breaking
 
+- The Kafka Sink Connector now requires GraphDB version 10.6 and newer
 - The Kafka Sink Connector now requires Apache Kafka 3.8.0 and Confluent Platform 7.8.0
 
 ### New
