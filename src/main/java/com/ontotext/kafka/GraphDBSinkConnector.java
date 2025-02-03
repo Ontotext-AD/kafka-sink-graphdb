@@ -16,7 +16,7 @@
 
 package com.ontotext.kafka;
 
-import com.ontotext.kafka.util.ValidateGraphDBConnection;
+import com.ontotext.kafka.util.GraphDBConnectionValidator;
 import com.ontotext.kafka.util.VersionUtil;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
@@ -78,10 +78,10 @@ public class GraphDBSinkConnector extends SinkConnector {
 
 	@Override
 	public Config validate(final Map<String, String> connectorConfigs) {
-		var config = super.validate(connectorConfigs);
+		Config config = super.validate(connectorConfigs);
 		if (config.configValues().stream().anyMatch(cv -> !cv.errorMessages().isEmpty())) {
 			return config;
 		}
-		return ValidateGraphDBConnection.validateGraphDBConnection(config);
+		return GraphDBConnectionValidator.validateGraphDBConnection(config);
 	}
 }

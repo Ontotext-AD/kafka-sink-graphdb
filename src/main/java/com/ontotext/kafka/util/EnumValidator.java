@@ -6,11 +6,11 @@ import org.apache.kafka.common.config.ConfigException;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-public class ValidateEnum implements ConfigDef.Validator {
+public class EnumValidator implements ConfigDef.Validator {
 	final Set<String> validEnums;
 	final Class<?> enumClass;
 
-	public ValidateEnum(Class<?> enumClass) {
+	public EnumValidator(Class<?> enumClass) {
 		Set<String> validEnums = new LinkedHashSet<>();
 		for (Object o : enumClass.getEnumConstants()) {
 			String key = o.toString().toLowerCase();

@@ -1,7 +1,7 @@
 package com.ontotext.kafka;
 
-import com.ontotext.kafka.util.ValidateEnum;
-import com.ontotext.kafka.util.ValidateRDFFormat;
+import com.ontotext.kafka.util.EnumValidator;
+import com.ontotext.kafka.util.RDFFormatValidator;
 import com.ontotext.kafka.util.ValueUtil;
 import com.ontotext.kafka.util.VisibleIfRecommender;
 import org.apache.kafka.clients.CommonClientConfigs;
@@ -163,7 +163,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 				RDF_FORMAT,
 				ConfigDef.Type.STRING,
 				DEFAULT_RDF_TYPE,
-				new ValidateRDFFormat(),
+				new RDFFormatValidator(),
 				ConfigDef.Importance.HIGH,
 				RDF_FORMAT_DOC
 			)
@@ -171,7 +171,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 				TRANSACTION_TYPE,
 				ConfigDef.Type.STRING,
 				DEFAULT_TRANSACTION_TYPE,
-				new ValidateEnum(TransactionType.class),
+				new EnumValidator(TransactionType.class),
 				ConfigDef.Importance.HIGH,
 				TRANSACTION_TYPE_DOC
 			)
@@ -200,7 +200,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 				AUTH_TYPE,
 				ConfigDef.Type.STRING,
 				DEFAULT_AUTH_TYPE,
-				new ValidateEnum(AuthenticationType.class),
+				new EnumValidator(AuthenticationType.class),
 				ConfigDef.Importance.HIGH,
 				AUTH_TYPE_DOC
 			)

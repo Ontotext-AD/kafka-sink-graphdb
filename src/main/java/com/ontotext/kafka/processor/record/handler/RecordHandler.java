@@ -2,6 +2,9 @@ package com.ontotext.kafka.processor.record.handler;
 
 
 import com.ontotext.kafka.GraphDBSinkConfig;
+import com.ontotext.kafka.convert.JsonDataConverter;
+import com.ontotext.kafka.graphdb.template.TemplateInput;
+import com.ontotext.kafka.graphdb.template.TemplateUtil;
 import com.ontotext.kafka.util.ValueUtil;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.model.Resource;
@@ -21,11 +24,10 @@ public interface RecordHandler {
 		};
 	}
 
-	static RecordHandler updateHandler() {
+	static RecordHandler updateHandler(final JsonDataConverter jsonDataConverter) {
 		return (record, connection, config) -> {
-			String query = ValueUtil.createRecordUpdateQuery(record.key(), config.getTemplateId());
-			connection.prepareUpdate(query).execute();
-			connection.add(ValueUtil.convertRDFData(record.value()), config.getRdfFormat());
+			byte[] data = ValueUtil.convertRDFData(record.value()).readAllBytes();
+			TemplateUtil.executeUpdate(connection, new TemplateInput(config.getTemplateId(), jsonDataConverter.convert(data)));
 		};
 	}
 
@@ -40,16 +42,16 @@ public interface RecordHandler {
 	}
 
 
-	static RecordHandler getRecordHandler(GraphDBSinkConfig.TransactionType transactionType) {
-		switch (transactionType) {
+	static RecordHandler getRecordHandler(GraphDBSinkConfig config) {
+		switch (config.getTransactionType()) {
 			case ADD:
 				return addHandler();
 			case REPLACE_GRAPH:
 				return replaceHandler();
 			case SMART_UPDATE:
-				return updateHandler();
+				return updateHandler(new JsonDataConverter(config.getRdfFormat()));
 			default:
-				throw new IllegalArgumentException(String.format("No handler for transaction type %s", transactionType));
+				throw new IllegalArgumentException(String.format("No handler for transaction type %s", config.getTransactionType()));
 		}
 
 	}

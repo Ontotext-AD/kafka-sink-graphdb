@@ -6,7 +6,8 @@ import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.rio.RDFFormat;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.nio.charset.Charset;
 import java.util.Objects;
 
 public class ValueUtil {
@@ -53,12 +54,12 @@ public class ValueUtil {
 		}
 	}
 
-	public static Reader convertRDFData(Object obj) {
+	public static ByteArrayInputStream convertRDFData(Object obj) {
 		Objects.requireNonNull(obj, "Cannot parse null objects");
 		if (obj instanceof byte[]) {
-			return new BufferedReader(new InputStreamReader(new ByteArrayInputStream((byte[]) obj)));
+			return new ByteArrayInputStream((byte[]) obj);
 		} else {
-			return new StringReader(convertValueToString(obj));
+			return new ByteArrayInputStream(convertValueToString(obj).getBytes(Charset.defaultCharset()));
 		}
 	}
 
