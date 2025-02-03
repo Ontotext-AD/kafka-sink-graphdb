@@ -170,7 +170,7 @@ public class SinkRecordsProcessorTest {
 			RecordHandler handlerMock = (record, connection, config1) -> {
 			};
 
-			mockedStatic.when(() -> RecordHandler.getRecordHandler(eq(GraphDBSinkConfig.TransactionType.ADD))).thenReturn(handlerMock);
+			mockedStatic.when(() -> RecordHandler.getRecordHandler(any())).thenReturn(handlerMock);
 
 			processor = spy(new SinkRecordsProcessor(config, sinkRecords, repositoryMgr));
 			assertThat(processor.handleRecord(generateSinkRecord(2), null)).isNull();
@@ -187,7 +187,7 @@ public class SinkRecordsProcessorTest {
 			RecordHandler handlerMock = (record, connection, config1) -> {
 				throw new IOException("IOException");
 			};
-			mockedStatic.when(() -> RecordHandler.getRecordHandler(eq(GraphDBSinkConfig.TransactionType.ADD))).thenReturn(handlerMock);
+			mockedStatic.when(() -> RecordHandler.getRecordHandler(any())).thenReturn(handlerMock);
 
 			processor = spy(new SinkRecordsProcessor(config, sinkRecords, repositoryMgr));
 			assertThatCode(() -> processor.handleRecord(generateSinkRecord(2), null)).isInstanceOf(RetriableException.class).hasMessage("IOException");

@@ -63,7 +63,7 @@ public final class SinkRecordsProcessor implements Runnable {
 		this.timeoutCommitMs = config.getProcessorRecordPollTimeoutMs();
 		this.errorHandler = new LogErrorHandler(config);
 		this.transactionType = config.getTransactionType();
-		this.recordHandler = RecordHandler.getRecordHandler(transactionType);
+		this.recordHandler = RecordHandler.getRecordHandler(config);
 		this.initOperators(config);
 		// repositoryUrl is used for logging purposes
 		MDC.put("RepositoryURL", repositoryManager.getRepositoryURL());

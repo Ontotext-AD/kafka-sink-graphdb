@@ -10,6 +10,7 @@ import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.config.ConfigValue;
 import org.apache.kafka.common.config.types.Password;
 import org.eclipse.rdf4j.http.protocol.UnauthorizedException;
+import org.eclipse.rdf4j.query.TupleQueryResult;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.RepositoryException;
 import org.eclipse.rdf4j.repository.http.HTTPRepository;
@@ -21,60 +22,70 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.stream.IntStream;
+import java.util.Collections;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.ontotext.kafka.GraphDBSinkConfig.*;
+import static com.ontotext.kafka.GraphDBSinkConfig.AuthenticationType.NONE;
 
-public class ValidateGraphDBConnection {
+public final class GraphDBConnectionValidator {
+	private static final Logger LOG = LoggerFactory.getLogger(GraphDBConnectionValidator.class);
 
-	private static final Logger LOG = LoggerFactory.getLogger(ValidateGraphDBConnection.class);
+
+	private GraphDBConnectionValidator() {
+		throw new IllegalStateException("Utility class");
+	}
+
 
 	public static Config validateGraphDBConnection(Config validatedConnectorConfigs) {
-		ArrayList<ConfigValue> confValues = (ArrayList<ConfigValue>) validatedConnectorConfigs.configValues();
 
-		int serverIriId = getConfigIdByName(confValues, SERVER_URL);
-		ConfigValue serverIri = confValues.get(serverIriId);
+		Map<String, ConfigValue> configValues = validatedConnectorConfigs.configValues().stream()
+			.collect(Collectors.toMap(ConfigValue::name, Function.identity()));
 
+		ConfigValue serverIri = configValues.get(SERVER_URL);
 		try {
 			validateGraphDBVersion(serverIri);
 		} catch (ConfigException e) {
 			serverIri.addErrorMessage(e.getMessage());
-			confValues.set(serverIriId, serverIri);
 			return validatedConnectorConfigs;
 		}
 
-		int repositoryId = getConfigIdByName(confValues, REPOSITORY);
-		ConfigValue repository = confValues.get(repositoryId);
-		int authTypeId = getConfigIdByName(confValues, AUTH_TYPE);
-		ConfigValue authType = confValues.get(authTypeId);
+		ConfigValue repository = configValues.get(REPOSITORY);
+
+		ConfigValue authType = configValues.get(AUTH_TYPE);
+		if (authType == null) {
+			LOG.warn("No auth type for repository connection provided. Assuming {}", NONE);
+			authType = new ConfigValue(AUTH_TYPE, NONE, Collections.emptyList(), Collections.emptyList());
+		}
 
 		HTTPRepository testRepository = new HTTPRepository((String) serverIri.value(), (String) repository.value());
 		try {
-			validateGraphDBAuthAndRepo(confValues, testRepository, authType);
+			doValidate(configValues, testRepository, authType);
 		} catch (ConfigException e) {
 			authType.addErrorMessage(e.getMessage());
-			confValues.set(authTypeId, authType);
 		} catch (RepositoryException e) {
 			repository.addErrorMessage(new ConfigException(REPOSITORY, repository.value(),
 				e.getMessage() + ": Invalid repository").getMessage());
-			confValues.set(repositoryId, repository);
 		}
 
 		return validatedConnectorConfigs;
 	}
 
-	private static int getConfigIdByName(final ArrayList<ConfigValue> config, final String name) {
-
-		return IntStream.range(0, config.size())
-			.filter(i -> name.equals(config.get(i).name()))
-			.findFirst()
-			.orElse(-1);
-	}
-
-	private static ConfigValue getConfigByName(final ArrayList<ConfigValue> config, final String name) {
-
-		return config.stream().filter(cv -> cv.name().equals(name)).findFirst().orElse(null);
+	private static void validateTemplate(RepositoryConnection connection, String templateId) {
+		String templateContentQ = "select ?template {\n <%s> <http://www.ontotext.com/sparql/template> ?template\n}";
+		try (TupleQueryResult templates = connection.prepareTupleQuery(String.format(templateContentQ, templateId)).evaluate()) {
+			String template = null;
+			if (templates.hasNext()) {
+				// Only interested in first result
+				template = templates.next().getValue("template").stringValue();
+			}
+			if (StringUtils.isEmpty(template)) {
+				throw new ConfigException("Did not find template with ID {}", templateId);
+			}
+			LOG.info("Found template {}", template);
+		}
 	}
 
 	private static void validateGraphDBVersion(ConfigValue serverIri) {
@@ -112,8 +123,7 @@ public class ValidateGraphDBConnection {
 		}
 	}
 
-	private static void validateGraphDBAuthAndRepo(ArrayList<ConfigValue> confValues, HTTPRepository testRepo,
-												   ConfigValue authType) {
+	private static void doValidate(Map<String, ConfigValue> configValues, HTTPRepository testRepo, ConfigValue authType) {
 		LOG.trace("Validating GraphDB authentication and repository");
 		String authTypeString = (String) authType.value();
 		if (StringUtils.isBlank(authTypeString)) {
@@ -126,17 +136,23 @@ public class ValidateGraphDBConnection {
 				break;
 			case BASIC:
 				testRepo.setUsernameAndPassword(
-					(String) getConfigByName(confValues, AUTH_BASIC_USER).value(),
-					((Password) getConfigByName(confValues, AUTH_BASIC_PASS).value()).value());
+					(String) configValues.get(AUTH_BASIC_USER).value(),
+					((Password) configValues.get(AUTH_BASIC_PASS).value()).value());
 				break;
 			case CUSTOM:
 			default:
 				throw new ConfigException(AUTH_TYPE, authType.value(), "Not supported");
 		}
 
+		ConfigValue templateIdValue = configValues.get(TEMPLATE_ID);
 		try (RepositoryConnection connection = testRepo.getConnection()) {
 			LOG.trace("Starting repository connection test");
 			connection.begin();
+			if (templateIdValue != null && StringUtils.isNotEmpty((String) templateIdValue.value())) {
+				String templateId = (String) templateIdValue.value();
+				LOG.info("Querying template ID {} from repository {}", templateId, testRepo);
+				validateTemplate(connection, templateId);
+			}
 			connection.rollback();
 			LOG.trace("Rolled back repository connection test");
 		} catch (RepositoryException e) {
