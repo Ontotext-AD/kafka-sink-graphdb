@@ -29,8 +29,7 @@ public final class TemplateUtil {
 			bindInput(input.getData(), update);
 			update.execute();
 		} catch (Exception e) {
-			e.printStackTrace();
-			// TODO
+			throw new RepositoryException("Caught exception while executing update", e);
 		}
 	}
 
@@ -61,7 +60,7 @@ public final class TemplateUtil {
 			throw new ConfigException("Did not find template with ID {}", templateId);
 		} catch (RepositoryException e) {
 			if (e instanceof UnauthorizedException) {
-				throw new ConfigException("Invalid credentials" + e.getMessage());
+				throw new ConfigException("Invalid credentials", e);
 			}
 			throw e;
 		}
