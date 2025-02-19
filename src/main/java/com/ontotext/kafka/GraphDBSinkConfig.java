@@ -14,6 +14,8 @@ import org.apache.kafka.connect.runtime.ConnectorConfig;
 import org.apache.kafka.connect.runtime.WorkerConfig;
 import org.apache.kafka.connect.runtime.errors.ToleranceType;
 import org.eclipse.rdf4j.rio.RDFFormat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.List;
@@ -31,6 +33,7 @@ import static org.apache.kafka.connect.runtime.SinkConnectorConfig.*;
 public class GraphDBSinkConfig extends AbstractConfig {
 
 	public static final ConfigDef CONFIG_DEFINITION = createConfigDef();
+	private static final Logger log = LoggerFactory.getLogger(GraphDBSinkConfig.class);
 
 	private final int batchSize;
 	private final Long processorRecordPollTimeoutMs;
@@ -145,156 +148,162 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	}
 
 	public static ConfigDef createConfigDef() {
-		int orderInErrorGroup = 0;
-		return new GraphDBConfigDef()
-			.define(
-				SERVER_URL,
-				ConfigDef.Type.STRING,
-				ConfigDef.Importance.HIGH,
-				SERVER_URL_DOC
-			)
-			.define(
-				REPOSITORY,
-				ConfigDef.Type.STRING,
-				ConfigDef.Importance.HIGH,
-				REPOSITORY_DOC
-			)
-			.define(
-				RDF_FORMAT,
-				ConfigDef.Type.STRING,
-				DEFAULT_RDF_TYPE,
-				new ValidateRDFFormat(),
-				ConfigDef.Importance.HIGH,
-				RDF_FORMAT_DOC
-			)
-			.define(
-				TRANSACTION_TYPE,
-				ConfigDef.Type.STRING,
-				DEFAULT_TRANSACTION_TYPE,
-				new ValidateEnum(TransactionType.class),
-				ConfigDef.Importance.HIGH,
-				TRANSACTION_TYPE_DOC
-			)
-			.define(
-				BATCH_SIZE,
-				ConfigDef.Type.INT,
-				DEFAULT_BATCH_SIZE,
-				ConfigDef.Importance.HIGH,
-				BATCH_SIZE_DOC
-			)
-			.define(
-				RECORD_POLL_TIMEOUT,
-				ConfigDef.Type.LONG,
-				DEFAULT_RECORD_POLL_TIMEOUT,
-				ConfigDef.Importance.HIGH,
-				RECORD_POLL_TIMEOUT_DOC
-			)
-			.define(
-				POLL_BACKOFF_TIMEOUT,
-				ConfigDef.Type.LONG,
-				DEFAULT_POLL_BACKOFF_TIMEOUT,
-				ConfigDef.Importance.HIGH,
-				POLL_BACKOFF_TIMEOUT_DOC
-			)
-			.define(
-				AUTH_TYPE,
-				ConfigDef.Type.STRING,
-				DEFAULT_AUTH_TYPE,
-				new ValidateEnum(AuthenticationType.class),
-				ConfigDef.Importance.HIGH,
-				AUTH_TYPE_DOC
-			)
-			.define(
-				AUTH_BASIC_USER,
-				ConfigDef.Type.STRING,
-				DEFAULT_AUTH_BASIC_USER,
-				ConfigDef.Importance.HIGH,
-				AUTH_BASIC_USER_DOC,
-				null,
-				-1,
-				ConfigDef.Width.NONE,
-				AUTH_BASIC_USER,
-				new VisibleIfRecommender(AUTH_TYPE, AuthenticationType.BASIC)
-			)
-			.define(
-				AUTH_BASIC_PASS,
-				ConfigDef.Type.PASSWORD,
-				DEFAULT_AUTH_BASIC_PASS,
-				ConfigDef.Importance.HIGH,
-				AUTH_BASIC_PASS_DOC,
-				null,
-				-1,
-				ConfigDef.Width.NONE,
-				AUTH_BASIC_PASS,
-				new VisibleIfRecommender(AUTH_TYPE, AuthenticationType.BASIC)
-			)
-			.define(
-				AUTH_HEADER_TOKEN,
-				ConfigDef.Type.STRING,
-				"",
-				ConfigDef.Importance.LOW,
-				AUTH_HEADER_TOKEN_DOC
-			)
-			.define(
-				TEMPLATE_ID,
-				ConfigDef.Type.STRING,
-				null,
-				ConfigDef.Importance.MEDIUM,
-				TEMPLATE_ID_DOC
-			)
-			//error handling
-			.define(
-				DLQ_TOPIC_NAME_CONFIG,
-				ConfigDef.Type.STRING,
-				DLQ_TOPIC_DEFAULT,
-				ConfigDef.Importance.MEDIUM,
-				DLQ_TOPIC_NAME_DOC,
-				ERROR_GROUP,
-				++orderInErrorGroup,
-				ConfigDef.Width.MEDIUM,
-				DLQ_TOPIC_DISPLAY
-			)
-			.define(
-				ERRORS_RETRY_TIMEOUT_CONFIG,
-				ConfigDef.Type.LONG,
-				ERRORS_RETRY_TIMEOUT_DEFAULT,
-				ConfigDef.Importance.MEDIUM,
-				ERRORS_RETRY_TIMEOUT_DOC,
-				ERROR_GROUP,
-				++orderInErrorGroup,
-				ConfigDef.Width.MEDIUM,
-				ERRORS_RETRY_TIMEOUT_DISPLAY
-			)
-			.define(
-				ERRORS_RETRY_MAX_DELAY_CONFIG,
-				ConfigDef.Type.LONG,
-				ERRORS_RETRY_MAX_DELAY_DEFAULT,
-				ConfigDef.Importance.MEDIUM,
-				ERRORS_RETRY_MAX_DELAY_DOC,
-				ERROR_GROUP,
-				++orderInErrorGroup,
-				ConfigDef.Width.MEDIUM, ERRORS_RETRY_MAX_DELAY_DISPLAY
-			)
-			.define(
-				ERRORS_TOLERANCE_CONFIG,
-				ConfigDef.Type.STRING,
-				ERRORS_TOLERANCE_DEFAULT.value(),
-				in(ToleranceType.NONE.value(), ToleranceType.ALL.value()),
-				ConfigDef.Importance.MEDIUM,
-				ERRORS_TOLERANCE_DOC,
-				ERROR_GROUP,
-				++orderInErrorGroup,
-				ConfigDef.Width.SHORT,
-				ERRORS_TOLERANCE_DISPLAY
-			)
-			.define(
-				WorkerConfig.BOOTSTRAP_SERVERS_CONFIG,
-				ConfigDef.Type.LIST,
-				Collections.emptyList(),
-				new ConfigDef.NonNullValidator(),
-				ConfigDef.Importance.HIGH,
-				CommonClientConfigs.BOOTSTRAP_SERVERS_DOC
-			);
+		try {
+			int orderInErrorGroup = 0;
+			return new GraphDBConfigDef()
+				.define(
+					SERVER_URL,
+					ConfigDef.Type.STRING,
+					ConfigDef.Importance.HIGH,
+					SERVER_URL_DOC
+				)
+				.define(
+					REPOSITORY,
+					ConfigDef.Type.STRING,
+					ConfigDef.Importance.HIGH,
+					REPOSITORY_DOC
+				)
+				.define(
+					RDF_FORMAT,
+					ConfigDef.Type.STRING,
+					DEFAULT_RDF_TYPE,
+					new ValidateRDFFormat(),
+					ConfigDef.Importance.HIGH,
+					RDF_FORMAT_DOC
+				)
+				.define(
+					TRANSACTION_TYPE,
+					ConfigDef.Type.STRING,
+					DEFAULT_TRANSACTION_TYPE,
+					new ValidateEnum(TransactionType.class),
+					ConfigDef.Importance.HIGH,
+					TRANSACTION_TYPE_DOC
+				)
+				.define(
+					BATCH_SIZE,
+					ConfigDef.Type.INT,
+					DEFAULT_BATCH_SIZE,
+					ConfigDef.Importance.HIGH,
+					BATCH_SIZE_DOC
+				)
+				.define(
+					RECORD_POLL_TIMEOUT,
+					ConfigDef.Type.LONG,
+					DEFAULT_RECORD_POLL_TIMEOUT,
+					ConfigDef.Importance.HIGH,
+					RECORD_POLL_TIMEOUT_DOC
+				)
+				.define(
+					POLL_BACKOFF_TIMEOUT,
+					ConfigDef.Type.LONG,
+					DEFAULT_POLL_BACKOFF_TIMEOUT,
+					ConfigDef.Importance.HIGH,
+					POLL_BACKOFF_TIMEOUT_DOC
+				)
+				.define(
+					AUTH_TYPE,
+					ConfigDef.Type.STRING,
+					DEFAULT_AUTH_TYPE,
+					new ValidateEnum(AuthenticationType.class),
+					ConfigDef.Importance.HIGH,
+					AUTH_TYPE_DOC
+				)
+				.define(
+					AUTH_BASIC_USER,
+					ConfigDef.Type.STRING,
+					DEFAULT_AUTH_BASIC_USER,
+					ConfigDef.Importance.HIGH,
+					AUTH_BASIC_USER_DOC,
+					null,
+					-1,
+					ConfigDef.Width.NONE,
+					AUTH_BASIC_USER,
+					new VisibleIfRecommender(AUTH_TYPE, AuthenticationType.BASIC)
+				)
+				.define(
+					AUTH_BASIC_PASS,
+					ConfigDef.Type.PASSWORD,
+					DEFAULT_AUTH_BASIC_PASS,
+					ConfigDef.Importance.HIGH,
+					AUTH_BASIC_PASS_DOC,
+					null,
+					-1,
+					ConfigDef.Width.NONE,
+					AUTH_BASIC_PASS,
+					new VisibleIfRecommender(AUTH_TYPE, AuthenticationType.BASIC)
+				)
+				.define(
+					AUTH_HEADER_TOKEN,
+					ConfigDef.Type.STRING,
+					"",
+					ConfigDef.Importance.LOW,
+					AUTH_HEADER_TOKEN_DOC
+				)
+				.define(
+					TEMPLATE_ID,
+					ConfigDef.Type.STRING,
+					null,
+					ConfigDef.Importance.MEDIUM,
+					TEMPLATE_ID_DOC
+				)
+				//error handling
+				.define(
+					DLQ_TOPIC_NAME_CONFIG,
+					ConfigDef.Type.STRING,
+					DLQ_TOPIC_DEFAULT,
+					ConfigDef.Importance.MEDIUM,
+					DLQ_TOPIC_NAME_DOC,
+					ERROR_GROUP,
+					++orderInErrorGroup,
+					ConfigDef.Width.MEDIUM,
+					DLQ_TOPIC_DISPLAY
+				)
+				.define(
+					ERRORS_RETRY_TIMEOUT_CONFIG,
+					ConfigDef.Type.LONG,
+					ERRORS_RETRY_TIMEOUT_DEFAULT,
+					ConfigDef.Importance.MEDIUM,
+					ERRORS_RETRY_TIMEOUT_DOC,
+					ERROR_GROUP,
+					++orderInErrorGroup,
+					ConfigDef.Width.MEDIUM,
+					ERRORS_RETRY_TIMEOUT_DISPLAY
+				)
+				.define(
+					ERRORS_RETRY_MAX_DELAY_CONFIG,
+					ConfigDef.Type.LONG,
+					ERRORS_RETRY_MAX_DELAY_DEFAULT,
+					ConfigDef.Importance.MEDIUM,
+					ERRORS_RETRY_MAX_DELAY_DOC,
+					ERROR_GROUP,
+					++orderInErrorGroup,
+					ConfigDef.Width.MEDIUM, ERRORS_RETRY_MAX_DELAY_DISPLAY
+				)
+				.define(
+					ERRORS_TOLERANCE_CONFIG,
+					ConfigDef.Type.STRING,
+					ERRORS_TOLERANCE_DEFAULT.value(),
+					in(ToleranceType.NONE.value(), ToleranceType.ALL.value()),
+					ConfigDef.Importance.MEDIUM,
+					ERRORS_TOLERANCE_DOC,
+					ERROR_GROUP,
+					++orderInErrorGroup,
+					ConfigDef.Width.SHORT,
+					ERRORS_TOLERANCE_DISPLAY
+				)
+				.define(
+					WorkerConfig.BOOTSTRAP_SERVERS_CONFIG,
+					ConfigDef.Type.LIST,
+					Collections.emptyList(),
+					new ConfigDef.NonNullValidator(),
+					ConfigDef.Importance.HIGH,
+					CommonClientConfigs.BOOTSTRAP_SERVERS_DOC
+				);
+		} catch (Exception e) {
+			log.error("Caught exception while setting up configuration", e);
+		}
+		return null;
+
 	}
 
 	public int getBatchSize() {
@@ -374,6 +383,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	public static class GraphDBConfigDef extends ConfigDef {
 		@Override
 		public Map<String, ConfigValue> validateAll(Map<String, String> props) {
+			log.info("Validating sink connector config");
 			return super.validateAll(props);
 		}
 	}
