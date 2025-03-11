@@ -56,7 +56,7 @@ public final class GraphDBConnectionValidator {
 
 		ConfigValue authType = configValues.get(AUTH_TYPE);
 		if (authType == null) {
-			LOG.warn("No auth type for repository connection provided. Assuming {}", NONE);
+			LOG.info("No auth type for repository connection provided. Assuming {}", NONE);
 			authType = new ConfigValue(AUTH_TYPE, NONE, Collections.emptyList(), Collections.emptyList());
 		}
 
@@ -90,7 +90,7 @@ public final class GraphDBConnectionValidator {
 
 	private static void validateGraphDBVersion(ConfigValue serverIri) {
 		try {
-			LOG.trace("Validating GraphDB version");
+			LOG.info("Validating GraphDB version");
 			URL versionUrl;
 			String version;
 			if (serverIri.value().toString().endsWith("/")) {
@@ -104,9 +104,9 @@ public final class GraphDBConnectionValidator {
 					.execute(new HttpGet(versionUrl.toString()))
 					.getEntity()
 					.getContent(), StandardCharsets.UTF_8)).getString("productVersion");
-				LOG.trace("Using GraphDB version {}", version);
+				LOG.info("Using GraphDB version {}", version);
 			} catch (JSONException e) {
-				LOG.error("Caught JSON exception while validating GraphDB version", e);
+				LOG.info("Caught JSON exception while validating GraphDB version", e);
 				throw new ConfigException(SERVER_URL, serverIri.value(),
 					"No GraphDB running on the provided GraphDB server URL");
 			}
@@ -117,14 +117,14 @@ public final class GraphDBConnectionValidator {
 
 			}
 		} catch (IOException e) {
-			LOG.error("Caught I/O exception while validating GraphDB version", e);
+			LOG.info("Caught I/O exception while validating GraphDB version", e);
 			throw new ConfigException(SERVER_URL, serverIri.value(),
 				"No GraphDB running on the provided GraphDB server URL");
 		}
 	}
 
 	private static void doValidate(Map<String, ConfigValue> configValues, HTTPRepository testRepo, ConfigValue authType) {
-		LOG.trace("Validating GraphDB authentication and repository");
+		LOG.info("Validating GraphDB authentication and repository");
 		String authTypeString = (String) authType.value();
 		if (StringUtils.isBlank(authTypeString)) {
 			throw new ConfigException(AUTH_TYPE, "Not provided");
@@ -146,7 +146,7 @@ public final class GraphDBConnectionValidator {
 
 		ConfigValue templateIdValue = configValues.get(TEMPLATE_ID);
 		try (RepositoryConnection connection = testRepo.getConnection()) {
-			LOG.trace("Starting repository connection test");
+			LOG.info("Starting repository connection test");
 			connection.begin();
 			if (templateIdValue != null && StringUtils.isNotEmpty((String) templateIdValue.value())) {
 				String templateId = (String) templateIdValue.value();
@@ -154,7 +154,7 @@ public final class GraphDBConnectionValidator {
 				validateTemplate(connection, templateId);
 			}
 			connection.rollback();
-			LOG.trace("Rolled back repository connection test");
+			LOG.info("Rolled back repository connection test");
 		} catch (RepositoryException e) {
 			if (e instanceof UnauthorizedException) {
 				throw new ConfigException("Invalid credentials" + e.getMessage());

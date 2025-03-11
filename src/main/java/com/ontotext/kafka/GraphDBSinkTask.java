@@ -74,13 +74,13 @@ public class GraphDBSinkTask extends SinkTask {
 			context.timeout(config.getBackOffTimeoutMs());
 			throw new RetriableException("Congestion in processor, retry later");
 		}
-		log.trace("Sink task received {} records", collection.size());
+		log.info("Sink task received {} records", collection.size());
 		processor.getQueue().add(collection);
 	}
 
 	@Override
 	public void stop() {
-		log.trace("Shutting down processor");
+		log.info("Shutting down processor");
 		SinkExecutor.getInstance().stopProcessor(processor);
 	}
 

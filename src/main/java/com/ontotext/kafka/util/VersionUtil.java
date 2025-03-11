@@ -37,7 +37,7 @@ public class VersionUtil {
 			properties.load(VersionUtil.class.getResourceAsStream("/graphdb-kafka-sink.properties"));
 			version = properties.getProperty("graphdb.version", version).trim();
 		} catch (Exception e) {
-			LOG.warn("error while loading version:", e);
+			LOG.info("error while loading version:", e);
 		}
 	}
 

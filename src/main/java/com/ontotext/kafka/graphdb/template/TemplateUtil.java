@@ -38,7 +38,7 @@ public final class TemplateUtil {
 			Object obj = input.get(key);
 			Value value = ValueParser.getValue(obj);
 			if (value == null) {
-				LOG.warn("Binding for {} is null or empty. Skipping binding.", key);
+				LOG.info("Binding for {} is null or empty. Skipping binding.", key);
 				continue;
 			}
 			update.setBinding(key, value);
@@ -51,7 +51,7 @@ public final class TemplateUtil {
 	}
 
 	private static String getSparqlTemplateContent(String templateId, RepositoryConnection connection) {
-		LOG.debug("Querying template ID {}", templateId);
+		LOG.info("Querying template ID {}", templateId);
 		try (TupleQueryResult templates = connection.prepareTupleQuery(String.format(TEMPLATE_CONTENT_QUERY, templateId)).evaluate()) {
 			if (templates.hasNext()) {
 				// Only interested in first result

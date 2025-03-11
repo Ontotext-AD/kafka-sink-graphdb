@@ -29,7 +29,7 @@ public class RepositoryManager {
 				return repository;
 			case BASIC:
 				if (LOG.isTraceEnabled()) {
-					LOG.trace("Initializing repository connection with user {}", config.getAuthBasicUser());
+					LOG.info("Initializing repository connection with user {}", config.getAuthBasicUser());
 				}
 				repository.setUsernameAndPassword(config.getAuthBasicUser(), config.getAuthBasicPassword().value());
 				return repository;

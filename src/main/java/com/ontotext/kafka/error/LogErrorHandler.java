@@ -37,12 +37,12 @@ public class LogErrorHandler {
 	}
 
 	public void handleFailingRecord(SinkRecord record, Throwable ex) {
-		LOG.warn("Record failed: {}", ValueUtil.recordInfo(record), ex);
+		LOG.info("Record failed: {}", ValueUtil.recordInfo(record), ex);
 		if (producer != null && ex != null && ex.getClass().isAssignableFrom(RetriableException.class)) {
-			LOG.trace("Returning failed record to Kafka.....");
+			LOG.info("Returning failed record to Kafka.....");
 			producer.returnFailed(record);
 		} else {
-			LOG.error("Record update failed with a non-retriable exception, will not return record to Kafka");
+			LOG.info("Record update failed with a non-retriable exception, will not return record to Kafka");
 		}
 	}
 

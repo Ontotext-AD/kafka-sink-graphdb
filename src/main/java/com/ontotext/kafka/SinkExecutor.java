@@ -34,7 +34,7 @@ public final class SinkExecutor {
     public synchronized void startNewProcessor(SinkRecordsProcessor processor) {
         UUID processorId = processor.getId();
         if (runningProcessors.containsKey(processorId)) {
-            LOG.warn("Processor with id {} already started", processorId);
+            LOG.info("Processor with id {} already started", processorId);
             return;
         }
 		runningProcessors.put(processorId, executorService.submit(processor));
@@ -48,7 +48,7 @@ public final class SinkExecutor {
             // Interrupt the processor
             processorFuture.cancel(true);
         } else {
-            LOG.warn("Processor with id {} does not exist, it may have already been stopped", processorId);
+            LOG.info("Processor with id {} does not exist, it may have already been stopped", processorId);
         }
     }
 }

@@ -26,11 +26,11 @@ public final class JsonDataConverter extends RdfFormatConverter {
 			byte[] converted = convertData(data);
 			return objectMapper.readValue(converted, cls);
 		} catch (DatabindException e) {
-			log.error("Could not deserialize data to type {}", cls, e);
+			log.info("Could not deserialize data to type {}", cls, e);
 		} catch (StreamReadException e) {
-			log.error("Caught exception while reading data stream", e);
+			log.info("Caught exception while reading data stream", e);
 		} catch (IOException e) {
-			log.error("Could not convert data from {} to JSON", getInputFormat(), e);
+			log.info("Could not convert data from {} to JSON", getInputFormat(), e);
 		}
 		return null;
 	}
@@ -46,17 +46,17 @@ public final class JsonDataConverter extends RdfFormatConverter {
 			}
 		} catch (DatabindException e) {
 			// Just in case try to deserialize straight to a map without the outer list wrapper.
-			log.error("Could not deserialize data to a list of items. Will repeat and try to deserialize as a map instead.");
+			log.info("Could not deserialize data to a list of items. Will repeat and try to deserialize as a map instead.");
 			try {
 				return objectMapper.readValue(converted, new TypeReference<>() {
 				});
 			} catch (Exception e1) {
-				log.error("Could not deserialize data to a map. Cannot proceed", e);
+				log.info("Could not deserialize data to a map. Cannot proceed", e);
 			}
 		} catch (StreamReadException e) {
-			log.error("Caught exception while reading data stream", e);
+			log.info("Caught exception while reading data stream", e);
 		} catch (IOException e) {
-			log.error("Could not convert data from {} to JSON", getInputFormat(), e);
+			log.info("Could not convert data from {} to JSON", getInputFormat(), e);
 		}
 		return null;
 	}

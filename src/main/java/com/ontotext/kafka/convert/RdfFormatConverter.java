@@ -24,10 +24,10 @@ public class RdfFormatConverter {
 
 	public byte[] convertData(byte[] inputData) throws IOException {
 		if (inputFormat.equals(outputFormat)) {
-			log.debug("Input and output formats [{}] are the same, skipping conversion", inputData);
+			log.info("Input and output formats [{}] are the same, skipping conversion", inputData);
 			return inputData;
 		}
-		log.debug("Converting data from {} to {}", inputFormat, outputFormat);
+		log.info("Converting data from {} to {}", inputFormat, outputFormat);
 		RDFParser rdfParser = Rio.createParser(inputFormat);
 		try (InputStream is = new ByteArrayInputStream(inputData);
 			 ByteArrayOutputStream baos = new ByteArrayOutputStream(1024);

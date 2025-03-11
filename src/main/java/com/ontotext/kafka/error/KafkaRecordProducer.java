@@ -36,7 +36,7 @@ class KafkaRecordProducer {
 				if (exception == null) {
 					LOG.info("Successfully returned failed record to Kafka. {}", ValueUtil.recordInfo(record));
 				} else {
-					LOG.error("Returning failed record to kafka: UNSUCCESSFUL. {}", ValueUtil.recordInfo(record),
+					LOG.info("Returning failed record to kafka: UNSUCCESSFUL. {}", ValueUtil.recordInfo(record),
 						exception);
 				}
 			});

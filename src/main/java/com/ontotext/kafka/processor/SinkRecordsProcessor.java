@@ -79,24 +79,27 @@ public final class SinkRecordsProcessor implements Runnable {
 	@Override
 	public void run() {
 		while (shouldRun()) {
+			LOG.info("Still running.");
 			try {
 				if (backOff.getAndSet(false)) {
 					LOG.info("Retrying flush");
 					flushUpdates(this.recordsBatch);
 					LOG.info("Flush (on retry) successful");
 				}
+				LOG.info("Polling for new messages");
 				Collection<SinkRecord> messages = pollForMessages();
 				if (messages != null) {
+					LOG.info("Consuming {} messages", messages.size());
 					consumeRecords(messages);
 				} else {
-					LOG.trace("Did not receive any records (waited {} {} ) for repository {}. Flushing all records in batch.", timeoutCommitMs,
+					LOG.info("Did not receive any records (waited {} {} ) for repository {}. Flushing all records in batch.", timeoutCommitMs,
 						TimeUnit.MILLISECONDS, repositoryManager);
 					flushUpdates(this.recordsBatch);
 				}
 			} catch (RetriableException e) {
 				long backoffTimeoutMs = config.getBackOffTimeoutMs();
 				backOff.set(true);
-				LOG.warn("Caught a retriable exception while flushing the current batch. " +
+				LOG.info("Caught a retriable exception while flushing the current batch. " +
 					"Will sleep for {}ms and will try to flush the records again", backoffTimeoutMs);
 				try {
 					Thread.sleep(backoffTimeoutMs);
@@ -104,11 +107,11 @@ public final class SinkRecordsProcessor implements Runnable {
 					LOG.info("Thread was interrupted during backoff. Shutting down");
 					break;
 				}
-			} catch (Exception e) {
+			} catch (Throwable e) {
 				if (e instanceof InterruptedException) {
 					LOG.info("Thread was interrupted. Shutting down processor");
 				} else {
-					LOG.error("Caught an exception, cannot recover.  Shutting down", e);
+					LOG.info("Caught an exception, cannot recover.  Shutting down", e);
 				}
 				break;
 			}
@@ -136,7 +139,7 @@ public final class SinkRecordsProcessor implements Runnable {
 			flushUpdates(this.recordsBatch);
 		} catch (Exception e) {
 			// We did ou best. Just log the exception and shut down
-			LOG.warn("While shutting down, failed to flush updates due to exception", e);
+			LOG.info("While shutting down, failed to flush updates due to exception", e);
 		}
 
 		repositoryManager.shutDownRepository();
@@ -164,11 +167,11 @@ public final class SinkRecordsProcessor implements Runnable {
 			ProcessingContext<Queue<SinkRecord>> ctx = new ProcessingContext<>(recordsBatch);
 			batchRetryOperator.execute(ctx, () -> doFlush(recordsBatch), Stage.KAFKA_CONSUME, getClass());
 			if (ctx.failed()) {
-				LOG.error("Failed to flush batch updates. Underlying exception - {}", ctx.error().getMessage());
+				LOG.info("Failed to flush batch updates. Underlying exception - {}", ctx.error().getMessage());
 				if (!batchRetryOperator.withinToleranceLimits()) {
 					throw new ConnectException("Error tolerance exceeded.");
 				}
-				LOG.warn("Errors are tolerated (tolerance = {}).", config.getTolerance());
+				LOG.info("Errors are tolerated (tolerance = {}).", config.getTolerance());
 				throw new RetriableException("Failed to flush updates", ctx.error());
 			}
 		}
@@ -189,13 +192,13 @@ public final class SinkRecordsProcessor implements Runnable {
 		try (RepositoryConnection connection = repositoryManager.newConnection()) {
 			connection.begin();
 			int recordsInCurrentBatch = recordsBatch.size();
-			LOG.trace("Transaction started, batch size: {} , records in current batch: {}", batchSize, recordsInCurrentBatch);
+			LOG.info("Transaction started, batch size: {} , records in current batch: {}", batchSize, recordsInCurrentBatch);
 			while (recordsBatch.peek() != null) {
 				SinkRecord record = recordsBatch.peek();
 				ProcessingContext<SinkRecord> ctx = new ProcessingContext<>(record);
 				singleRecordRetryOperator.execute(ctx, () -> handleRecord(record, connection), Stage.KAFKA_CONSUME, getClass());
 				if (ctx.failed()) {
-					LOG.warn("Failed to commit record. Will handle failure, and remove from the batch");
+					LOG.info("Failed to commit record. Will handle failure, and remove from the batch");
 					errorHandler.handleFailingRecord(record, ctx.error());
 					if (!singleRecordRetryOperator.withinToleranceLimits()) {
 						throw new ConnectException("Error tolerance exceeded.");
@@ -208,7 +211,7 @@ public final class SinkRecordsProcessor implements Runnable {
 			try {
 				connection.commit();
 			} catch (RepositoryException e) {
-				LOG.error(
+				LOG.info(
 					"Failed to commit transaction due to exception. Restoring consumed records so that they can be flushed later, and rolling back the transaction",
 					e);
 				recordsBatch.addAll(consumedRecords);
@@ -218,10 +221,10 @@ public final class SinkRecordsProcessor implements Runnable {
 				throw e;
 			}
 
-			LOG.trace("Transaction commited, Batch size: {} , Records in current batch: {}", batchSize, recordsInCurrentBatch);
+			LOG.info("Transaction commited, Batch size: {} , Records in current batch: {}", batchSize, recordsInCurrentBatch);
 			if (LOG.isTraceEnabled()) {
 				long finish = System.currentTimeMillis();
-				LOG.trace("Finished batch processing for {} ms", finish - start);
+				LOG.info("Finished batch processing for {} ms", finish - start);
 			}
 			return null;
 		} catch (RepositoryException e) {
@@ -232,16 +235,16 @@ public final class SinkRecordsProcessor implements Runnable {
 	Void handleRecord(SinkRecord record, RepositoryConnection connection) {
 		long start = System.currentTimeMillis();
 		try {
-			LOG.trace("Executing {} operation......", transactionType.toString().toLowerCase());
+			LOG.info("Executing {} operation......", transactionType.toString().toLowerCase());
 			recordHandler.handle(record, connection, config);
 			return null;
 		} catch (IOException e) {
 			throw new RetriableException(e.getMessage(), e);
 		} finally {
 			if (LOG.isTraceEnabled()) {
-				LOG.trace("Record info: {}", ValueUtil.recordInfo(record));
+				LOG.info("Record info: {}", ValueUtil.recordInfo(record));
 				long finish = System.currentTimeMillis();
-				LOG.trace("Converted the record and added it to the RDF4J connection for {} ms", finish - start);
+				LOG.info("Converted the record and added it to the RDF4J connection for {} ms", finish - start);
 			}
 		}
 
