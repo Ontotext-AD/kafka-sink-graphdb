@@ -8,7 +8,7 @@ import com.ontotext.kafka.rdf.repository.RepositoryManager;
 import com.ontotext.kafka.util.ValueUtil;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.RetriableException;
-import org.apache.kafka.connect.runtime.errors.ProcessingContext;
+import org.apache.kafka.connect.runtime.errors.GDBProcessingContext;
 import org.apache.kafka.connect.runtime.errors.Stage;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
@@ -164,7 +164,7 @@ public final class SinkRecordsProcessor implements Runnable {
 	 */
 	void flushUpdates(Queue<SinkRecord> recordsBatch) {
 		if (!recordsBatch.isEmpty()) {
-			ProcessingContext<Queue<SinkRecord>> ctx = new ProcessingContext<>(recordsBatch);
+			GDBProcessingContext<Queue<SinkRecord>> ctx = new GDBProcessingContext<>(recordsBatch);
 			batchRetryOperator.execute(ctx, () -> doFlush(recordsBatch), Stage.KAFKA_CONSUME, getClass());
 			if (ctx.failed()) {
 				LOG.info("Failed to flush batch updates. Underlying exception - {}", ctx.error().getMessage());
@@ -195,7 +195,7 @@ public final class SinkRecordsProcessor implements Runnable {
 			LOG.info("Transaction started, batch size: {} , records in current batch: {}", batchSize, recordsInCurrentBatch);
 			while (recordsBatch.peek() != null) {
 				SinkRecord record = recordsBatch.peek();
-				ProcessingContext<SinkRecord> ctx = new ProcessingContext<>(record);
+				GDBProcessingContext<SinkRecord> ctx = new GDBProcessingContext<>(record);
 				singleRecordRetryOperator.execute(ctx, () -> handleRecord(record, connection), Stage.KAFKA_CONSUME, getClass());
 				if (ctx.failed()) {
 					LOG.info("Failed to commit record. Will handle failure, and remove from the batch");
