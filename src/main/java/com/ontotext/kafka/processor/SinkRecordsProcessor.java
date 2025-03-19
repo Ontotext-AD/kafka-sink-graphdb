@@ -3,13 +3,10 @@ package com.ontotext.kafka.processor;
 import com.ontotext.kafka.GraphDBSinkConfig;
 import com.ontotext.kafka.error.LogErrorHandler;
 import com.ontotext.kafka.processor.record.handler.RecordHandler;
-import com.ontotext.kafka.processor.retry.GraphDBRetryWithToleranceOperator;
 import com.ontotext.kafka.rdf.repository.RepositoryManager;
 import com.ontotext.kafka.util.ValueUtil;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.RetriableException;
-import org.apache.kafka.connect.runtime.errors.GDBProcessingContext;
-import org.apache.kafka.connect.runtime.errors.Stage;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.RepositoryException;
@@ -47,8 +44,6 @@ public final class SinkRecordsProcessor implements Runnable {
 	private final GraphDBSinkConfig.TransactionType transactionType;
 	private final GraphDBSinkConfig config;
 	private final AtomicBoolean backOff = new AtomicBoolean(false);
-	private GraphDBRetryWithToleranceOperator<SinkRecord> singleRecordRetryOperator;
-	private GraphDBRetryWithToleranceOperator<Queue<SinkRecord>> batchRetryOperator;
 
 	public SinkRecordsProcessor(GraphDBSinkConfig config) {
 		this(config, new LinkedBlockingQueue<>(), new RepositoryManager(config));
@@ -64,16 +59,11 @@ public final class SinkRecordsProcessor implements Runnable {
 		this.errorHandler = new LogErrorHandler(config);
 		this.transactionType = config.getTransactionType();
 		this.recordHandler = RecordHandler.getRecordHandler(config);
-		this.initOperators(config);
 		// repositoryUrl is used for logging purposes
 		MDC.put("RepositoryURL", repositoryManager.getRepositoryURL());
 		MDC.put("Connector", config.getConnectorName());
 	}
 
-	void initOperators(GraphDBSinkConfig config) {
-		this.batchRetryOperator = new GraphDBRetryWithToleranceOperator<Queue<SinkRecord>>(config);
-		this.singleRecordRetryOperator = new GraphDBRetryWithToleranceOperator<SinkRecord>(config);
-	}
 
 
 	@Override
@@ -163,16 +153,12 @@ public final class SinkRecordsProcessor implements Runnable {
 	 * @throws ConnectException   if the flush has failed, but there is no tolerance for error
 	 */
 	void flushUpdates(Queue<SinkRecord> recordsBatch) {
+		LOG.info("Flushing updates");
 		if (!recordsBatch.isEmpty()) {
-			GDBProcessingContext<Queue<SinkRecord>> ctx = new GDBProcessingContext<>(recordsBatch);
-			batchRetryOperator.execute(ctx, () -> doFlush(recordsBatch), Stage.KAFKA_CONSUME, getClass());
-			if (ctx.failed()) {
-				LOG.info("Failed to flush batch updates. Underlying exception - {}", ctx.error().getMessage());
-				if (!batchRetryOperator.withinToleranceLimits()) {
-					throw new ConnectException("Error tolerance exceeded.");
-				}
-				LOG.info("Errors are tolerated (tolerance = {}).", config.getTolerance());
-				throw new RetriableException("Failed to flush updates", ctx.error());
+			try {
+				doFlush(recordsBatch);
+			} catch (Exception e) {
+				throw new RetriableException("Failed to flush updates", e);
 			}
 		}
 	}
@@ -194,18 +180,12 @@ public final class SinkRecordsProcessor implements Runnable {
 			int recordsInCurrentBatch = recordsBatch.size();
 			LOG.info("Transaction started, batch size: {} , records in current batch: {}", batchSize, recordsInCurrentBatch);
 			while (recordsBatch.peek() != null) {
-				SinkRecord record = recordsBatch.peek();
-				GDBProcessingContext<SinkRecord> ctx = new GDBProcessingContext<>(record);
-				singleRecordRetryOperator.execute(ctx, () -> handleRecord(record, connection), Stage.KAFKA_CONSUME, getClass());
-				if (ctx.failed()) {
-					LOG.info("Failed to commit record. Will handle failure, and remove from the batch");
-					errorHandler.handleFailingRecord(record, ctx.error());
-					if (!singleRecordRetryOperator.withinToleranceLimits()) {
-						throw new ConnectException("Error tolerance exceeded.");
-					}
-					recordsBatch.poll();
-				} else {
-					consumedRecords.add(recordsBatch.poll());
+				SinkRecord record = recordsBatch.poll();
+				try {
+					handleRecord(record, connection);
+					consumedRecords.add(record);
+				} catch (Exception e) {
+					LOG.warn("Failed to commit record. Will handle failure, and remove from the batch", e);
 				}
 			}
 			try {
