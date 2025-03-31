@@ -173,7 +173,7 @@ public class SinkRecordsProcessorTest {
 			mockedStatic.when(() -> RecordHandler.getRecordHandler(any())).thenReturn(handlerMock);
 
 			processor = spy(new SinkRecordsProcessor(config, sinkRecords, repositoryMgr));
-			assertThat(processor.handleRecord(generateSinkRecord(2), null)).isNull();
+			assertThatCode(() -> processor.handleRecord(generateSinkRecord(2), null)).doesNotThrowAnyException();
 
 		}
 	}
@@ -312,6 +312,40 @@ public class SinkRecordsProcessorTest {
 		doNothing().when(mockConnection).rollback();
 		doNothing().when(mockConnection).begin();
 		doThrow(new RepositoryException("Fail")).when(mockConnection).commit();
+
+		Collection<SinkRecord> records = generateSinkRecords(10, 20);
+		Queue<SinkRecord> recordBatch = new ConcurrentLinkedQueue<>(records);
+
+		Collection<SinkRecord> consumedRecords = new ArrayList<>();
+
+		RecordHandler handler = (record, connection, config1) -> {
+			consumedRecords.add(record);
+		};
+		try (MockedStatic<RecordHandler> mock = mockStatic(RecordHandler.class)) {
+			mock.when(() -> RecordHandler.getRecordHandler(any())).thenReturn(handler);
+
+			processor = spy(new SinkRecordsProcessor(config, sinkRecords, repositoryMgr));
+
+			assertThatCode(() -> processor.doFlush(recordBatch)).isInstanceOf(RetriableException.class);
+
+
+		}
+		assertThat(recordBatch).as("All records must have been consumed").isNotEmpty().containsAll(records);
+		assertThat(records).containsAll(consumedRecords);
+
+	}
+
+
+	@Test
+	@Timeout(5)
+	void test_doFlush_retryOnce_ok() {
+
+		RepositoryConnection mockConnection = mock(RepositoryConnection.class);
+		doReturn(mockConnection).when(repositoryMgr).newConnection();
+
+		doNothing().when(mockConnection).rollback();
+		doNothing().when(mockConnection).begin();
+		doNothing().when(mockConnection).commit();
 
 		Collection<SinkRecord> records = generateSinkRecords(10, 20);
 		Queue<SinkRecord> recordBatch = new ConcurrentLinkedQueue<>(records);

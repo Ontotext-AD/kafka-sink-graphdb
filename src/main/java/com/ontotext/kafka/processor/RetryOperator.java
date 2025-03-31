@@ -1,4 +1,4 @@
-package com.ontotext.kafka.processor.retry;
+package com.ontotext.kafka.processor;
 
 import com.ontotext.kafka.GraphDBSinkConfig;
 import org.apache.kafka.common.utils.Time;
@@ -12,17 +12,17 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-public class GraphDBRetryWithToleranceOperator {
+public class RetryOperator {
 
 
 	public static final long RETRIES_DELAY_MIN_MS = 300;
 
 	private final GraphDBSinkConfig config;
-	private static final Logger log = LoggerFactory.getLogger(GraphDBRetryWithToleranceOperator.class);
+	private static final Logger log = LoggerFactory.getLogger(RetryOperator.class);
 	private final CountDownLatch stopRequestedLatch;
 	private final Time time;
 
-	public GraphDBRetryWithToleranceOperator(GraphDBSinkConfig config) {
+	public RetryOperator(GraphDBSinkConfig config) {
 		this.config = config;
 		this.stopRequestedLatch = new CountDownLatch(1);
 		this.time = Time.SYSTEM;
@@ -39,7 +39,7 @@ public class GraphDBRetryWithToleranceOperator {
 		Exception errorThrown = execAndHandleError(operation);
 		if (errorThrown != null) {
 			log.error("Operation failed. Underlying exception - {}", errorThrown.getMessage());
-			if (!withinToleranceLimits()) {
+			if (config.getTolerance() == ToleranceType.NONE) {
 				throw new ConnectException("Error tolerance exceeded.");
 			}
 			log.warn("Errors are tolerated (tolerance = {}).", config.getTolerance());
@@ -88,17 +88,13 @@ public class GraphDBRetryWithToleranceOperator {
 		try {
 			return execAndRetry(operation);
 		} catch (Exception e) {
-			if (!withinToleranceLimits()) {
+			if (config.getTolerance() == ToleranceType.NONE) {
 				throw new ConnectException("Tolerance exceeded in error handler", e);
 			}
 			return e;
 		}
 	}
 
-	@SuppressWarnings("fallthrough")
-	public boolean withinToleranceLimits() {
-		return config.getTolerance() == ToleranceType.ALL;
-	}
 
 	/**
 	 * Do an exponential backoff bounded by {@link #RETRIES_DELAY_MIN_MS} and runtime configuration (errors.retry.delay.max.ms)
