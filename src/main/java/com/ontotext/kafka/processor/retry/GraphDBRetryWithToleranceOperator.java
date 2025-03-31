@@ -1,80 +1,126 @@
 package com.ontotext.kafka.processor.retry;
 
 import com.ontotext.kafka.GraphDBSinkConfig;
-import org.apache.kafka.common.utils.SystemTime;
-import org.apache.kafka.connect.runtime.ConnectMetrics;
-import org.apache.kafka.connect.runtime.ConnectorConfig;
-import org.apache.kafka.connect.runtime.errors.ErrorHandlingMetrics;
-import org.apache.kafka.connect.runtime.errors.Operation;
-import org.apache.kafka.connect.runtime.errors.ProcessingContext;
-import org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperator;
-import org.apache.kafka.connect.runtime.standalone.StandaloneConfig;
-import org.apache.kafka.connect.storage.StringConverter;
-import org.apache.kafka.connect.util.ConnectorTaskId;
+import org.apache.kafka.common.utils.Time;
+import org.apache.kafka.connect.errors.ConnectException;
+import org.apache.kafka.connect.errors.RetriableException;
+import org.apache.kafka.connect.runtime.errors.ToleranceType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+
+public class GraphDBRetryWithToleranceOperator {
 
 
-/**
- * A {@link RetryWithToleranceOperator} which relaxes the Exception tolerance for errors. This is required if an execution must not
- * throw a non-recoverable exception ({@link java.net.ConnectException}, but rather delegate handling the failure scenario to the caller.
- */
-public class GraphDBRetryWithToleranceOperator<T> extends RetryWithToleranceOperator<T> {
+	public static final long RETRIES_DELAY_MIN_MS = 300;
 
-	private static final ErrorHandlingMetrics METRICS = new GraphDBErrorHandlingMetrics();
+	private final GraphDBSinkConfig config;
+	private static final Logger log = LoggerFactory.getLogger(GraphDBRetryWithToleranceOperator.class);
+	private final CountDownLatch stopRequestedLatch;
+	private final Time time;
 
 	public GraphDBRetryWithToleranceOperator(GraphDBSinkConfig config) {
-		super(config.getErrorRetryTimeout(), config.getErrorMaxDelayInMillis(), config.getTolerance(),
-			new SystemTime(), METRICS);
+		this.config = config;
+		this.stopRequestedLatch = new CountDownLatch(1);
+		this.time = Time.SYSTEM;
 	}
-
 
 	/**
-	 * Set {@link Exception} as the tolerable class for {@link org.apache.kafka.connect.runtime.errors.Stage#KAFKA_CONSUME} Stage, thus rely solely on the inner
-	 * error handling of the retry operator
+	 * Attempt to execute an operation. Handles retriable and tolerated exceptions thrown by the operation.
 	 *
-	 * @param operation the operation to be executed.
-	 * @param tolerated the class of exceptions which can be tolerated. Ignored and replaced with {@link Exception}
-	 * @return
+	 * @param operation the recoverable operation
+	 * @throws RetriableException if the operation fails and errors are tolerated
+	 * @throws ConnectException   wrapper if any non-tolerated exception was thrown by the operation
 	 */
-	@Override
-	protected <V> V execAndHandleError(ProcessingContext<T> context, Operation<V> operation, Class<? extends Exception> tolerated) {
-		return super.execAndHandleError(context, operation, Exception.class);
+	public void execute(Runnable operation) {
+		Exception errorThrown = execAndHandleError(operation);
+		if (errorThrown != null) {
+			log.error("Operation failed. Underlying exception - {}", errorThrown.getMessage());
+			if (!withinToleranceLimits()) {
+				throw new ConnectException("Error tolerance exceeded.");
+			}
+			log.warn("Errors are tolerated (tolerance = {}).", config.getTolerance());
+			throw new RetriableException("Operation failed", errorThrown);
+		}
+
 	}
 
-	private static class GraphDBErrorHandlingMetrics extends ErrorHandlingMetrics {
-		private static final StandaloneConfig WORKER_CONFIG = new StandaloneConfig(getBasicProperties());
-		private static int taskId;
-		private static final Logger LOG = LoggerFactory.getLogger(GraphDBErrorHandlingMetrics.class);
-
-		//kafka version 2.8
-		GraphDBErrorHandlingMetrics() {
-			super(new ConnectorTaskId("GraphDB-connector", ++taskId),
-				new ConnectMetrics("GraphDB-worker", WORKER_CONFIG,
-					SystemTime.SYSTEM, "GraphDB-cluster-id"));
+	/**
+	 * Attempt to execute an operation. Handles retriable exceptions raised by the operation.
+	 * <p>Retries are allowed if this operation is within the error retry timeout.
+	 *
+	 * @param operation the operation to be executed.
+	 * @return The resulting exception, if the operation failed, or null
+	 * @throws Exception rethrow if any non-retriable exception was thrown by the operation
+	 */
+	private Exception execAndRetry(Runnable operation) throws Exception {
+		int attempt = 0;
+		long startTime = System.currentTimeMillis();
+		long deadline = (config.getErrorRetryTimeout() >= 0) ? startTime + config.getErrorRetryTimeout() : Long.MAX_VALUE;
+		while (true) {
+			try {
+				attempt++;
+				operation.run();
+				return null;
+			} catch (RetriableException e) {
+				log.trace("Caught a retriable exception - {}", e.getMessage());
+				if (time.milliseconds() < deadline) {
+					backoff(attempt, deadline);
+				} else {
+					log.trace("Can't retry. start={}, attempt={}, deadline={}", startTime, attempt, deadline);
+					return e;
+				}
+			}
 		}
+	}
 
-		@Override
-		public void recordFailure() {
-			LOG.warn("Record operation failed");
-			super.recordFailure();
+	/**
+	 * Attempt to execute an operation. Handles retriable and tolerated exceptions thrown by the operation.
+	 *
+	 * @param operation the operation to be executed.
+	 * @return The resulting exception, if the operation failed, or null
+	 * @throws ConnectException wrapper if any non-tolerated exception was thrown by the operation
+	 */
+	protected Exception execAndHandleError(Runnable operation) {
+		try {
+			return execAndRetry(operation);
+		} catch (Exception e) {
+			if (!withinToleranceLimits()) {
+				throw new ConnectException("Tolerance exceeded in error handler", e);
+			}
+			return e;
 		}
+	}
 
-		@Override
-		public void recordRetry() {
-			LOG.warn("Retrying operation");
-			super.recordRetry();
+	@SuppressWarnings("fallthrough")
+	public boolean withinToleranceLimits() {
+		return config.getTolerance() == ToleranceType.ALL;
+	}
+
+	/**
+	 * Do an exponential backoff bounded by {@link #RETRIES_DELAY_MIN_MS} and runtime configuration (errors.retry.delay.max.ms)
+	 *
+	 * @param attempt  the number indicating which backoff attempt it is (beginning with 1)
+	 * @param deadline the time in milliseconds until when retries can be attempted
+	 */
+	void backoff(int attempt, long deadline) {
+		int numRetry = attempt - 1;
+		long delay = RETRIES_DELAY_MIN_MS << numRetry;
+		if (delay > config.getErrorMaxDelayInMillis()) {
+			delay = ThreadLocalRandom.current().nextLong(config.getErrorMaxDelayInMillis());
 		}
-
-		private static Map<String, String> getBasicProperties() {
-			Map<String, String> props = new HashMap<>();
-			props.put(ConnectorConfig.KEY_CONVERTER_CLASS_CONFIG, StringConverter.class.getName());
-			props.put(ConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG, StringConverter.class.getName());
-			props.put(StandaloneConfig.OFFSET_STORAGE_FILE_FILENAME_CONFIG, "/tmp/connect.offsets");
-			return props;
+		long currentTime = time.milliseconds();
+		if (delay + currentTime > deadline) {
+			delay = Math.max(0, deadline - currentTime);
+		}
+		log.debug("Sleeping for up to {} millis", delay);
+		try {
+			stopRequestedLatch.await(delay, TimeUnit.MILLISECONDS);
+		} catch (InterruptedException e) {
+			return;
 		}
 	}
 }

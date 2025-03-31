@@ -8,8 +8,6 @@ import com.ontotext.kafka.rdf.repository.RepositoryManager;
 import com.ontotext.kafka.util.ValueUtil;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.RetriableException;
-import org.apache.kafka.connect.runtime.errors.ProcessingContext;
-import org.apache.kafka.connect.runtime.errors.Stage;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.RepositoryException;
@@ -47,8 +45,7 @@ public final class SinkRecordsProcessor implements Runnable {
 	private final GraphDBSinkConfig.TransactionType transactionType;
 	private final GraphDBSinkConfig config;
 	private final AtomicBoolean backOff = new AtomicBoolean(false);
-	private GraphDBRetryWithToleranceOperator<SinkRecord> singleRecordRetryOperator;
-	private GraphDBRetryWithToleranceOperator<Queue<SinkRecord>> batchRetryOperator;
+	private GraphDBRetryWithToleranceOperator retryOperator;
 
 	public SinkRecordsProcessor(GraphDBSinkConfig config) {
 		this(config, new LinkedBlockingQueue<>(), new RepositoryManager(config));
@@ -71,8 +68,7 @@ public final class SinkRecordsProcessor implements Runnable {
 	}
 
 	void initOperators(GraphDBSinkConfig config) {
-		this.batchRetryOperator = new GraphDBRetryWithToleranceOperator<Queue<SinkRecord>>(config);
-		this.singleRecordRetryOperator = new GraphDBRetryWithToleranceOperator<SinkRecord>(config);
+		this.retryOperator = new GraphDBRetryWithToleranceOperator(config);
 	}
 
 
@@ -161,16 +157,7 @@ public final class SinkRecordsProcessor implements Runnable {
 	 */
 	void flushUpdates(Queue<SinkRecord> recordsBatch) {
 		if (!recordsBatch.isEmpty()) {
-			ProcessingContext<Queue<SinkRecord>> ctx = new ProcessingContext<>(recordsBatch);
-			batchRetryOperator.execute(ctx, () -> doFlush(recordsBatch), Stage.KAFKA_CONSUME, getClass());
-			if (ctx.failed()) {
-				LOG.error("Failed to flush batch updates. Underlying exception - {}", ctx.error().getMessage());
-				if (!batchRetryOperator.withinToleranceLimits()) {
-					throw new ConnectException("Error tolerance exceeded.");
-				}
-				LOG.warn("Errors are tolerated (tolerance = {}).", config.getTolerance());
-				throw new RetriableException("Failed to flush updates", ctx.error());
-			}
+			retryOperator.execute(() -> doFlush(recordsBatch));
 		}
 	}
 
@@ -192,17 +179,13 @@ public final class SinkRecordsProcessor implements Runnable {
 			LOG.trace("Transaction started, batch size: {} , records in current batch: {}", batchSize, recordsInCurrentBatch);
 			while (recordsBatch.peek() != null) {
 				SinkRecord record = recordsBatch.peek();
-				ProcessingContext<SinkRecord> ctx = new ProcessingContext<>(record);
-				singleRecordRetryOperator.execute(ctx, () -> handleRecord(record, connection), Stage.KAFKA_CONSUME, getClass());
-				if (ctx.failed()) {
-					LOG.warn("Failed to commit record. Will handle failure, and remove from the batch");
-					errorHandler.handleFailingRecord(record, ctx.error());
-					if (!singleRecordRetryOperator.withinToleranceLimits()) {
-						throw new ConnectException("Error tolerance exceeded.");
-					}
-					recordsBatch.poll();
-				} else {
+				try {
+					retryOperator.execute(() -> handleRecord(record, connection));
 					consumedRecords.add(recordsBatch.poll());
+				} catch (RetriableException e) {
+					LOG.warn("Failed to commit record. Will handle failure, and remove from the batch");
+					errorHandler.handleFailingRecord(record, e);
+					recordsBatch.poll();
 				}
 			}
 			try {
