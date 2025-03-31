@@ -3,7 +3,6 @@ package com.ontotext.kafka.processor;
 import com.ontotext.kafka.GraphDBSinkConfig;
 import com.ontotext.kafka.error.LogErrorHandler;
 import com.ontotext.kafka.processor.record.handler.RecordHandler;
-import com.ontotext.kafka.processor.retry.GraphDBRetryWithToleranceOperator;
 import com.ontotext.kafka.rdf.repository.RepositoryManager;
 import com.ontotext.kafka.util.ValueUtil;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -45,32 +44,40 @@ public final class SinkRecordsProcessor implements Runnable {
 	private final GraphDBSinkConfig.TransactionType transactionType;
 	private final GraphDBSinkConfig config;
 	private final AtomicBoolean backOff = new AtomicBoolean(false);
-	private GraphDBRetryWithToleranceOperator retryOperator;
+	private final RetryOperator retryOperator;
 
 	public SinkRecordsProcessor(GraphDBSinkConfig config) {
 		this(config, new LinkedBlockingQueue<>(), new RepositoryManager(config));
 	}
 
 	public SinkRecordsProcessor(GraphDBSinkConfig config, LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords, RepositoryManager repositoryManager) {
+		this(config, sinkRecords, repositoryManager, new RetryOperator(config));
+	}
+
+
+	public SinkRecordsProcessor(GraphDBSinkConfig config, LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords, RepositoryManager repositoryManager,
+								RetryOperator retryOperator) {
+		this(config, sinkRecords, new LinkedList<>(), repositoryManager, new LogErrorHandler(config), RecordHandler.getRecordHandler(config), retryOperator);
+	}
+
+	private SinkRecordsProcessor(GraphDBSinkConfig config, LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords, Queue<SinkRecord> recordsBatch,
+								 RepositoryManager repositoryManager, LogErrorHandler logErrorHandler, RecordHandler recordHandler,
+								 RetryOperator retryOperator) {
 		this.config = config;
 		this.sinkRecords = sinkRecords;
-		this.recordsBatch = new LinkedList<>();
 		this.repositoryManager = repositoryManager;
+		this.errorHandler = logErrorHandler;
+		this.recordHandler = recordHandler;
+		this.retryOperator = retryOperator;
+		this.recordsBatch = recordsBatch;
 		this.batchSize = config.getBatchSize();
 		this.timeoutCommitMs = config.getProcessorRecordPollTimeoutMs();
-		this.errorHandler = new LogErrorHandler(config);
 		this.transactionType = config.getTransactionType();
-		this.recordHandler = RecordHandler.getRecordHandler(config);
-		this.initOperators(config);
+
 		// repositoryUrl is used for logging purposes
 		MDC.put("RepositoryURL", repositoryManager.getRepositoryURL());
 		MDC.put("Connector", config.getConnectorName());
 	}
-
-	void initOperators(GraphDBSinkConfig config) {
-		this.retryOperator = new GraphDBRetryWithToleranceOperator(config);
-	}
-
 
 	@Override
 	public void run() {
@@ -151,7 +158,6 @@ public final class SinkRecordsProcessor implements Runnable {
 	 * Flush all records in batch downstream.
 	 *
 	 * @param recordsBatch The batch of records to flush downstream
-	 *
 	 * @throws RetriableException if the repository connection has failed, either during initialization, or commit
 	 * @throws ConnectException   if the flush has failed, but there is no tolerance for error
 	 */
@@ -164,12 +170,11 @@ public final class SinkRecordsProcessor implements Runnable {
 	/**
 	 * Perform flush with a retry mechanism, for both the entire batch, and every single record
 	 *
-	 * @param  recordsBatch The batch of records to flush
-	 *
+	 * @param recordsBatch The batch of records to flush
 	 * @throws RetriableException if the repository connection has failed, either during initialization, or commit
 	 * @throws ConnectException   if the flush has failed, but there is no tolerance for error
 	 */
-	Void doFlush(Queue<SinkRecord> recordsBatch) {
+	void doFlush(Queue<SinkRecord> recordsBatch) {
 		// Keep a copy of all consumed records, so that records are not lost if the transaction fails to commit
 		Collection<SinkRecord> consumedRecords = new ArrayList<>();
 		long start = System.currentTimeMillis();
@@ -206,18 +211,16 @@ public final class SinkRecordsProcessor implements Runnable {
 				long finish = System.currentTimeMillis();
 				LOG.trace("Finished batch processing for {} ms", finish - start);
 			}
-			return null;
 		} catch (RepositoryException e) {
 			throw new RetriableException(e);
 		}
 	}
 
-	Void handleRecord(SinkRecord record, RepositoryConnection connection) {
+	void handleRecord(SinkRecord record, RepositoryConnection connection) {
 		long start = System.currentTimeMillis();
 		try {
 			LOG.trace("Executing {} operation......", transactionType.toString().toLowerCase());
 			recordHandler.handle(record, connection, config);
-			return null;
 		} catch (IOException e) {
 			throw new RetriableException(e.getMessage(), e);
 		} finally {
