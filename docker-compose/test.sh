@@ -111,4 +111,4 @@ echo "Test-3 number of ingested records: $(curl --location 'http://localhost:720
 echo "Test-3-invalid number of ingested records: $(curl --location 'http://localhost:7200/repositories/test?query=select+*+where+%7B+%3Curn%3Atest-3-invalid%3E+%3Fp+%3Fo+.%0A%7D+limit+1000' | grep -c 'urn')"
 
 
-docker compose down
+#docker compose down

@@ -1,13 +1,10 @@
 package com.ontotext.kafka.producer;
 
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.*;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Properties;
 
 public class RunProducer {
 //    private static final Logger LOG = LoggerFactory.getLogger(RunProducer.class);
