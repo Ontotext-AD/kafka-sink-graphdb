@@ -23,10 +23,15 @@ public class RetryOperator {
 	private final Time time;
 
 	public RetryOperator(GraphDBSinkConfig config) {
-		this.config = config;
-		this.stopRequestedLatch = new CountDownLatch(1);
-		this.time = Time.SYSTEM;
+		this(config, new CountDownLatch(1), Time.SYSTEM);
 	}
+
+	RetryOperator(GraphDBSinkConfig config, CountDownLatch countDownLatch, Time system) {
+		this.config = config;
+		this.stopRequestedLatch = countDownLatch;
+		time = system;
+	}
+
 
 	/**
 	 * Attempt to execute an operation. Handles retriable and tolerated exceptions thrown by the operation.

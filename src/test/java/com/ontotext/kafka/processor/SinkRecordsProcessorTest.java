@@ -338,14 +338,14 @@ public class SinkRecordsProcessorTest {
 
 	@Test
 	@Timeout(5)
-	void test_doFlush_retryOnce_ok() {
+	void test_doFlush_throwRepostitoryException_convertToRetriableException() {
 
 		RepositoryConnection mockConnection = mock(RepositoryConnection.class);
 		doReturn(mockConnection).when(repositoryMgr).newConnection();
 
 		doNothing().when(mockConnection).rollback();
 		doNothing().when(mockConnection).begin();
-		doNothing().when(mockConnection).commit();
+		doThrow(new RepositoryException("EX")).doNothing().when(mockConnection).commit();
 
 		Collection<SinkRecord> records = generateSinkRecords(10, 20);
 		Queue<SinkRecord> recordBatch = new ConcurrentLinkedQueue<>(records);
