@@ -1,5 +1,6 @@
 package com.ontotext.kafka.test.framework;
 
+import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.sink.SinkRecord;
 
 import java.util.ArrayList;
@@ -25,15 +26,34 @@ public class RdfMockDataUtils {
 
 
 	public static Collection<SinkRecord> generateSinkRecords(int recordsSize, int statementsSize) {
+		return generateSinkRecords(recordsSize, statementsSize, "topic", 0, null, "key", null, 12);
+	}
+
+	public static Collection<SinkRecord> generateSinkRecords(int recordsSize, int statementsSize, String key) {
+		return generateSinkRecords(recordsSize, statementsSize, "topic", 0, null, key, null, 12);
+	}
+
+	public static Collection<SinkRecord> generateSinkRecords(int recordsSize, int statementsSize, String topic, int partition, Schema keySchema, String key,
+															 Schema valueSchema, long kafkaOffset) {
 		Collection<SinkRecord> records = new ArrayList<>();
 		for (int i = 0; i < recordsSize; i++) {
-			records.add(generateSinkRecord(statementsSize));
+			records.add(generateSinkRecord(statementsSize, topic, partition, keySchema, key, valueSchema, kafkaOffset));
 		}
 		return records;
 	}
 
+
 	public static SinkRecord generateSinkRecord(int statementsSize) {
-		return new SinkRecord("topic", 0, null, "key", null,
-			generateRDFStatements(statementsSize).getBytes(), 12);
+		return generateSinkRecord(statementsSize, "topic", 0, null, "key", null, 12);
+	}
+
+	public static SinkRecord generateSinkRecord(int statementsSize, String key) {
+		return generateSinkRecord(statementsSize, "topic", 0, null, key, null, 12);
+	}
+
+	public static SinkRecord generateSinkRecord(int statementsSize, String topic, int partition, Schema keySchema, String key, Schema valueSchema,
+												long kafkaOffset) {
+		return new SinkRecord(topic, partition, keySchema, key, valueSchema,
+			generateRDFStatements(statementsSize).getBytes(), kafkaOffset);
 	}
 }
