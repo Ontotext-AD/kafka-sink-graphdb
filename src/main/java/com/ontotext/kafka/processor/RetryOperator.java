@@ -68,14 +68,17 @@ public class RetryOperator {
 		while (true) {
 			try {
 				attempt++;
+				log.trace("Attempt {} to execute the operation", attempt);
 				operation.run();
+				log.trace("Operation successfully executed on attempt {}", attempt);
 				return null;
 			} catch (RetriableException e) {
 				log.trace("Caught a retriable exception - {}", e.getMessage());
 				if (time.milliseconds() < deadline) {
+					log.trace("Can retry- backing off");
 					backoff(attempt, deadline);
 				} else {
-					log.trace("Can't retry. start={}, attempt={}, deadline={}", startTime, attempt, deadline);
+					log.trace("Cannot retry. start={}, attempt={}, deadline={}", startTime, attempt, deadline);
 					return e;
 				}
 			}
@@ -91,8 +94,10 @@ public class RetryOperator {
 	 */
 	protected Exception execAndHandleError(Runnable operation) {
 		try {
+			log.debug("Executing operation");
 			return execAndRetry(operation);
 		} catch (Exception e) {
+			log.trace("Caught exception during operation execution", e);
 			if (config.getTolerance() == ToleranceType.NONE) {
 				throw new ConnectException("Tolerance exceeded in error handler", e);
 			}
