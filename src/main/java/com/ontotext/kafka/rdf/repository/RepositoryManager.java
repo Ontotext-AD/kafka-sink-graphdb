@@ -1,10 +1,14 @@
 package com.ontotext.kafka.rdf.repository;
 
 import com.ontotext.kafka.GraphDBSinkConfig;
+import com.ontotext.kafka.tls.HttpsClientManager;
+import org.apache.commons.lang.StringUtils;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.http.HTTPRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
 
 public class RepositoryManager {
 
@@ -37,6 +41,14 @@ public class RepositoryManager {
 			default: // Any other types which are valid, as per definition, but are not implemented yet
 				throw new UnsupportedOperationException(authType + " not supported");
 		}
+	}
+
+	public static HTTPRepository createHttpRepository(String serverUrl, String thumbprint, String repository) throws IOException {
+		HTTPRepository httpRepository = new HTTPRepository(serverUrl, repository);
+		if (HttpsClientManager.isUrlHttps(serverUrl) && StringUtils.isNotEmpty(thumbprint)) {
+			httpRepository.setHttpClient(HttpsClientManager.createHttpClient(serverUrl, thumbprint));
+		}
+		return httpRepository;
 	}
 
 	public String getRepositoryURL() {

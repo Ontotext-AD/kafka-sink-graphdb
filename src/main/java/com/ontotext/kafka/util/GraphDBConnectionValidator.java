@@ -1,6 +1,8 @@
 package com.ontotext.kafka.util;
 
 import com.ontotext.kafka.GraphDBSinkConfig;
+import com.ontotext.kafka.rdf.repository.RepositoryManager;
+import com.ontotext.kafka.tls.HttpsClientManager;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.client.methods.HttpGet;
@@ -19,9 +21,11 @@ import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.net.ssl.SSLContext;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.security.NoSuchAlgorithmException;
 import java.util.Collections;
 import java.util.Map;
 import java.util.function.Function;
@@ -45,32 +49,60 @@ public final class GraphDBConnectionValidator {
 			.collect(Collectors.toMap(ConfigValue::name, Function.identity()));
 
 		ConfigValue serverIri = configValues.get(SERVER_URL);
+		String serverUrl = (String) serverIri.value();
+		String thumbprint = (String) configValues.get(TLS_THUMBPRINT).value();
 		try {
-			validateGraphDBVersion(serverIri);
+			validateAndCreateHttpClient(serverUrl, thumbprint);
+		} catch (ConfigException e) {
+			serverIri.addErrorMessage(e.getMessage());
+			return validatedConnectorConfigs;
+		}
+
+		try {
+			validateGraphDBVersion(serverUrl);
 		} catch (ConfigException e) {
 			serverIri.addErrorMessage(e.getMessage());
 			return validatedConnectorConfigs;
 		}
 
 		ConfigValue repository = configValues.get(REPOSITORY);
-
 		ConfigValue authType = configValues.get(AUTH_TYPE);
 		if (authType == null) {
 			LOG.warn("No auth type for repository connection provided. Assuming {}", NONE);
 			authType = new ConfigValue(AUTH_TYPE, NONE, Collections.emptyList(), Collections.emptyList());
 		}
-
-		HTTPRepository testRepository = new HTTPRepository((String) serverIri.value(), (String) repository.value());
 		try {
+			HTTPRepository testRepository = RepositoryManager.createHttpRepository(serverUrl, thumbprint, (String) repository.value());
 			doValidate(configValues, testRepository, authType);
 		} catch (ConfigException e) {
 			authType.addErrorMessage(e.getMessage());
 		} catch (RepositoryException e) {
 			repository.addErrorMessage(new ConfigException(REPOSITORY, repository.value(),
 				e.getMessage() + ": Invalid repository").getMessage());
+		} catch (IOException e) {
+			serverIri.addErrorMessage(e.getMessage());
 		}
 
 		return validatedConnectorConfigs;
+	}
+
+	private static void validateAndCreateHttpClient(String serverUrl, String tlsThumbprint) {
+		if (!HttpsClientManager.isUrlHttps(serverUrl)) {
+			// Ignore thumbprint validation since we are not working with TLS
+			return;
+		}
+		if (StringUtils.isEmpty(tlsThumbprint)) {
+			throw new ConfigException("Using TLS but no TLS thumbprint provided");
+		}
+
+		try {
+			if (HttpsClientManager.getCertificate(serverUrl, tlsThumbprint) == null) {
+				throw new ConfigException(String.format("Server %s did not return a certificate that has thumbprint matching %s", serverUrl, tlsThumbprint));
+			}
+		} catch (Exception e) {
+			LOG.error("Caught exception while initializing TLS context", e);
+			throw new ConfigException(e.getMessage());
+		}
 	}
 
 	private static void validateTemplate(RepositoryConnection connection, String templateId) {
@@ -88,18 +120,20 @@ public final class GraphDBConnectionValidator {
 		}
 	}
 
-	private static void validateGraphDBVersion(ConfigValue serverIri) {
+	private static void validateGraphDBVersion(String serverUrl) {
 		try {
 			LOG.trace("Validating GraphDB version");
 			URL versionUrl;
 			String version;
-			if (serverIri.value().toString().endsWith("/")) {
-				versionUrl = new URL(serverIri.value() + "rest/info/version");
+			if (serverUrl.toString().endsWith("/")) {
+				versionUrl = new URL(serverUrl + "rest/info/version");
 			} else {
-				versionUrl = new URL(serverIri.value() + "/rest/info/version");
+				versionUrl = new URL(serverUrl + "/rest/info/version");
 			}
 			try {
 				version = new JSONObject(IOUtils.toString(HttpClientBuilder.create()
+					.setSSLContext(SSLContext.getDefault())
+					.setSSLHostnameVerifier((hostname, session) -> true)
 					.build()
 					.execute(new HttpGet(versionUrl.toString()))
 					.getEntity()
@@ -107,18 +141,21 @@ public final class GraphDBConnectionValidator {
 				LOG.trace("Using GraphDB version {}", version);
 			} catch (JSONException e) {
 				LOG.error("Caught JSON exception while validating GraphDB version", e);
-				throw new ConfigException(SERVER_URL, serverIri.value(),
+				throw new ConfigException(SERVER_URL, serverUrl,
+					"No GraphDB running on the provided GraphDB server URL");
+			} catch (NoSuchAlgorithmException e) {
+				throw new ConfigException(SERVER_URL, serverUrl,
 					"No GraphDB running on the provided GraphDB server URL");
 			}
 			String[] versionSplits = version.split("[.\\-]");
 			if (Integer.parseInt(versionSplits[0]) < 10 && Integer.parseInt(versionSplits[1]) < 10) {
-				throw new ConfigException(SERVER_URL, serverIri.value(),
+				throw new ConfigException(SERVER_URL, serverUrl,
 					"Kafka sink is supported on GraphDB 9.10 or newer. Please update your GraphDB");
 
 			}
 		} catch (IOException e) {
 			LOG.error("Caught I/O exception while validating GraphDB version", e);
-			throw new ConfigException(SERVER_URL, serverIri.value(),
+			throw new ConfigException(SERVER_URL, serverUrl,
 				"No GraphDB running on the provided GraphDB server URL");
 		}
 	}

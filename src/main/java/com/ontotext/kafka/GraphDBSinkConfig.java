@@ -49,6 +49,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	private final Password authBasicPassword;
 	private final String connectorName;
 	private final long backOffTimeoutMs;
+	private final String tlsThumbprint;
 
 
 	public enum AuthenticationType {
@@ -108,6 +109,10 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	public static final String TEMPLATE_ID = "graphdb.template.id";
 	public static final String TEMPLATE_ID_DOC = "The id(IRI) of GraphDB Template to be used by in SPARQL Update";
 
+	public static final String TLS_THUMBPRINT = "graphdb.tls.thumbprint";
+	public static final String TLS_THUMBPRINT_DOC = "The TLS certificate thumbprint of the GraphDB instance (required only one if using certificate chain)";
+
+
 	public static final String ERROR_GROUP = "Error Handling";
 	public static final String DLQ_TOPIC_DISPLAY = "Dead Letter Queue Topic Name";
 
@@ -130,6 +135,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 		this.authBasicUser = getString(AUTH_BASIC_USER);
 		this.authBasicPassword = getPassword(AUTH_BASIC_PASS);
 		this.connectorName = (String) originals.get(NAME_CONFIG);
+		this.tlsThumbprint = (String) originals.get(TLS_THUMBPRINT);
 	}
 
 	private ToleranceType parseTolerance() {
@@ -241,6 +247,13 @@ public class GraphDBSinkConfig extends AbstractConfig {
 				null,
 				ConfigDef.Importance.MEDIUM,
 				TEMPLATE_ID_DOC
+			)
+			.define(
+				TLS_THUMBPRINT,
+				ConfigDef.Type.STRING,
+				null,
+				ConfigDef.Importance.MEDIUM,
+				TLS_THUMBPRINT_DOC
 			)
 			//error handling
 			.define(
@@ -369,6 +382,10 @@ public class GraphDBSinkConfig extends AbstractConfig {
 
 	public long getBackOffTimeoutMs() {
 		return backOffTimeoutMs;
+	}
+
+	public String getTlsThumbprint() {
+		return tlsThumbprint;
 	}
 
 	public static class GraphDBConfigDef extends ConfigDef {
