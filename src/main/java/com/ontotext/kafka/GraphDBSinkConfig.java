@@ -139,7 +139,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 		this.authBasicPassword = getPassword(AUTH_BASIC_PASS);
 		this.connectorName = (String) originals.get(NAME_CONFIG);
 		this.tlsThumbprint = (String) originals.get(TLS_THUMBPRINT);
-		this.hostnameVerificationEnabled = (boolean) originals.get(HOSTNAME_VERIFICATION);
+		this.hostnameVerificationEnabled = Boolean.parseBoolean((String) originals.get(HOSTNAME_VERIFICATION));
 	}
 
 	private ToleranceType parseTolerance() {
