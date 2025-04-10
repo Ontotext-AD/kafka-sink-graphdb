@@ -104,11 +104,8 @@ public final class HttpsClientManager {
 	 * @throws IllegalArgumentException - if no thumbprint provided by the server url is https
 	 */
 	public static CloseableHttpClient createHttpClient(String serverUrl, String sha256Thumbprint, boolean hostnameVerificationEnabled) throws SSLException {
-		if (isUrlHttps(serverUrl)) {
-			if (StringUtils.isEmpty(sha256Thumbprint)) {
-				throw new IllegalArgumentException("Thumbprint should not be empty if using TLS");
-			}
-		} else {
+		if (!isUrlHttps(serverUrl) || StringUtils.isEmpty(sha256Thumbprint)) {
+			log.info("Not an HTTPS connection, or no thumbprint provided. Skipping creation of custom HTTPClient");
 			return getClientBuilder().build();
 		}
 		log.info("Getting the certificate that has the thumbprint {} from {}", sha256Thumbprint, serverUrl);
