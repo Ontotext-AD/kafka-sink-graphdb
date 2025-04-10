@@ -97,12 +97,13 @@ public final class HttpsClientManager {
 	/**
 	 * Initialize the TLS context for working with the provided server. This will configure the default {@link SSLContext} for all communication
 	 *
-	 * @param serverUrl        - the server url
-	 * @param sha256Thumbprint - the SHA-256 thumbprint of the server certificate
-	 * @throws SSLException - if any error occured during configuration
+	 * @param serverUrl                   - the server url
+	 * @param sha256Thumbprint            - the SHA-256 thumbprint of the server certificate
+	 * @param hostnameVerificationEnabled
+	 * @throws SSLException             - if any error occured during configuration
 	 * @throws IllegalArgumentException - if no thumbprint provided by the server url is https
 	 */
-	public static CloseableHttpClient createHttpClient(String serverUrl, String sha256Thumbprint) throws SSLException {
+	public static CloseableHttpClient createHttpClient(String serverUrl, String sha256Thumbprint, boolean hostnameVerificationEnabled) throws SSLException {
 		if (isUrlHttps(serverUrl)) {
 			if (StringUtils.isEmpty(sha256Thumbprint)) {
 				throw new IllegalArgumentException("Thumbprint should not be empty if using TLS");
@@ -131,10 +132,13 @@ public final class HttpsClientManager {
 			log.debug("Registering the composite Trust Manager");
 			SSLContext context = SSLContext.getInstance("TLS");
 			context.init(null, new TrustManager[]{compositeTrustManager}, null);
-			return getClientBuilder()
-				.setSSLContext(context)
-				.setSSLHostnameVerifier((hostname, session) -> true)
-				.build();
+			HttpClientBuilder builder = getClientBuilder()
+				.setSSLContext(context);
+			if (!hostnameVerificationEnabled) {
+				builder.setSSLHostnameVerifier((hostname, session) -> true);
+			}
+
+			return builder.build();
 		} catch (Exception e) {
 			log.error("Failed to initialize the TLS context due to exception", e);
 			throw new SSLException(e);

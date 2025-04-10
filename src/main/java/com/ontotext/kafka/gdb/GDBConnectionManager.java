@@ -25,7 +25,8 @@ public class GDBConnectionManager {
 	 */
 	public GDBConnectionManager(GdbConnectionConfig config) {
 		try {
-			this.repository = initRepository(config, createHttpClient(config.getServerUrl(), config.getTlsThumbprint()));
+			this.repository = initRepository(config,
+				createHttpClient(config.getServerUrl(), config.getTlsThumbprint(), config.isHostnameVerificationEnabled()));
 		} catch (Exception e) {
 			throw new ConfigException(SERVER_URL, config.getServerUrl(), e.getMessage());
 		}
