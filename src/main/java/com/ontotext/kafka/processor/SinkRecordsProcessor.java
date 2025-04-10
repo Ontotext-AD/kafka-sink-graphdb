@@ -2,8 +2,9 @@ package com.ontotext.kafka.processor;
 
 import com.ontotext.kafka.GraphDBSinkConfig;
 import com.ontotext.kafka.error.LogErrorHandler;
+import com.ontotext.kafka.gdb.GDBConnectionManager;
+import com.ontotext.kafka.gdb.GdbConnectionConfig;
 import com.ontotext.kafka.processor.record.handler.RecordHandler;
-import com.ontotext.kafka.rdf.repository.RepositoryManager;
 import com.ontotext.kafka.util.ValueUtil;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.RetriableException;
@@ -36,7 +37,7 @@ public final class SinkRecordsProcessor implements Runnable {
 	private final UUID id = UUID.randomUUID();
 	private final LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords;
 	private final Queue<SinkRecord> recordsBatch;
-	private final RepositoryManager repositoryManager;
+	private final GDBConnectionManager connectionManager;
 	private final int batchSize;
 	private final long timeoutCommitMs;
 	private final LogErrorHandler errorHandler;
@@ -47,25 +48,25 @@ public final class SinkRecordsProcessor implements Runnable {
 	private final RetryOperator retryOperator;
 
 	public SinkRecordsProcessor(GraphDBSinkConfig config) {
-		this(config, new LinkedBlockingQueue<>(), new RepositoryManager(config));
+		this(config, new LinkedBlockingQueue<>(), new GDBConnectionManager(new GdbConnectionConfig(config)));
 	}
 
-	public SinkRecordsProcessor(GraphDBSinkConfig config, LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords, RepositoryManager repositoryManager) {
-		this(config, sinkRecords, repositoryManager, new RetryOperator(config));
+	public SinkRecordsProcessor(GraphDBSinkConfig config, LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords, GDBConnectionManager connectionManager) {
+		this(config, sinkRecords, connectionManager, new RetryOperator(config));
 	}
 
 
-	public SinkRecordsProcessor(GraphDBSinkConfig config, LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords, RepositoryManager repositoryManager,
+	public SinkRecordsProcessor(GraphDBSinkConfig config, LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords, GDBConnectionManager connectionManager,
 								RetryOperator retryOperator) {
-		this(config, sinkRecords, new LinkedList<>(), repositoryManager, new LogErrorHandler(config), RecordHandler.getRecordHandler(config), retryOperator);
+		this(config, sinkRecords, new LinkedList<>(), connectionManager, new LogErrorHandler(config), RecordHandler.getRecordHandler(config), retryOperator);
 	}
 
 	private SinkRecordsProcessor(GraphDBSinkConfig config, LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords, Queue<SinkRecord> recordsBatch,
-								 RepositoryManager repositoryManager, LogErrorHandler logErrorHandler, RecordHandler recordHandler,
+								 GDBConnectionManager connectionManager, LogErrorHandler logErrorHandler, RecordHandler recordHandler,
 								 RetryOperator retryOperator) {
 		this.config = config;
 		this.sinkRecords = sinkRecords;
-		this.repositoryManager = repositoryManager;
+		this.connectionManager = connectionManager;
 		this.errorHandler = logErrorHandler;
 		this.recordHandler = recordHandler;
 		this.retryOperator = retryOperator;
@@ -75,7 +76,7 @@ public final class SinkRecordsProcessor implements Runnable {
 		this.transactionType = config.getTransactionType();
 
 		// repositoryUrl is used for logging purposes
-		MDC.put("RepositoryURL", repositoryManager.getRepositoryURL());
+		MDC.put("RepositoryURL", connectionManager.getRepositoryURL());
 		MDC.put("Connector", config.getConnectorName());
 	}
 
@@ -93,7 +94,7 @@ public final class SinkRecordsProcessor implements Runnable {
 					consumeRecords(messages);
 				} else {
 					LOG.trace("Did not receive any records (waited {} {} ) for repository {}. Flushing all records in batch.", timeoutCommitMs,
-						TimeUnit.MILLISECONDS, repositoryManager);
+						TimeUnit.MILLISECONDS, connectionManager);
 					flushUpdates(this.recordsBatch);
 				}
 			} catch (RetriableException e) {
@@ -142,7 +143,7 @@ public final class SinkRecordsProcessor implements Runnable {
 			LOG.warn("While shutting down, failed to flush updates due to exception", e);
 		}
 
-		repositoryManager.shutDownRepository();
+		connectionManager.shutDownRepository();
 	}
 
 	void consumeRecords(Collection<SinkRecord> messages) {
@@ -178,7 +179,7 @@ public final class SinkRecordsProcessor implements Runnable {
 		// Keep a copy of all consumed records, so that records are not lost if the transaction fails to commit
 		Collection<SinkRecord> consumedRecords = new ArrayList<>();
 		long start = System.currentTimeMillis();
-		try (RepositoryConnection connection = repositoryManager.newConnection()) {
+		try (RepositoryConnection connection = connectionManager.newConnection()) {
 			connection.begin();
 			int recordsInCurrentBatch = recordsBatch.size();
 			LOG.trace("Transaction started, batch size: {} , records in current batch: {}", batchSize, recordsInCurrentBatch);
