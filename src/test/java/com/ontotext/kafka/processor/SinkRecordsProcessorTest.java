@@ -2,9 +2,9 @@ package com.ontotext.kafka.processor;
 
 import com.google.common.collect.Streams;
 import com.ontotext.kafka.GraphDBSinkConfig;
+import com.ontotext.kafka.gdb.GDBConnectionManager;
+import com.ontotext.kafka.gdb.MockRepositoryManager;
 import com.ontotext.kafka.processor.record.handler.RecordHandler;
-import com.ontotext.kafka.rdf.repository.MockRepositoryManager;
-import com.ontotext.kafka.rdf.repository.RepositoryManager;
 import com.ontotext.kafka.test.framework.RepositoryMockBuilder;
 import com.ontotext.kafka.test.framework.TestSinkConfigBuilder;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -35,7 +35,7 @@ import static org.mockito.Mockito.*;
 public class SinkRecordsProcessorTest {
 
 	private LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords;
-	private RepositoryManager repositoryMgr;
+	private GDBConnectionManager repositoryMgr;
 	private SinkRecordsProcessor processor;
 	private GraphDBSinkConfig config;
 	private HTTPRepository repository;

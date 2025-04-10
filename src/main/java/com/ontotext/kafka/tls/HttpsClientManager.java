@@ -1,6 +1,7 @@
 package com.ontotext.kafka.tls;
 
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.lang.StringUtils;
 import org.apache.http.HttpConnection;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpRequestRetryHandler;
@@ -20,15 +21,14 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
-import java.security.KeyManagementException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
-import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.util.Objects;
+
+import static com.ontotext.kafka.tls.TrustAllSSLContext.SSL_CONTEXT;
 
 /**
  * A utility class to confiure the TLS connection between the Kafka Sink Connector (client) and downstream GraphDB instance (server)
@@ -49,12 +49,9 @@ public final class HttpsClientManager {
 	 * @return The certificate, or `null` if no certificate was found that matches the thumbprint
 	 * @throws IOException              if any error occurs while establishing or working with an active connection to the server
 	 * @throws IllegalArgumentException if the `connectionUrl` is invalid
-	 * @throws NullPointerException     if the `connectionUrl` or the `sha256Thumbprint` values are null
 	 * @throws RuntimeException         if any other error occurs during validation that are not expected
 	 */
 	public static X509Certificate getCertificate(String connectionUrl, String sha256Thumbprint) throws IOException {
-		Objects.requireNonNull(connectionUrl, "No connection URL provided");
-		Objects.requireNonNull(sha256Thumbprint, "Thumbprint is null");
 		if (!isUrlHttps(connectionUrl)) {
 			throw new IllegalArgumentException("Invalid connection URL: " + connectionUrl);
 		}
@@ -68,9 +65,7 @@ public final class HttpsClientManager {
 				throw new IllegalArgumentException("Not an HTTPS connection");
 			}
 			log.debug("Creating the trustAll trust manager for this connection only");
-			SSLContext ctx = SSLContext.getInstance("TLS");
-			ctx.init(null, new TrustManager[]{new TrustAllManager()}, null);
-			conn.setSSLSocketFactory(ctx.getSocketFactory());
+			conn.setSSLSocketFactory(SSL_CONTEXT.getSocketFactory());
 			conn.setHostnameVerifier((hostname, session) -> true);
 			log.info("Connecting to {}", connectionUrl);
 			conn.connect();
@@ -93,8 +88,8 @@ public final class HttpsClientManager {
 			return null;
 		} catch (MalformedURLException e) {
 			throw new IllegalArgumentException("Invalid URL", e);
-		} catch (KeyManagementException | CertificateEncodingException | NoSuchAlgorithmException e) {
-			throw new RuntimeException(e);
+		} catch (CertificateEncodingException e) {
+			throw new IllegalArgumentException("Invalid certificates from server", e);
 		}
 	}
 
@@ -105,8 +100,16 @@ public final class HttpsClientManager {
 	 * @param serverUrl        - the server url
 	 * @param sha256Thumbprint - the SHA-256 thumbprint of the server certificate
 	 * @throws SSLException - if any error occured during configuration
+	 * @throws IllegalArgumentException - if no thumbprint provided by the server url is https
 	 */
-	public static CloseableHttpClient createHttpClient(String serverUrl, String sha256Thumbprint) throws IOException {
+	public static CloseableHttpClient createHttpClient(String serverUrl, String sha256Thumbprint) throws SSLException {
+		if (isUrlHttps(serverUrl)) {
+			if (StringUtils.isEmpty(sha256Thumbprint)) {
+				throw new IllegalArgumentException("Thumbprint should not be empty if using TLS");
+			}
+		} else {
+			return getClientBuilder().build();
+		}
 		log.info("Getting the certificate that has the thumbprint {} from {}", sha256Thumbprint, serverUrl);
 		try {
 			X509Certificate certificate = getCertificate(serverUrl, sha256Thumbprint);
@@ -128,12 +131,7 @@ public final class HttpsClientManager {
 			log.debug("Registering the composite Trust Manager");
 			SSLContext context = SSLContext.getInstance("TLS");
 			context.init(null, new TrustManager[]{compositeTrustManager}, null);
-			return HttpClientBuilder.create()
-				.evictExpiredConnections()
-				.setRetryHandler(new RetryHandlerStale())
-				.setServiceUnavailableRetryStrategy(new ServiceUnavailableRetryHandler())
-				.useSystemProperties()
-				.setDefaultRequestConfig(RequestConfig.custom().setCookieSpec(CookieSpecs.STANDARD).build())
+			return getClientBuilder()
 				.setSSLContext(context)
 				.setSSLHostnameVerifier((hostname, session) -> true)
 				.build();
@@ -142,6 +140,15 @@ public final class HttpsClientManager {
 			throw new SSLException(e);
 		}
 
+	}
+
+	private static HttpClientBuilder getClientBuilder() {
+		return HttpClientBuilder.create()
+			.evictExpiredConnections()
+			.setRetryHandler(new RetryHandlerStale())
+			.setServiceUnavailableRetryStrategy(new ServiceUnavailableRetryHandler())
+			.useSystemProperties()
+			.setDefaultRequestConfig(RequestConfig.custom().setCookieSpec(CookieSpecs.STANDARD).build());
 	}
 
 	private static X509TrustManager getTrustManagerForStore(KeyStore keyStore) throws NoSuchAlgorithmException, KeyStoreException {
@@ -163,23 +170,6 @@ public final class HttpsClientManager {
 
 	private static String sanitize(String sha256Thumbprint) {
 		return sha256Thumbprint.replaceAll(":", "").toLowerCase();
-	}
-
-	private static class TrustAllManager implements X509TrustManager {
-		@Override
-		public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
-
-		}
-
-		@Override
-		public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
-
-		}
-
-		@Override
-		public X509Certificate[] getAcceptedIssuers() {
-			return new X509Certificate[0];
-		}
 	}
 
 
