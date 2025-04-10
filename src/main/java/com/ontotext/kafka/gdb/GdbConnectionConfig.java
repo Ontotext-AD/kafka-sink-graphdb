@@ -20,9 +20,11 @@ public class GdbConnectionConfig {
 	private final GraphDBSinkConfig.AuthenticationType authType;
 	private final String username;
 	private final Password password;
+	private final boolean hostnameVerificationEnabled;
 
 	public GdbConnectionConfig(GraphDBSinkConfig config) {
-		this(config.getServerUrl(), config.getRepositoryId(), config.getTlsThumbprint(), config.getAuthType(), config.getAuthBasicUser(),
+		this(config.getServerUrl(), config.getRepositoryId(), config.getTlsThumbprint(), config.isHostnameVerificationEnabled(), config.getAuthType(),
+			config.getAuthBasicUser(),
 			config.getAuthBasicPassword());
 	}
 
@@ -35,9 +37,11 @@ public class GdbConnectionConfig {
 		this.authType = AuthenticationType.valueOf(getValue(valueMap.get(AUTH_TYPE), true).toUpperCase());
 		this.username = getValue(valueMap.get(AUTH_BASIC_USER), this.authType != GraphDBSinkConfig.AuthenticationType.NONE);
 		this.password = getValue(valueMap.get(AUTH_BASIC_PASS), Password.class, this.authType != GraphDBSinkConfig.AuthenticationType.NONE);
+		this.hostnameVerificationEnabled = getValue(valueMap.get(HOSTNAME_VERIFICATION), Boolean.class, false);
 	}
 
-	public GdbConnectionConfig(String serverUrl, String repositoryId, String tlsThumbprint, GraphDBSinkConfig.AuthenticationType authType, String authBasicUser,
+	public GdbConnectionConfig(String serverUrl, String repositoryId, String tlsThumbprint, boolean hostnameVerificationEnabled,
+							   GraphDBSinkConfig.AuthenticationType authType, String authBasicUser,
 							   Password authBasicPassword) {
 		this.serverUrl = getValue(serverUrl, true);
 		this.repositoryId = getValue(repositoryId, true);
@@ -45,6 +49,7 @@ public class GdbConnectionConfig {
 		this.authType = getValue(authType, true);
 		this.username = getValue(authBasicUser, this.authType != GraphDBSinkConfig.AuthenticationType.NONE);
 		this.password = getValue(authBasicPassword, this.authType != GraphDBSinkConfig.AuthenticationType.NONE);
+		this.hostnameVerificationEnabled = getValue(hostnameVerificationEnabled, false);
 	}
 
 	public String getServerUrl() {
@@ -71,9 +76,15 @@ public class GdbConnectionConfig {
 		return password;
 	}
 
+
+	public boolean isHostnameVerificationEnabled() {
+		return hostnameVerificationEnabled;
+	}
+
 	private String getValue(ConfigValue value, boolean failOnNull) {
 		return getValue(value, String.class, failOnNull);
 	}
+
 
 	private <T> T getValue(ConfigValue value, Class<T> type, boolean failOnNull) {
 		try {

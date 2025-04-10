@@ -246,3 +246,61 @@ services:
 > Open the `docker-compose.yml`, find the service definition for the connector you want to debug,
 > find the `environment` section of the service, and uncomment the line that starts with `JAVA_TOOL_OPTIONS`
 > By default, the JVM debug listener will listen on port 5005, you can change the port accoding to your needs.
+
+### Configuring GDB communication using TLS
+
+As of version `3.0.1` the Kafka Sink Connector can communicate wih GraphDB instances that are deployed with their own set of certificates, i.e. such
+certificates that would not be
+automatically trusted by the connector. To setup the connector, use the following two config properties:
+
+`graphdb.tls.thumbprint` - This is the SHA-256 thumbprint of the certificate that the connector will use to trust the communication to GraphDB. The thumbprint
+can be viewed in any browser when reviewing the certificate (or chain) or by running the following `openssl` command in a shell:
+
+```bash
+$ openss x509 -noout -fingerprint -sha256 -inform pm -in ${CERT_FILE}
+```
+
+The `CERT_FILE` is the local file containing the PEM contents of the certificate.
+
+`graphdb.tls.hostname.verification.enabled` - This property specifies whether hostname verification should be performed as part of the certificate verification.
+By default, this option is enabled,
+but it can be disabled (i.e. set to `false`) in cases when the connection `FQDN` and the specified hostname in the certificate do not match.
+
+Example configuration
+
+```shell
+	if ! curl -s --fail host:port/connectors/kafka-sink-graphdb &> /dev/null; then
+		curl -H 'Content-Type: application/json' --data '
+		{
+			"name": "kafka-sink-graphdb",
+			"config": {
+				"connector.class":"com.ontotext.kafka.GraphDBSinkConnector",
+				"key.converter": "com.ontotext.kafka.convert.DirectRDFConverter",
+				"value.converter": "com.ontotext.kafka.convert.DirectRDFConverter",
+				"value.converter.schemas.enable": "false",
+				"topics":"test",
+				"tasks.max":"1",
+				"offset.storage.file.filename": "/tmp/storage",
+				"graphdb.server.url": "http://graphdb:7200",
+				"graphdb.server.repository": "test",
+				"graphdb.batch.size": 64,
+				"graphdb.batch.commit.limit.ms": 1000,
+				"graphdb.auth.type": "NONE",
+				"graphdb.update.type": "ADD",
+				"graphdb.update.rdf.format": "nq",
+				"errors.tolerance": "all",
+				"graphdb.tls.thumbprint" : "AC:35:97:9B:C9:2E:5A:1F:2D:C4:30:1B:D8:06:F4:1A:31:31:CA:D7:F2:01:B6:FF:A3:9D:7B:61:AF:7B:74:1E",
+				"graphdb.tls.hostname.verification.enabled": "true",
+				"bootstrap.servers": "localhost:9092",
+				"errors.deadletterqueue.topic.name": "failed-messages-01",
+				"producer.override.errors.retry.timeout": "5000",
+				"producer.override.errors.retry.delay.max.ms": "1000",
+				"producer.override.errors.deadletterqueue.topic.replication.factor": "1",
+				"producer.override.bootstrap.servers": "your-bootstrap-servers",
+				"producer.override.security.protocol": "SASL_SSL",
+				"producer.override.sasl.mechanism": "PLAIN",
+				"producer.override.sasl.jaas.config": "your-sasl-config"
+			}
+		}' http://host:port/connectors -w "\n"
+	fi
+```

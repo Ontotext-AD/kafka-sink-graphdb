@@ -50,6 +50,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	private final String connectorName;
 	private final long backOffTimeoutMs;
 	private final String tlsThumbprint;
+	private final boolean hostnameVerificationEnabled;
 
 
 	public enum AuthenticationType {
@@ -112,6 +113,8 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	public static final String TLS_THUMBPRINT = "graphdb.tls.thumbprint";
 	public static final String TLS_THUMBPRINT_DOC = "The TLS certificate thumbprint of the GraphDB instance (required only one if using certificate chain)";
 
+	public static final String HOSTNAME_VERIFICATION = "graphdb.tls.hostname.verification.enabled";
+	public static final String HOSTNAME_VERIFICATION_DOC = "Enable the hostname verification when performing TLS certificate verification (Default enabled)";
 
 	public static final String ERROR_GROUP = "Error Handling";
 	public static final String DLQ_TOPIC_DISPLAY = "Dead Letter Queue Topic Name";
@@ -136,6 +139,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 		this.authBasicPassword = getPassword(AUTH_BASIC_PASS);
 		this.connectorName = (String) originals.get(NAME_CONFIG);
 		this.tlsThumbprint = (String) originals.get(TLS_THUMBPRINT);
+		this.hostnameVerificationEnabled = (boolean) originals.get(HOSTNAME_VERIFICATION);
 	}
 
 	private ToleranceType parseTolerance() {
@@ -254,6 +258,13 @@ public class GraphDBSinkConfig extends AbstractConfig {
 				null,
 				ConfigDef.Importance.MEDIUM,
 				TLS_THUMBPRINT_DOC
+			)
+			.define(
+				HOSTNAME_VERIFICATION,
+				ConfigDef.Type.BOOLEAN,
+				true,
+				ConfigDef.Importance.MEDIUM,
+				HOSTNAME_VERIFICATION_DOC
 			)
 			//error handling
 			.define(
@@ -386,6 +397,10 @@ public class GraphDBSinkConfig extends AbstractConfig {
 
 	public String getTlsThumbprint() {
 		return tlsThumbprint;
+	}
+
+	public boolean isHostnameVerificationEnabled() {
+		return hostnameVerificationEnabled;
 	}
 
 	public static class GraphDBConfigDef extends ConfigDef {

@@ -1,5 +1,24 @@
 # Kafka Sink Connector Changelog
 
+## Version 3.0.1
+
+### Highlights
+
+- TLS communication between Kafka Sink Connector and GraphDB
+- Fix retry mechanism for Kafka Sink Connector instances deployed in MSK cluster
+
+### Fixed
+
+- Fixed startup issues when using the Kafka Sink Connector in MSK cluster due to Kafka library incompatibilities
+
+### New
+
+- Added new runtime configuration properties for setting up TLS communication:
+	- `graphdb.tls.thumbprint` - The SHA-256 thumbprint of the GraphDB certificate (or any one of the certificate chain) that should be imported and trusted by
+	  the connector.
+	- `graphdb.tls.hostname.verification.enabled` - Whether hostname verification should be performed against the certificate (or certificate chain). Default
+	  set to `true`
+
 ## Version 3.0.0
 
 
