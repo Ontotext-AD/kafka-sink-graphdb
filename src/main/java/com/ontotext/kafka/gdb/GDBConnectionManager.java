@@ -44,17 +44,18 @@ public class GDBConnectionManager {
 		HTTPRepository repository = new HTTPRepository(address, repositoryId);
 		switch (authType) {
 			case NONE:
-				return repository;
+				break;
 			case BASIC:
 				if (LOG.isTraceEnabled()) {
 					LOG.trace("Initializing repository connection with user {}", config.getUsername());
 				}
 				repository.setUsernameAndPassword(config.getUsername(), config.getPassword().value());
-				repository.setHttpClient(httpClient);
-				return repository;
+				break;
 			default: // Any other types which are valid, as per definition, but are not implemented yet
 				throw new ConfigException(AUTH_TYPE, authType, "Authentication type is not supported or is invalid");
 		}
+		repository.setHttpClient(httpClient);
+		return repository;
 	}
 
 	public String getRepositoryURL() {
