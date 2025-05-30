@@ -257,7 +257,7 @@ automatically trusted by the connector. To setup the connector, use the followin
 can be viewed in any browser when reviewing the certificate (or chain) or by running the following `openssl` command in a shell:
 
 ```bash
-$ openss x509 -noout -fingerprint -sha256 -inform pm -in ${CERT_FILE}
+$ openssl x509 -noout -fingerprint -sha256 -inform pem -in ${CERT_FILE}
 ```
 
 The `CERT_FILE` is the local file containing the PEM contents of the certificate.
