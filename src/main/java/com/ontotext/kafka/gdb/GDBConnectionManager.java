@@ -8,9 +8,8 @@ import org.eclipse.rdf4j.repository.http.HTTPRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static com.ontotext.kafka.GraphDBSinkConfig.AUTH_TYPE;
 import static com.ontotext.kafka.GraphDBSinkConfig.SERVER_URL;
-import static com.ontotext.kafka.tls.HttpsClientManager.createHttpClient;
+import static com.ontotext.kafka.tls.HttpClientManager.createHttpClient;
 
 public class GDBConnectionManager {
 
@@ -25,8 +24,7 @@ public class GDBConnectionManager {
 	 */
 	public GDBConnectionManager(GdbConnectionConfig config) {
 		try {
-			this.repository = initRepository(config,
-				createHttpClient(config.getServerUrl(), config.getTlsThumbprint(), config.isHostnameVerificationEnabled()));
+			this.repository = initRepository(config, createHttpClient(config));
 		} catch (Exception e) {
 			throw new ConfigException(SERVER_URL, config.getServerUrl(), e.getMessage());
 		}
@@ -42,17 +40,12 @@ public class GDBConnectionManager {
 		String repositoryId = config.getRepositoryId();
 		GraphDBSinkConfig.AuthenticationType authType = config.getAuthType();
 		HTTPRepository repository = new HTTPRepository(address, repositoryId);
-		switch (authType) {
-			case NONE:
-				break;
-			case BASIC:
-				if (LOG.isTraceEnabled()) {
-					LOG.trace("Initializing repository connection with user {}", config.getUsername());
-				}
-				repository.setUsernameAndPassword(config.getUsername(), config.getPassword().value());
-				break;
-			default: // Any other types which are valid, as per definition, but are not implemented yet
-				throw new ConfigException(AUTH_TYPE, authType, "Authentication type is not supported or is invalid");
+		// Basic AUTH credentials are handled when creating the repository, while mTLS auth is handled when creating the HTTP Client
+		if (authType == GraphDBSinkConfig.AuthenticationType.BASIC) {
+			if (LOG.isTraceEnabled()) {
+				LOG.trace("Initializing repository connection with user {}", config.getUsername());
+			}
+			repository.setUsernameAndPassword(config.getUsername(), config.getPassword().value());
 		}
 		repository.setHttpClient(httpClient);
 		return repository;
