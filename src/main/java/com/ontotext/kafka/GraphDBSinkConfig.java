@@ -47,6 +47,11 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	private final String repositoryId;
 	private final String authBasicUser;
 	private final Password authBasicPassword;
+	private final String authMTlsClientCertificate;
+	private final String authMTlsClientCertificateKey;
+	private final String authMTlsClientCertificateKeyPassword;
+	private final String authCertificateHeaderString;
+	private final String authCertificateHeaderName;
 	private final String connectorName;
 	private final long backOffTimeoutMs;
 	private final String tlsThumbprint;
@@ -56,6 +61,8 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	public enum AuthenticationType {
 		NONE,
 		BASIC,
+		MTLS,
+		X509_HEADER,
 		CUSTOM;
 	}
 
@@ -84,8 +91,22 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	public static final String AUTH_BASIC_PASS_DOC = "GraphDB basic authentication password";
 	public static final String DEFAULT_AUTH_BASIC_PASS = "root";
 
-	public static final String AUTH_HEADER_TOKEN = "graphdb.auth.header.token";
-	public static final String AUTH_HEADER_TOKEN_DOC = "GraphDB custom header token";
+	public static final String MTLS_CERTIFICATE_STRING = "graphdb.auth.mtls.client.certificate";
+	public static final String MTLS_CERTIFICATE_STRING_DOC = "Client certificate (when using mTLS)";
+
+	public static final String MTLS_CERTIFICATE_KEY_STRING = "graphdb.auth.mtls.client.certificateKey";
+	public static final String MTLS_CERTIFICATE_KEY_STRING_DOC = "Client certificate key (when using mTLS)";
+
+	public static final String MTLS_CERTIFICATE_KEY_PASSWORD = "graphdb.auth.mtls.client.certificateKey";
+	public static final String MTLS_CERTIFICATE_KEY_PASSWORD_DOC = "Client certificate key password, if the key is encrupted (when using mTLS)";
+
+	public static final String AUTH_HEADER_CERTIFICATE_STRING = "graphdb.auth.header.certificate";
+	public static final String AUTH_HEADER_CERTIFICATE_STRING_DOC = "Client certificate (when using header-based authentication)";
+
+	public static final String AUTH_HEADER_NAME = "graphdb.auth.header.name";
+	public static final String AUTH_HEADER_NAME_DOC = "Client certificate header name (when using header-based authentication)";
+
+	public static final String DEFAULT_AUTH_HEADER_NAME = "ssl_client_cert";
 
 	public static final String RDF_FORMAT = "graphdb.update.rdf.format";
 	public static final String DEFAULT_RDF_TYPE = "ttl";
@@ -140,6 +161,11 @@ public class GraphDBSinkConfig extends AbstractConfig {
 		this.connectorName = (String) originals.get(NAME_CONFIG);
 		this.tlsThumbprint = (String) originals.get(TLS_THUMBPRINT);
 		this.hostnameVerificationEnabled = Boolean.parseBoolean((String) originals.get(HOSTNAME_VERIFICATION));
+		this.authMTlsClientCertificate = getString(MTLS_CERTIFICATE_STRING);
+		this.authMTlsClientCertificateKey = getString(MTLS_CERTIFICATE_KEY_STRING);
+		this.authMTlsClientCertificateKeyPassword = getString(MTLS_CERTIFICATE_KEY_PASSWORD);
+		this.authCertificateHeaderName = getString(AUTH_HEADER_NAME);
+		this.authCertificateHeaderString = getString(AUTH_HEADER_CERTIFICATE_STRING);
 	}
 
 	private ToleranceType parseTolerance() {
@@ -239,11 +265,18 @@ public class GraphDBSinkConfig extends AbstractConfig {
 				new VisibleIfRecommender(AUTH_TYPE, AuthenticationType.BASIC)
 			)
 			.define(
-				AUTH_HEADER_TOKEN,
+				AUTH_HEADER_CERTIFICATE_STRING,
 				ConfigDef.Type.STRING,
 				"",
 				ConfigDef.Importance.LOW,
-				AUTH_HEADER_TOKEN_DOC
+				AUTH_HEADER_CERTIFICATE_STRING_DOC
+			)
+			.define(
+				AUTH_HEADER_NAME,
+				ConfigDef.Type.STRING,
+				DEFAULT_AUTH_HEADER_NAME,
+				ConfigDef.Importance.LOW,
+				AUTH_HEADER_NAME_DOC
 			)
 			.define(
 				TEMPLATE_ID,
@@ -258,6 +291,27 @@ public class GraphDBSinkConfig extends AbstractConfig {
 				null,
 				ConfigDef.Importance.MEDIUM,
 				TLS_THUMBPRINT_DOC
+			)
+			.define(
+				MTLS_CERTIFICATE_STRING,
+				ConfigDef.Type.STRING,
+				null,
+				ConfigDef.Importance.MEDIUM,
+				MTLS_CERTIFICATE_STRING_DOC
+			)
+			.define(
+				MTLS_CERTIFICATE_KEY_STRING,
+				ConfigDef.Type.STRING,
+				null,
+				ConfigDef.Importance.MEDIUM,
+				MTLS_CERTIFICATE_KEY_STRING_DOC
+			)
+			.define(
+				MTLS_CERTIFICATE_KEY_PASSWORD,
+				ConfigDef.Type.STRING,
+				null,
+				ConfigDef.Importance.MEDIUM,
+				MTLS_CERTIFICATE_KEY_PASSWORD_DOC
 			)
 			.define(
 				HOSTNAME_VERIFICATION,
@@ -401,6 +455,26 @@ public class GraphDBSinkConfig extends AbstractConfig {
 
 	public boolean isHostnameVerificationEnabled() {
 		return hostnameVerificationEnabled;
+	}
+
+	public String getAuthMTlsClientCertificate() {
+		return authMTlsClientCertificate;
+	}
+
+	public String getAuthMTlsClientCertificateKey() {
+		return authMTlsClientCertificateKey;
+	}
+
+	public String getAuthMTlsClientCertificateKeyPassword() {
+		return authMTlsClientCertificateKeyPassword;
+	}
+
+	public String getAuthCertificateHeaderString() {
+		return authCertificateHeaderString;
+	}
+
+	public String getAuthCertificateHeaderName() {
+		return authCertificateHeaderName;
 	}
 
 	public static class GraphDBConfigDef extends ConfigDef {

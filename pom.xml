@@ -42,6 +42,7 @@
 		<docker.maven.version>0.40.2</docker.maven.version>
 		<diff.coverage.maven.plugin>0.3.3</diff.coverage.maven.plugin>
 		<dockerImageTag>${project.version}</dockerImageTag>
+		<bc.version>1.81</bc.version>
 
 		<internal.repo>https://maven.ontotext.com/content/repositories/owlim-releases</internal.repo>
 		<snapshots.repo>https://maven.ontotext.com/content/repositories/owlim-snapshots</snapshots.repo>
@@ -423,6 +424,16 @@
 			<artifactId>mockserver-junit-jupiter</artifactId>
 			<version>${mockserver.junit.jupiter.version}</version>
 			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.bouncycastle</groupId>
+			<artifactId>bcutil-jdk18on</artifactId>
+			<version>${bc.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.bouncycastle</groupId>
+			<artifactId>bcpkix-jdk18on</artifactId>
+			<version>${bc.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.sonatype.sisu</groupId>
