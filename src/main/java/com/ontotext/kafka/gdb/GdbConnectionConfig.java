@@ -50,7 +50,6 @@ public class GdbConnectionConfig {
 		this.password = getValue(valueMap.get(AUTH_BASIC_PASS), Password.class, this.authType == AuthenticationType.BASIC);
 		this.hostnameVerificationEnabled = getValue(valueMap.get(HOSTNAME_VERIFICATION), Boolean.class, false);
 
-		Base64.Decoder b64Decoder = Base64.getDecoder();
 		String mTlsClientCertificate = decode(getValue(valueMap.get(MTLS_CERTIFICATE_STRING), String.class, this.authType == AuthenticationType.MTLS));
 		String mTlsClientCertificateKey = decode(getValue(valueMap.get(MTLS_CERTIFICATE_KEY_STRING), String.class, this.authType == AuthenticationType.MTLS));
 		Password mTlsClientCertificateKeyPassword = getValue(valueMap.get(MTLS_CERTIFICATE_KEY_PASSWORD), Password.class, false);
@@ -69,11 +68,10 @@ public class GdbConnectionConfig {
 		this.repositoryId = getValue(REPOSITORY, repositoryId, true);
 		this.tlsThumbprint = getValue(TLS_THUMBPRINT, tlsThumbprint, false);
 		this.authType = getValue(AUTH_TYPE, authType, true);
-		this.username = getValue(AUTH_BASIC_USER, authBasicUser, this.authType == AuthenticationType.MTLS);
-		this.password = getValue(AUTH_BASIC_PASS, authBasicPassword, this.authType == AuthenticationType.MTLS);
+		this.username = getValue(AUTH_BASIC_USER, authBasicUser, this.authType == AuthenticationType.BASIC);
+		this.password = getValue(AUTH_BASIC_PASS, authBasicPassword, this.authType == AuthenticationType.BASIC);
 		this.hostnameVerificationEnabled = getValue(HOSTNAME_VERIFICATION, hostnameVerificationEnabled, false);
 
-		Base64.Decoder b64Decoder = Base64.getDecoder();
 		// Validation of values provided
 		mTlsClientCertificate = decode(getValue(MTLS_CERTIFICATE_STRING, mTlsClientCertificate, this.authType == AuthenticationType.MTLS));
 		mTlsClientCertificateKey = decode(getValue(MTLS_CERTIFICATE_KEY_STRING, mTlsClientCertificateKey, this.authType == AuthenticationType.MTLS));
@@ -142,8 +140,11 @@ public class GdbConnectionConfig {
 	}
 
 	private <T> T getValue(String configName, T val, boolean failOnNull) {
-		if (failOnNull && val == null) {
-			throw new GdbConnectionConfigException(configName, null, "Must provide value");
+		if (failOnNull) {
+			if (val == null || StringUtils.isEmpty(val.toString())) {
+				throw new GdbConnectionConfigException(configName, null, "Must provide value");
+			}
+
 		}
 		return val;
 	}
