@@ -2,6 +2,7 @@ package com.ontotext.kafka.tls;
 
 import com.ontotext.kafka.GraphDBSinkConfig;
 import com.ontotext.kafka.gdb.GdbConnectionConfig;
+import com.ontotext.kafka.gdb.GdbConnectionConfigException;
 import com.ontotext.kafka.gdb.auth.AuthHeaderConfig;
 import com.ontotext.kafka.gdb.auth.MtlsConfig;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -48,8 +49,6 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.Collection;
 
-import static com.ontotext.kafka.tls.TrustAllSSLContext.SSL_CONTEXT;
-
 /**
  * A utility class to confiure the TLS connection between the Kafka Sink Connector (client) and downstream GraphDB instance (server)
  * The class takes care of configuring the default {@link javax.net.ssl.SSLContext} for all following connections by using a CompositeTrustManager
@@ -63,15 +62,16 @@ public final class HttpClientManager {
 
 	/**
 	 * Parses the certificates provided in the connection to `connectionUrl` and finds the certificate that matches the provided thumbprint (SHA-256)
-	 *
 	 * @param connectionUrl    - the server url to perform the check against
 	 * @param sha256Thumbprint - the SHA-256 thumbprint of the certificate to retrieve
+	 * @param keyManagers       - Key manager that contains the client's credentials (if using mTLS)
+	 * @param clientCertificate - The Client certificate (if using mTLS)
 	 * @return The certificate, or `null` if no certificate was found that matches the thumbprint
 	 * @throws IOException              if any error occurs while establishing or working with an active connection to the server
 	 * @throws IllegalArgumentException if the `connectionUrl` is invalid
 	 * @throws RuntimeException         if any other error occurs during validation that are not expected
 	 */
-	private static X509Certificate getCertificate(String connectionUrl, String sha256Thumbprint) throws IOException {
+	private static X509Certificate getCertificate(String connectionUrl, String sha256Thumbprint, KeyManager[] keyManagers, X509Certificate clientCertificate) throws IOException {
 		if (!isUrlHttps(connectionUrl)) {
 			throw new IllegalArgumentException("Invalid connection URL: " + connectionUrl);
 		}
@@ -85,7 +85,9 @@ public final class HttpClientManager {
 				throw new IllegalArgumentException("Not an HTTPS connection");
 			}
 			log.debug("Creating the trustAll trust manager for this connection only");
-			conn.setSSLSocketFactory(SSL_CONTEXT.getSocketFactory());
+			SSLContext ctx = SSLContext.getInstance("TLS");
+			ctx.init(keyManagers, new TrustManager[]{new TrustAllManager(clientCertificate)}, null);
+			conn.setSSLSocketFactory(ctx.getSocketFactory());
 			conn.setHostnameVerifier((hostname, session) -> true);
 			log.info("Connecting to {}", connectionUrl);
 			conn.connect();
@@ -107,10 +109,32 @@ public final class HttpClientManager {
 			log.error("Found no certificates in the certificate chain that matches thumbprint {}", sha256Thumbprint);
 			return null;
 		} catch (MalformedURLException e) {
-			throw new IllegalArgumentException("Invalid URL", e);
+			throw new GdbConnectionConfigException(GraphDBSinkConfig.SERVER_URL, connectionUrl, String.format("Invalid URL - %s", e.getMessage()));
 		} catch (CertificateEncodingException e) {
-			throw new IllegalArgumentException("Invalid certificates from server", e);
+			throw new GdbConnectionConfigException(GraphDBSinkConfig.TLS_THUMBPRINT, sha256Thumbprint, String.format(String.format("Invalid thumbprint provided - %s", e.getMessage())));
+		} catch (SSLException e) {
+			String msg = e.getMessage();
+			if (StringUtils.containsIgnoreCase(msg, "handshake") && clientCertificate != null && keyManagers != null) {
+				throw new GdbConnectionConfigException(GraphDBSinkConfig.MTLS_CERTIFICATE_STRING, "[redacted]", "mTLS handshake failed most probably due to invalid client certificate");
+			}
+			throw new GdbConnectionConfigException(GraphDBSinkConfig.SERVER_URL, connectionUrl, msg);
+		} catch (Exception e) {
+			throw new GdbConnectionConfigException(GraphDBSinkConfig.SERVER_URL, connectionUrl, e.getMessage());
 		}
+	}
+
+	/**
+	 * Parses the certificates provided in the connection to `connectionUrl` and finds the certificate that matches the provided thumbprint (SHA-256)
+	 *
+	 * @param connectionUrl    - the server url to perform the check against
+	 * @param sha256Thumbprint - the SHA-256 thumbprint of the certificate to retrieve
+	 * @return The certificate, or `null` if no certificate was found that matches the thumbprint
+	 * @throws IOException              if any error occurs while establishing or working with an active connection to the server
+	 * @throws IllegalArgumentException if the `connectionUrl` is invalid
+	 * @throws RuntimeException         if any other error occurs during validation that are not expected
+	 */
+	private static X509Certificate getCertificate(String connectionUrl, String sha256Thumbprint) throws IOException {
+		return getCertificate(connectionUrl, sha256Thumbprint, null, null);
 	}
 
 
@@ -128,47 +152,32 @@ public final class HttpClientManager {
 			log.info("Not an HTTPS connection, or no thumbprint provided. Skipping creation of custom HTTPClient");
 			return getClientBuilder().build();
 		}
-		log.info("Getting the certificate that has the thumbprint {} from {}", sha256Thumbprint, serverUrl);
 		try {
-			KeyManager km = null;
-			X509Certificate certificate = getCertificate(serverUrl, sha256Thumbprint);
-			if (certificate == null) {
-				throw new SSLException(String.format("Did not find certificate that matches the thumbprint %s", sha256Thumbprint));
-			}
 			KeyManager[] keyManagers = null;
 			Collection<BasicHeader> headers = new ArrayList<>();
+			X509Certificate serverCertificate = null;
 			if (config.getAuthType() == GraphDBSinkConfig.AuthenticationType.MTLS) {
-				MtlsConfig mtlsConfig = config.getMtlsConfig();
-				char[] password;
-				PrivateKey privateKey;
-				if (mtlsConfig.getKeyPassword() != null && StringUtils.isNotEmpty(mtlsConfig.getKeyPassword().value())) {
-					password = mtlsConfig.getKeyPassword().value().toCharArray();
-					privateKey = getPrivateKeyFromPEM(mtlsConfig.getKey(), password);
-				} else {
-					privateKey = getPrivateKeyFromPEM(mtlsConfig.getKey(), null);
-					password = RandomStringUtils.randomAlphanumeric(10).toCharArray();
-				}
-				X509Certificate clientCertificate = getCertificateFromPEM(mtlsConfig.getCertificate());
-				KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-				KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
-				keyStore.load(null, password);
-				keyStore.setKeyEntry("key", privateKey, password, new Certificate[]{clientCertificate});
-				kmf.init(keyStore, password);
-				keyManagers = kmf.getKeyManagers();
-			} else if (config.getAuthType() == GraphDBSinkConfig.AuthenticationType.X509_HEADER) {
-				// MTLS will take precedence over header authentication if both provided
-				AuthHeaderConfig headerConfig = config.getAuthHeaderConfig();
-				if (StringUtils.isEmpty(headerConfig.getHeaderName()) || StringUtils.isEmpty(headerConfig.getCertificate())) {
-					throw new SSLException("Using header-based certificate authentication but no certificate provided");
-				}
-				headers.add(new BasicHeader(headerConfig.getHeaderName(), headerConfig.getCertificate()));
+				X509Certificate clientCertificate = getCertificateFromPEM(config.getMtlsConfig().getCertificate());
+				keyManagers = createKeyManagers(config, clientCertificate);
+				serverCertificate = getCertificate(serverUrl, sha256Thumbprint, keyManagers, clientCertificate);
+			} else {
+				serverCertificate = getCertificate(serverUrl, sha256Thumbprint);
+			}
+			if (config.getAuthType() == GraphDBSinkConfig.AuthenticationType.X509_HEADER) {
+				headers = createX509Header(config);
+			}
+
+			log.info("Certificate that matches thumbprint {} found for server URL {}", sha256Thumbprint, serverUrl);
+
+			if (serverCertificate == null) {
+				throw new GdbConnectionConfigException(GraphDBSinkConfig.TLS_THUMBPRINT, sha256Thumbprint, String.format("Did not find certificate that matches the thumbprint %s", sha256Thumbprint));
 			}
 
 			log.debug("Creating a Trust Store to hold the connection certificate");
 			KeyStore gdbTrustStore = KeyStore.getInstance(KeyStore.getDefaultType());
 			gdbTrustStore.load(null, null);
 			log.debug("Importing the certificate to the new Trust Store");
-			gdbTrustStore.setCertificateEntry(sha256Thumbprint, certificate);
+			gdbTrustStore.setCertificateEntry(sha256Thumbprint, serverCertificate);
 
 			X509TrustManager defaultTrustManager = getTrustManagerForStore(null);
 			X509TrustManager gdbTrustManager = getTrustManagerForStore(gdbTrustStore);
@@ -186,12 +195,49 @@ public final class HttpClientManager {
 			}
 
 			return builder.build();
-		} catch (Exception e) {
+		}
+		catch (Exception e) {
 			log.error("Failed to initialize the TLS context due to exception", e);
+			if (e instanceof GdbConnectionConfigException) {
+				throw (GdbConnectionConfigException) e;
+			}
 			throw new SSLException(e);
 		}
 
 	}
+
+
+	private static Collection<BasicHeader> createX509Header(GdbConnectionConfig config) throws SSLException {
+		Collection<BasicHeader> headers = new ArrayList<>();
+		AuthHeaderConfig headerConfig = config.getAuthHeaderConfig();
+		if (StringUtils.isEmpty(headerConfig.getHeaderName()) || StringUtils.isEmpty(headerConfig.getCertificate())) {
+			throw new SSLException("Using header-based certificate authentication but no certificate provided");
+		}
+		headers.add(new BasicHeader(headerConfig.getHeaderName(), headerConfig.getCertificate()));
+		return headers;
+	}
+
+	private static KeyManager[] createKeyManagers(
+		GdbConnectionConfig config,
+		X509Certificate clientCertificate) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException, OperatorCreationException, PKCSException, CertificateException, KeyStoreException, UnrecoverableKeyException {
+		MtlsConfig mtlsConfig = config.getMtlsConfig();
+		char[] password;
+		PrivateKey privateKey;
+		if (mtlsConfig.getKeyPassword() != null && StringUtils.isNotEmpty(mtlsConfig.getKeyPassword().value())) {
+			password = mtlsConfig.getKeyPassword().value().toCharArray();
+			privateKey = getPrivateKeyFromPEM(mtlsConfig.getKey(), password);
+		} else {
+			privateKey = getPrivateKeyFromPEM(mtlsConfig.getKey(), null);
+			password = RandomStringUtils.randomAlphanumeric(10).toCharArray();
+		}
+		KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+		KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+		keyStore.load(null, password);
+		keyStore.setKeyEntry("key", privateKey, password, new Certificate[]{clientCertificate});
+		kmf.init(keyStore, password);
+		return kmf.getKeyManagers();
+	}
+
 
 	private static HttpClientBuilder getClientBuilder() {
 		return HttpClientBuilder.create()
@@ -345,5 +391,32 @@ public final class HttpClientManager {
 		PEMParser pemParser = new PEMParser(new StringReader(str));
 		return pemParser.readObject();
 
+	}
+
+
+	private static class TrustAllManager implements X509TrustManager {
+		private final X509Certificate clientCertificate;
+
+		public TrustAllManager(X509Certificate clientCertificate) {
+			this.clientCertificate = clientCertificate;
+		}
+
+		@Override
+		public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+
+		}
+
+		@Override
+		public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+
+		}
+
+		@Override
+		public X509Certificate[] getAcceptedIssuers() {
+			if (clientCertificate != null) {
+				return new X509Certificate[]{clientCertificate};
+			}
+			return new X509Certificate[0];
+		}
 	}
 }
