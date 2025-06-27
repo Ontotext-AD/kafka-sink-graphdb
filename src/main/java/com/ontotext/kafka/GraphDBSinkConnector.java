@@ -16,19 +16,22 @@
 
 package com.ontotext.kafka;
 
-import com.ontotext.kafka.util.GraphDBConnectionValidator;
-import com.ontotext.kafka.util.VersionUtil;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.commons.lang.StringUtils;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
+import org.apache.kafka.common.config.ConfigValue;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.sink.SinkConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-
+import com.ontotext.kafka.transformation.TransformationValidator;
+import com.ontotext.kafka.util.GraphDBConnectionValidator;
+import com.ontotext.kafka.util.VersionUtil;
 
 /**
  * {@link SinkConnector} implementation for streaming messages containing RDF data to GraphDB repositories
@@ -38,7 +41,7 @@ import java.util.Map;
  */
 public class GraphDBSinkConnector extends SinkConnector {
 
-	private static final Logger LOG = LoggerFactory.getLogger(GraphDBSinkConnector.class);
+	private static final Logger log = LoggerFactory.getLogger(GraphDBSinkConnector.class);
 	private Map<String, String> properties;
 
 	@Override
@@ -48,9 +51,8 @@ public class GraphDBSinkConnector extends SinkConnector {
 
 	@Override
 	public void start(Map<String, String> properties) {
-		LOG.info("Starting the GraphDB SINK Connector ... ");
+		log.info("Starting the GraphDB SINK Connector ... ");
 		this.properties = properties;
-
 	}
 
 	@Override
@@ -79,9 +81,70 @@ public class GraphDBSinkConnector extends SinkConnector {
 	@Override
 	public Config validate(final Map<String, String> connectorConfigs) {
 		Config config = super.validate(connectorConfigs);
-		if (config.configValues().stream().anyMatch(cv -> !cv.errorMessages().isEmpty())) {
-			return config;
+		// Validate transformations
+		List<ConfigValue> transformationErrors = new ArrayList<>();
+		String transformationsNames = connectorConfigs.get("transforms");
+		if (StringUtils.isNotEmpty(transformationsNames)) {
+			String[] transformations = transformationsNames.split(",");
+			for (String transformation : transformations) {
+				if (transformation.isEmpty()) {
+					log.warn("Invalid transformation name: {}", transformation);
+					break;
+				}
+				String transformationClass = getTransformationClass(transformation, connectorConfigs);
+				try {
+					if (transformationClass == null) {
+						log.warn(
+							"Transformation class cannot be null");
+						break;
+					}
+					Class<?> clazz = Class.forName(transformationClass);
+					if (TransformationValidator.class.isAssignableFrom(clazz)) {
+						TransformationValidator transform = (TransformationValidator) clazz
+							.getDeclaredConstructor()
+							.newInstance();
+						ConfigValue error = transform.validateConfig(transformation, connectorConfigs);
+						log.debug("Transformation {} validated", transformation);
+						if(error != null) {
+							transformationErrors.add(error);
+						}
+					}
+				} catch (ClassNotFoundException e) {
+					log.warn("Transformation class not found: {}", transformationClass, e);
+				} catch (ReflectiveOperationException e) {
+					log.warn("Transformation class cannot be initialized: {}", transformationClass, e);
+				}
+			}
+		}
+		Config updatedConfig = mergeConnectorConfigWithTransformationErrors(config, transformationErrors);
+		if (updatedConfig.configValues().stream().anyMatch(cv -> !cv.errorMessages().isEmpty())) {
+			return updatedConfig;
 		}
 		return GraphDBConnectionValidator.validateGraphDBConnection(config);
+	}
+
+	private String getTransformationClass(String transformationName, final Map<String, String> connectorConfigs) {
+		if (!connectorConfigs.isEmpty()) {
+			transformationName = transformationName.trim();
+			String transformTypeKey = String.format("transforms.%s.type", transformationName);
+			String transformType = connectorConfigs.get(transformTypeKey);
+			if (StringUtils.isEmpty(transformType)) {
+				log.warn("Missing or empty type for transformation '{}'. Expected key: {}", transformationName,
+					transformTypeKey);
+				return null;
+			}
+			return transformType;
+		}
+		return null;
+	}
+
+	private Config mergeConnectorConfigWithTransformationErrors(Config initialConfig,
+		List<ConfigValue> transformationErrors) {
+		if (initialConfig != null && !transformationErrors.isEmpty()) {
+			List<ConfigValue> updatedConfig = new ArrayList<>(initialConfig.configValues());
+			updatedConfig.addAll(transformationErrors);
+			return new Config(updatedConfig);
+		}
+		return initialConfig;
 	}
 }

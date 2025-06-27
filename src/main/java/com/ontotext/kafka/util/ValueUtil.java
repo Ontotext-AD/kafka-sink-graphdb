@@ -12,7 +12,6 @@ import java.util.Objects;
 
 public class ValueUtil {
 
-
 	private static final StringBuilder updateQueryBuilder = new StringBuilder();
 
 	private ValueUtil() {
@@ -54,7 +53,7 @@ public class ValueUtil {
 		}
 	}
 
-	public static ByteArrayInputStream convertRDFData(Object obj) {
+	public static ByteArrayInputStream convertRDFDataToBytes(Object obj) {
 		Objects.requireNonNull(obj, "Cannot parse null objects");
 		if (obj instanceof byte[]) {
 			return new ByteArrayInputStream((byte[]) obj);
@@ -65,8 +64,8 @@ public class ValueUtil {
 
 	public static Resource convertIRIKey(Object obj) {
 		return SimpleValueFactory
-				.getInstance()
-				.createIRI(convertValueToString(obj));
+			.getInstance()
+			.createIRI(convertValueToString(obj));
 	}
 
 	public static String convertValueToString(Object value) {
@@ -77,12 +76,13 @@ public class ValueUtil {
 			return (String) value;
 		} else {
 			throw new DataException("error: no value converter present due to unexpected object type "
-					+ value.getClass().getName());
+				+ value.getClass().getName());
 		}
 	}
 
 	public static String recordInfo(SinkRecord record) {
-		return String.format("Record: {topic='%s', kafkaPartition=%d, key=%s, keySchema=%s, value=%s, valueSchema=%s, timestamp=%d}",
+		return String.format(
+			"Record: {topic='%s', kafkaPartition=%d, key=%s, keySchema=%s, value=%s, valueSchema=%s, timestamp=%d}",
 			record.topic(),
 			record.kafkaPartition(),
 			convertValueToStringNullable(record.key()),
