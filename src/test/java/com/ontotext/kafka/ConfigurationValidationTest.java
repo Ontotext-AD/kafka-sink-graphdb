@@ -102,8 +102,8 @@ public class ConfigurationValidationTest {
 		results = sinkconnector.validate(configs).configValues();
 		mockedGraphDBClient.reset();
 		Assertions.assertTrue(results.stream()
-			                      .filter(cv -> cv.name().equals("graphdb.auth.type"))
-			                      .noneMatch(cv -> cv.errorMessages().isEmpty()),
+				.filter(cv -> cv.name().equals("graphdb.auth.type"))
+				.noneMatch(cv -> cv.errorMessages().isEmpty()),
 			"Didn't get an error for invalid credentials");
 	}
 
@@ -123,8 +123,8 @@ public class ConfigurationValidationTest {
 		results = sinkconnector.validate(configs).configValues();
 		mockedGraphDBClient.reset();
 		Assertions.assertTrue(results.stream()
-			                      .filter(cv -> cv.name().equals("graphdb.server.url"))
-			                      .noneMatch(cv -> cv.errorMessages().isEmpty()),
+				.filter(cv -> cv.name().equals("graphdb.server.url"))
+				.noneMatch(cv -> cv.errorMessages().isEmpty()),
 			"Didn't get an error for GraphDB version");
 	}
 
@@ -141,9 +141,27 @@ public class ConfigurationValidationTest {
 			};
 		results = sinkconnector.validate(configs).configValues();
 		Assertions.assertTrue(results.stream()
-			                      .filter(cv -> cv.name().equals("graphdb.server.url"))
-			                      .noneMatch(cv -> cv.errorMessages().isEmpty()),
+				.filter(cv -> cv.name().equals("graphdb.server.url"))
+				.noneMatch(cv -> cv.errorMessages().isEmpty()),
 			"Didn't get an error for missing GraphDB");
+	}
+
+	@Test
+	@DisplayName("Test RDF format mismatch appears on connector config key")
+	void testConnectorRDFFormatMismatchReportsErrorOnConnectorKey() {
+		configs = new HashMap<>() {{
+			put("graphdb.update.rdf.format", "jsonld");
+			put("transforms", "AddFieldTransformation");
+			put("transforms.AddFieldTransformation.type", "com.ontotext.kafka.transformation.AddFieldTransformation");
+			put("transforms.AddFieldTransformation.rdf.format", "turtle");
+		}};
+		results = sinkconnector.validate(configs).configValues();
+		boolean hasFormatMismatchError = results.stream()
+			.filter(cv -> cv.name().equals("graphdb.update.rdf.format"))
+			.flatMap(cv -> cv.errorMessages().stream())
+			.anyMatch(msg -> msg.contains("Connector RDF format (jsonld) must match AddFieldTransformation RDF format (turtle)"));
+
+		Assertions.assertTrue(hasFormatMismatchError, "Expected RDF format mismatch error on connector config, but none was found");
 	}
 
 	@ParameterizedTest
@@ -180,10 +198,10 @@ public class ConfigurationValidationTest {
 		String productVersion) {
 
 		mockedGraphDBClient.when(
-			request()
-				.withMethod("GET")
-				.withPath("/rest/info/version")
-		)
+				request()
+					.withMethod("GET")
+					.withPath("/rest/info/version")
+			)
 			.respond(
 				response()
 					.withStatusCode(200)
@@ -194,10 +212,10 @@ public class ConfigurationValidationTest {
 			);
 
 		mockedGraphDBClient.when(
-			request()
-				.withMethod("GET")
-				.withPath("/protocol")
-		)
+				request()
+					.withMethod("GET")
+					.withPath("/protocol")
+			)
 			.respond(
 				response()
 					.withStatusCode(200)
@@ -207,10 +225,10 @@ public class ConfigurationValidationTest {
 
 		if (!Objects.equals(authenticationType, "basic")) {
 			mockedGraphDBClient.when(
-				request()
-					.withMethod("POST")
-					.withPath("/repositories/Test/transactions")
-			)
+					request()
+						.withMethod("POST")
+						.withPath("/repositories/Test/transactions")
+				)
 				.respond(
 					response()
 						.withStatusCode(201)
@@ -219,11 +237,11 @@ public class ConfigurationValidationTest {
 				);
 		} else {
 			mockedGraphDBClient.when(
-				request()
-					.withMethod("POST")
-					.withPath("/repositories/Test/transactions")
-					.withHeader("Authorization", "Basic am9obm55YXdlc29tZTpsdWJlbjE=")
-			)
+					request()
+						.withMethod("POST")
+						.withPath("/repositories/Test/transactions")
+						.withHeader("Authorization", "Basic am9obm55YXdlc29tZTpsdWJlbjE=")
+				)
 				.respond(
 					response()
 						.withStatusCode(201)
@@ -231,10 +249,10 @@ public class ConfigurationValidationTest {
 							"http://localhost:12345/repositories/Test/transactions/a7d5630a-4ef1-4028-897d-2dfc1ab804d1")
 				);
 			mockedGraphDBClient.when(
-				request()
-					.withMethod("POST")
-					.withPath("/repositories/Test/transactions")
-			)
+					request()
+						.withMethod("POST")
+						.withPath("/repositories/Test/transactions")
+				)
 				.respond(
 					response()
 						.withStatusCode(401)
@@ -243,10 +261,10 @@ public class ConfigurationValidationTest {
 		}
 
 		mockedGraphDBClient.when(
-			request()
-				.withMethod("DELETE")
-				.withPath("/repositories/Test/transactions/a7d5630a-4ef1-4028-897d-2dfc1ab804d1")
-		)
+				request()
+					.withMethod("DELETE")
+					.withPath("/repositories/Test/transactions/a7d5630a-4ef1-4028-897d-2dfc1ab804d1")
+			)
 			.respond(
 				response()
 					.withStatusCode(204)

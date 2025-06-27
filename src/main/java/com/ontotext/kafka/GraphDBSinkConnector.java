@@ -16,19 +16,23 @@
 
 package com.ontotext.kafka;
 
-import com.ontotext.kafka.util.GraphDBConnectionValidator;
-import com.ontotext.kafka.util.VersionUtil;
-import org.apache.kafka.common.config.Config;
-import org.apache.kafka.common.config.ConfigDef;
-import org.apache.kafka.connect.connector.Task;
-import org.apache.kafka.connect.sink.SinkConnector;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang.StringUtils;
+import org.apache.kafka.common.config.Config;
+import org.apache.kafka.common.config.ConfigDef;
+import org.apache.kafka.connect.connector.Task;
+import org.apache.kafka.connect.sink.SinkConnector;
+import org.eclipse.rdf4j.rio.RDFFormat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.ontotext.kafka.transformation.AddFieldTransformation;
+import com.ontotext.kafka.util.GraphDBConnectionValidator;
+import com.ontotext.kafka.util.ValueUtil;
+import com.ontotext.kafka.util.VersionUtil;
 
 /**
  * {@link SinkConnector} implementation for streaming messages containing RDF data to GraphDB repositories
@@ -50,7 +54,6 @@ public class GraphDBSinkConnector extends SinkConnector {
 	public void start(Map<String, String> properties) {
 		LOG.info("Starting the GraphDB SINK Connector ... ");
 		this.properties = properties;
-
 	}
 
 	@Override
@@ -79,6 +82,37 @@ public class GraphDBSinkConnector extends SinkConnector {
 	@Override
 	public Config validate(final Map<String, String> connectorConfigs) {
 		Config config = super.validate(connectorConfigs);
+		// Check if there is RDF format mismatch between connector and AddFieldTransformation
+		String transformName = connectorConfigs.get("transforms");
+		if (StringUtils.isNotEmpty(transformName)) {
+			String transformTypeKey = String.format("transforms.%s.type", transformName);
+			String transformType = connectorConfigs.get(transformTypeKey);
+			// This currently supports only single transform projects !!!!!
+			try {
+				if (Class.forName(transformType).isAssignableFrom(AddFieldTransformation.class)) {
+					String connectorFormatStr = connectorConfigs.get(GraphDBSinkConfig.RDF_FORMAT);
+					String transformFormatKey = String.format("transforms.%s.%s", transformName, AddFieldTransformation.RDF_FORMAT);
+					String transformFormatStr = connectorConfigs.get(transformFormatKey);
+					if (StringUtils.isNotEmpty(connectorFormatStr) && StringUtils.isNotEmpty(transformFormatStr)) {
+						RDFFormat connectorRDFFormat = ValueUtil.getRDFFormat(connectorFormatStr);
+						RDFFormat transformationRDFFormat = ValueUtil.getRDFFormat(transformFormatStr);
+						if (!connectorRDFFormat.equals(transformationRDFFormat)) {
+							config.configValues()
+								.stream()
+								.filter(cv -> cv.name().equals(GraphDBSinkConfig.RDF_FORMAT))
+								.findFirst()
+								.ifPresent(
+									transformationRDFFormatConfig -> transformationRDFFormatConfig.addErrorMessage(
+										String.format(
+											"Connector RDF format (%s) must match AddFieldTransformation RDF format (%s)",
+											connectorFormatStr, transformFormatStr)));
+						}
+					}
+				}
+			} catch (ClassNotFoundException e) {
+				// Nothing happens here, error will be handled by the transformation config validation.
+			}
+		}
 		if (config.configValues().stream().anyMatch(cv -> !cv.errorMessages().isEmpty())) {
 			return config;
 		}
