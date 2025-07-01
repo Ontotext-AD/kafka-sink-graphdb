@@ -53,7 +53,7 @@ public class ConfigurationValidationTest {
 					put("graphdb.auth.basic.username", "johnnyawesome");
 					put("graphdb.auth.basic.password", "luben1");
 					put("graphdb.update.type", "ADD");
-					put("graphdb.update.rdf.format", "nq");
+					put("graphdb.update.rdf.format", "NQUADS");
 					put("graphdb.server.url", "http://localhost:12345/");
 					put("graphdb.server.repository", "Test");
 				}

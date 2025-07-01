@@ -12,49 +12,54 @@ import java.util.Objects;
 
 public class ValueUtil {
 
-
 	private static final StringBuilder updateQueryBuilder = new StringBuilder();
 
 	private ValueUtil() {
 	}
 
 	public static RDFFormat getRDFFormat(String format) {
-		if (RDFFormat.RDFXML.getDefaultFileExtension().contains(format)) {
-			return RDFFormat.RDFXML;
-		} else if (RDFFormat.NTRIPLES.getDefaultFileExtension().contains(format)) {
-			return RDFFormat.NTRIPLES;
-		} else if (RDFFormat.TURTLE.getDefaultFileExtension().contains(format)) {
-			return RDFFormat.TURTLE;
-		} else if (RDFFormat.TURTLESTAR.getDefaultFileExtension().contains(format)) {
-			return RDFFormat.TURTLESTAR;
-		} else if (RDFFormat.N3.getDefaultFileExtension().contains(format)) {
-			return RDFFormat.N3;
-		} else if (RDFFormat.TRIX.getDefaultFileExtension().contains(format)) {
-			return RDFFormat.TRIX;
-		} else if (RDFFormat.TRIG.getDefaultFileExtension().contains(format)) {
-			return RDFFormat.TRIG;
-		} else if (RDFFormat.TRIGSTAR.getDefaultFileExtension().contains(format)) {
-			return RDFFormat.TRIGSTAR;
-		} else if (RDFFormat.BINARY.getDefaultFileExtension().contains(format)) {
-			return RDFFormat.BINARY;
-		} else if (RDFFormat.NQUADS.getDefaultFileExtension().contains(format)) {
-			return RDFFormat.NQUADS;
-		} else if (RDFFormat.JSONLD.getDefaultFileExtension().contains(format)) {
-			return RDFFormat.JSONLD;
-		} else if (RDFFormat.NDJSONLD.getDefaultFileExtension().contains(format)) {
-			return RDFFormat.NDJSONLD;
-		} else if (RDFFormat.RDFJSON.getDefaultFileExtension().contains(format)) {
-			return RDFFormat.RDFJSON;
-		} else if (RDFFormat.RDFA.getDefaultFileExtension().contains(format)) {
-			return RDFFormat.RDFA;
-		} else if (RDFFormat.HDT.getDefaultFileExtension().contains(format)) {
-			return RDFFormat.HDT;
-		} else {
-			throw new IllegalArgumentException("Invalid RDF Format " + format);
+		if (format == null) {
+			throw new IllegalArgumentException("RDF format cannot be null");
+		}
+
+		String normalized = format.trim().toUpperCase();
+		switch (normalized) {
+			case "RDFXML":
+				return RDFFormat.RDFXML;
+			case "NTRIPLES":
+				return RDFFormat.NTRIPLES;
+			case "TURTLE":
+				return RDFFormat.TURTLE;
+			case "TURTLESTAR":
+				return RDFFormat.TURTLESTAR;
+			case "N3":
+				return RDFFormat.N3;
+			case "TRIX":
+				return RDFFormat.TRIX;
+			case "TRIG":
+				return RDFFormat.TRIG;
+			case "TRIGSTAR":
+				return RDFFormat.TRIGSTAR;
+			case "BINARY":
+				return RDFFormat.BINARY;
+			case "NQUADS":
+				return RDFFormat.NQUADS;
+			case "JSONLD":
+				return RDFFormat.JSONLD;
+			case "NDJSONLD":
+				return RDFFormat.NDJSONLD;
+			case "RDFJSON":
+				return RDFFormat.RDFJSON;
+			case "RDFA":
+				return RDFFormat.RDFA;
+			case "HDT":
+				return RDFFormat.HDT;
+			default:
+				throw new IllegalArgumentException("Invalid RDF format: " + format);
 		}
 	}
 
-	public static ByteArrayInputStream convertRDFData(Object obj) {
+	public static ByteArrayInputStream convertRDFDataToBytes(Object obj) {
 		Objects.requireNonNull(obj, "Cannot parse null objects");
 		if (obj instanceof byte[]) {
 			return new ByteArrayInputStream((byte[]) obj);
@@ -65,8 +70,8 @@ public class ValueUtil {
 
 	public static Resource convertIRIKey(Object obj) {
 		return SimpleValueFactory
-				.getInstance()
-				.createIRI(convertValueToString(obj));
+			.getInstance()
+			.createIRI(convertValueToString(obj));
 	}
 
 	public static String convertValueToString(Object value) {
@@ -77,12 +82,13 @@ public class ValueUtil {
 			return (String) value;
 		} else {
 			throw new DataException("error: no value converter present due to unexpected object type "
-					+ value.getClass().getName());
+				+ value.getClass().getName());
 		}
 	}
 
 	public static String recordInfo(SinkRecord record) {
-		return String.format("Record: {topic='%s', kafkaPartition=%d, key=%s, keySchema=%s, value=%s, valueSchema=%s, timestamp=%d}",
+		return String.format(
+			"Record: {topic='%s', kafkaPartition=%d, key=%s, keySchema=%s, value=%s, valueSchema=%s, timestamp=%d}",
 			record.topic(),
 			record.kafkaPartition(),
 			convertValueToStringNullable(record.key()),

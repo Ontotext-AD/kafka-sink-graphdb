@@ -3,7 +3,6 @@ package com.ontotext.kafka.test.framework;
 import com.ontotext.kafka.GraphDBSinkConfig;
 import org.apache.kafka.connect.runtime.ConnectorConfig;
 import org.apache.kafka.connect.runtime.errors.ToleranceType;
-import org.eclipse.rdf4j.rio.RDFFormat;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -100,7 +99,7 @@ public class TestSinkConfigBuilder {
 			.batchSize(4)
 			.timeoutCommitMs(5000)
 			.tolerance(ToleranceType.ALL)
-			.rdfFormat(RDFFormat.NQUADS.getDefaultFileExtension())
+			.rdfFormat("NQUADS")
 			.build();
 	}
 }
