@@ -1,19 +1,7 @@
 package com.ontotext.kafka;
 
-import static org.mockserver.model.HttpRequest.request;
-import static org.mockserver.model.HttpResponse.response;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-
 import org.apache.kafka.common.config.ConfigValue;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -21,6 +9,14 @@ import org.mockserver.client.MockServerClient;
 import org.mockserver.configuration.ConfigurationProperties;
 import org.mockserver.junit.jupiter.MockServerExtension;
 import org.mockserver.junit.jupiter.MockServerSettings;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+
+import static org.mockserver.model.HttpRequest.request;
+import static org.mockserver.model.HttpResponse.response;
 
 @ExtendWith(MockServerExtension.class)
 @MockServerSettings(ports = 12345)
@@ -112,7 +108,7 @@ public class ConfigurationValidationTest {
 	@Timeout(5)
 	void testWithWrongGraphDBVersion(MockServerClient mockedGraphDBClient) {
 		mockedGraphDBClient = new MockServerClient("localhost", 12345);
-		setupMockClientResponses(mockedGraphDBClient, "none", "9.9.0");
+		setupMockClientResponses(mockedGraphDBClient, "none", "10.8.0");
 		configs =
 			new HashMap<>() {
 				{
