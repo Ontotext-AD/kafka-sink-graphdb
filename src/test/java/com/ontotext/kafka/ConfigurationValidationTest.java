@@ -108,7 +108,7 @@ public class ConfigurationValidationTest {
 	@Timeout(5)
 	void testWithWrongGraphDBVersion(MockServerClient mockedGraphDBClient) {
 		mockedGraphDBClient = new MockServerClient("localhost", 12345);
-		setupMockClientResponses(mockedGraphDBClient, "none", "10.8.0");
+		setupMockClientResponses(mockedGraphDBClient, "none", "10.7.0");
 		configs =
 			new HashMap<>() {
 				{

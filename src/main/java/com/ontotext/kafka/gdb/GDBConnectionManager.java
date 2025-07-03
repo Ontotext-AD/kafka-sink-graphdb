@@ -99,7 +99,6 @@ public class GDBConnectionManager {
 				case 200:
 					try {
 						version = new JSONObject(content).getString("productVersion");
-						log.info("Using GraphDB version {}", version);
 						break;
 					} catch (JSONException e) {
 						log.error("Could not parse version from response", e);
@@ -118,11 +117,12 @@ public class GDBConnectionManager {
 			}
 
 			String[] versionSplits = version.split("[.\\-]");
-			if (Integer.parseInt(versionSplits[0]) < 11 && Integer.parseInt(versionSplits[1]) < 9) {
+			if (!(Integer.parseInt(versionSplits[0]) >= 10 && Integer.parseInt(versionSplits[1]) >= 8)) {
 				throw new GdbConnectionConfigException(SERVER_URL, serverUrl,
 					"Kafka sink is supported on GraphDB 10.8 or newer. Please update your GraphDB");
 
 			}
+			log.info("Using GraphDB version {}", version);
 		} catch (Exception e) {
 			if (e instanceof GdbConnectionConfigException) {
 				throw (GdbConnectionConfigException) e;
