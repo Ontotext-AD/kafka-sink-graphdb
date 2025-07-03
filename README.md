@@ -80,8 +80,7 @@ graphdb.server.url=Type: String;\nDescription: GraphDB Server URL
 graphdb.server.repository=Type: String;\nDescription: GraphDB Repository
 
 graphdb.batch.size=Type: Int;
-
-graphdb.auth.type=Type: enum[NONE, BASIC, CUSTOM];\nDescription: Authentication type (default NONE)
+graphdb.auth.type=Type: enum[NONE, BASIC, MTLS, X509_HEADER, CUSTOM];\nDescription: Authentication type (default NONE)
 graphdb.auth.basic.username=Type: String;
 graphdb.auth.basic.password=Type: String;
 graphdb.auth.header.token=Type: String;\nDescription: GraphDB Auth Token
@@ -304,3 +303,45 @@ Example configuration
 		}' http://host:port/connectors -w "\n"
 	fi
 ```
+
+### Authenticating to GDB
+
+The Kafka Sink Connector can authenticate to GraphDB using BASIC Authentication, mTLS or Header-based Certificate authentication. For more information on how to setup GraphDB to use one of these methods,
+see [here](https://graphdb.ontotext.com/documentation/11.0/access-control.html#authentication-methods)
+
+#### Basic Authentication
+
+To configure the connector to use basic authentication, the following properties must be set:
+
+- `graphdb.auth.type` must be set to `BASIC`
+- `graphdb.auth.basic.username` must be set to the GDB user
+- `graphdb.auth.basic.password` must be set to the GDB password for that user
+
+#### mTLS
+
+To configure the connector to authenticate using client certificates (via mTLS), the following properties must be set:
+
+- `graphdb.auth.type` must be set to `MTLS`
+- `graphdb.auth.mtls.client.certificate` must be set to the client certificate in PEM format and base64-encoded.
+- `graphdb.auth.mtls.client.certificateKey` must be set to the corresponding private key for the client certificate PEM format and base64-encoded
+- `graphdb.auth.mtls.client.certificateKeyPassword` must be set to the password for the private key, if the key is encrypted
+
+The following command can be used to retrieve the Base64 encoding for a PEM-formatted certficate, or key:
+
+```bash
+$ cat client.crt | base64 -w 0
+```
+
+The client certificate must be installed in the truststore of the GraphDB instance or cluster. For more information on how to configure the GraphDB,
+see [here](https://graphdb.ontotext.com/documentation/11.0/access-control.html#x-509-certificate-authentication)
+
+#### Header-based certificate authentication
+
+An alternative authentication option is to provide the client certificate in the request headers. To configure such authentication method:
+
+- `graphdb.auth.type` must be set to `X509_HEADER`
+- `graphdb.auth.header.certificate` must be set to the client certificate in PEM format and base64-encoded (see above)
+- `graphdb.auth.header.name` must be set to the Header name, as expected by GraphDB.
+
+For more information on how to configure GraphDB to use header-base certificate authentication
+see [here](https://graphdb.ontotext.com/documentation/11.0/access-control.html#using-x-509-certificate-authentication-with-http-headers)
