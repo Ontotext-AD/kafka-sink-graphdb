@@ -50,7 +50,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 
 /**
- * A utility class to confiure the TLS connection between the Kafka Sink Connector (client) and downstream GraphDB instance (server)
+ * A utility class to configure the TLS connection between the Kafka Sink Connector (client) and downstream GraphDB instance (server)
  * The class takes care of configuring the default {@link javax.net.ssl.SSLContext} for all following connections by using a CompositeTrustManager
  */
 public final class HttpClientManager {
