@@ -39,7 +39,7 @@ public class ConfigurationValidationTest {
 	@Timeout(5)
 	void testWithAllCorrect(MockServerClient mockedGraphDBClient) {
 		mockedGraphDBClient = new MockServerClient("localhost", 12345);
-		setupMockClientResponses(mockedGraphDBClient, "basic", "9.10.0");
+		setupMockClientResponses(mockedGraphDBClient, "basic", "9.11.0");
 		configs =
 			new HashMap<>() {
 				{
@@ -69,7 +69,7 @@ public class ConfigurationValidationTest {
 	@Timeout(5)
 	void testWithDefaults(MockServerClient mockedGraphDBClient) {
 		mockedGraphDBClient = new MockServerClient("localhost", 12345);
-		setupMockClientResponses(mockedGraphDBClient, "none", "9.10.0");
+		setupMockClientResponses(mockedGraphDBClient, "none", "9.11.0");
 		configs =
 			new HashMap<>() {
 				{
@@ -88,7 +88,7 @@ public class ConfigurationValidationTest {
 	@Timeout(5)
 	void testWithWrongCredentials(MockServerClient mockedGraphDBClient) {
 		mockedGraphDBClient = new MockServerClient("localhost", 12345);
-		setupMockClientResponses(mockedGraphDBClient, "basic", "9.10.0");
+		setupMockClientResponses(mockedGraphDBClient, "basic", "9.11.0");
 		configs =
 			new HashMap<>() {
 				{
