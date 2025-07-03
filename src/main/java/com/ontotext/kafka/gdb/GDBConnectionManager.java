@@ -117,10 +117,27 @@ public class GDBConnectionManager {
 			}
 
 			String[] versionSplits = version.split("[.\\-]");
-			if (!(Integer.parseInt(versionSplits[0]) >= 10 && Integer.parseInt(versionSplits[1]) >= 8)) {
+			int major = Integer.parseInt(versionSplits[0]);
+			int minor = Integer.parseInt(versionSplits[1]);
+			boolean versionSupported = false;
+			switch (major) {
+				case 9: // 9.11+
+					if (minor >= 11) {
+						versionSupported = true;
+					}
+					break;
+				case 10: // 10.8+
+					if (minor > 8) {
+						versionSupported = true;
+					}
+					break;
+				case 11: // 11+
+					versionSupported = true;
+					break;
+			}
+			if (!versionSupported) {
 				throw new GdbConnectionConfigException(SERVER_URL, serverUrl,
-					"Kafka sink is supported on GraphDB 10.8 or newer. Please update your GraphDB");
-
+					"Kafka sink is supported on GraphDB versions 10.8+, 11+ and 9.11+. Please update your GraphDB");
 			}
 			log.info("Using GraphDB version {}", version);
 		} catch (Exception e) {
