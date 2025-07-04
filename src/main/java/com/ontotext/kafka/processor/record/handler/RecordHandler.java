@@ -20,13 +20,13 @@ public interface RecordHandler {
 
 	static RecordHandler addHandler() {
 		return (record, connection, config) -> {
-			connection.add(ValueUtil.convertRDFData(record.value()), config.getRdfFormat());
+			connection.add(ValueUtil.convertRDFDataToBytes(record.value()), config.getRdfFormat());
 		};
 	}
 
 	static RecordHandler updateHandler(final JsonDataConverter jsonDataConverter) {
 		return (record, connection, config) -> {
-			byte[] data = ValueUtil.convertRDFData(record.value()).readAllBytes();
+			byte[] data = ValueUtil.convertRDFDataToBytes(record.value()).readAllBytes();
 			TemplateUtil.executeUpdate(connection, new TemplateInput(config.getTemplateId(), jsonDataConverter.convert(data)));
 		};
 	}
@@ -36,7 +36,7 @@ public interface RecordHandler {
 			Resource context = ValueUtil.convertIRIKey(record.key());
 			connection.clear(context);
 			if (record.value() != null) {
-				connection.add(ValueUtil.convertRDFData(record.value()), config.getRdfFormat(), context);
+				connection.add(ValueUtil.convertRDFDataToBytes(record.value()), config.getRdfFormat(), context);
 			}
 		};
 	}

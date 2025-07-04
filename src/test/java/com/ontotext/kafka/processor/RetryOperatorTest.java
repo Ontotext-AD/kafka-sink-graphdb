@@ -13,7 +13,6 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.RepositoryException;
 import org.eclipse.rdf4j.repository.http.HTTPRepository;
-import org.eclipse.rdf4j.rio.RDFFormat;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -59,7 +58,7 @@ class RetryOperatorTest {
 			.batchSize(4)
 			.timeoutCommitMs(5000)
 			.tolerance(ToleranceType.ALL)
-			.rdfFormat(RDFFormat.NQUADS.getDefaultFileExtension())
+			.rdfFormat("NQUADS")
 			.errorRetryTimeout(-1L)
 			.build();
 
@@ -104,7 +103,7 @@ class RetryOperatorTest {
 			.batchSize(4)
 			.timeoutCommitMs(5000)
 			.tolerance(ToleranceType.ALL)
-			.rdfFormat(RDFFormat.NQUADS.getDefaultFileExtension())
+			.rdfFormat("NQUADS")
 			.errorRetryTimeout(3000L) // 3 seconds long test
 			.build();
 
@@ -149,7 +148,7 @@ class RetryOperatorTest {
 			.batchSize(4)
 			.timeoutCommitMs(5000)
 			.tolerance(ToleranceType.ALL)
-			.rdfFormat(RDFFormat.NQUADS.getDefaultFileExtension())
+			.rdfFormat("NQUADS")
 			.build();
 
 

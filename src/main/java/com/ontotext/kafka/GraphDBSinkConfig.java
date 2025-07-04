@@ -88,7 +88,7 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	public static final String AUTH_HEADER_TOKEN_DOC = "GraphDB custom header token";
 
 	public static final String RDF_FORMAT = "graphdb.update.rdf.format";
-	public static final String DEFAULT_RDF_TYPE = "ttl";
+	public static final String DEFAULT_RDF_TYPE = "TURTLE";
 	public static final String RDF_FORMAT_DOC = "The RDF format for streaming data to GraphDB";
 
 	public static final String TRANSACTION_TYPE = "graphdb.update.type";

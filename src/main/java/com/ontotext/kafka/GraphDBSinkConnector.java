@@ -16,19 +16,23 @@
 
 package com.ontotext.kafka;
 
-import com.ontotext.kafka.util.GraphDBConnectionValidator;
-import com.ontotext.kafka.util.VersionUtil;
-import org.apache.kafka.common.config.Config;
-import org.apache.kafka.common.config.ConfigDef;
-import org.apache.kafka.connect.connector.Task;
-import org.apache.kafka.connect.sink.SinkConnector;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang.StringUtils;
+import org.apache.kafka.common.config.Config;
+import org.apache.kafka.common.config.ConfigDef;
+import org.apache.kafka.connect.connector.Task;
+import org.apache.kafka.connect.sink.SinkConnector;
+import org.eclipse.rdf4j.rio.RDFFormat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.ontotext.kafka.transformation.AddFieldTransformation;
+import com.ontotext.kafka.util.GraphDBConnectionValidator;
+import com.ontotext.kafka.util.ValueUtil;
+import com.ontotext.kafka.util.VersionUtil;
 
 /**
  * {@link SinkConnector} implementation for streaming messages containing RDF data to GraphDB repositories
@@ -38,7 +42,7 @@ import java.util.Map;
  */
 public class GraphDBSinkConnector extends SinkConnector {
 
-	private static final Logger LOG = LoggerFactory.getLogger(GraphDBSinkConnector.class);
+	private static final Logger log = LoggerFactory.getLogger(GraphDBSinkConnector.class);
 	private Map<String, String> properties;
 
 	@Override
@@ -48,9 +52,8 @@ public class GraphDBSinkConnector extends SinkConnector {
 
 	@Override
 	public void start(Map<String, String> properties) {
-		LOG.info("Starting the GraphDB SINK Connector ... ");
+		log.info("Starting the GraphDB SINK Connector ... ");
 		this.properties = properties;
-
 	}
 
 	@Override
@@ -79,6 +82,59 @@ public class GraphDBSinkConnector extends SinkConnector {
 	@Override
 	public Config validate(final Map<String, String> connectorConfigs) {
 		Config config = super.validate(connectorConfigs);
+		// Check if there is RDF format mismatch between connector and AddFieldTransformation
+		String transformsValue = connectorConfigs.get("transforms");
+		if (StringUtils.isNotEmpty(transformsValue)) {
+			String[] transformations = transformsValue.split(",");
+			for (String transformation : transformations) {
+				if (StringUtils.isNotEmpty(transformation)) {
+					transformation = transformation.trim();
+					String transformTypeKey = String.format("transforms.%s.type", transformation);
+					String transformType = connectorConfigs.get(transformTypeKey);
+					if (StringUtils.isEmpty(transformType)) {
+						continue; // Let Kafka Connect SMT validation fail this error
+					}
+					try {
+						if (Class.forName(transformType).isAssignableFrom(AddFieldTransformation.class)) {
+							String connectorFormatStr = connectorConfigs.get(GraphDBSinkConfig.RDF_FORMAT);
+							String transformFormatKey = String.format("transforms.%s.%s", transformation,
+								AddFieldTransformation.RDF_FORMAT);
+							String transformFormatStr = connectorConfigs.get(transformFormatKey);
+							if (StringUtils.isNotEmpty(connectorFormatStr) && StringUtils.isNotEmpty(
+								transformFormatStr)) {
+								RDFFormat connectorRDFFormat;
+
+								try {
+									connectorRDFFormat = ValueUtil.getRDFFormat(connectorFormatStr);
+								} catch (IllegalArgumentException e) {
+									log.warn("Invalid Connector RDF format", e);
+									break; // Let Kafka Connect configuration validation fail this error
+								}
+								RDFFormat transformationRDFFormat;
+								try {
+									transformationRDFFormat = ValueUtil.getRDFFormat(transformFormatStr);
+								} catch (IllegalArgumentException e) {
+									log.warn("Invalid Transformation RDF format", e);
+									break; //Let Kafka Connect SMT validation fail this error
+								}
+								if (!connectorRDFFormat.equals(transformationRDFFormat)) {
+									config.configValues()
+										.stream()
+										.filter(cv -> cv.name().equals(GraphDBSinkConfig.RDF_FORMAT))
+										.findFirst()
+										.ifPresent(cv -> cv.addErrorMessage(String.format(
+											"Connector RDF format (%s) must match AddFieldTransformation RDF format (%s)",
+											connectorFormatStr, transformFormatStr)));
+								}
+							}
+						}
+					} catch (ClassNotFoundException e) {
+						// Let Kafka Connect SMT validation fail this error
+						log.warn("Transformation class not found: {}", transformType, e);
+					}
+				}
+			}
+		}
 		if (config.configValues().stream().anyMatch(cv -> !cv.errorMessages().isEmpty())) {
 			return config;
 		}
