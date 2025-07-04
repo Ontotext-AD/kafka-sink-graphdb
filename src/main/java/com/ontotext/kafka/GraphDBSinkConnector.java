@@ -42,7 +42,7 @@ import com.ontotext.kafka.util.VersionUtil;
  */
 public class GraphDBSinkConnector extends SinkConnector {
 
-	private static final Logger LOG = LoggerFactory.getLogger(GraphDBSinkConnector.class);
+	private static final Logger log = LoggerFactory.getLogger(GraphDBSinkConnector.class);
 	private Map<String, String> properties;
 
 	@Override
@@ -52,7 +52,7 @@ public class GraphDBSinkConnector extends SinkConnector {
 
 	@Override
 	public void start(Map<String, String> properties) {
-		LOG.info("Starting the GraphDB SINK Connector ... ");
+		log.info("Starting the GraphDB SINK Connector ... ");
 		this.properties = properties;
 	}
 
@@ -83,34 +83,56 @@ public class GraphDBSinkConnector extends SinkConnector {
 	public Config validate(final Map<String, String> connectorConfigs) {
 		Config config = super.validate(connectorConfigs);
 		// Check if there is RDF format mismatch between connector and AddFieldTransformation
-		String transformName = connectorConfigs.get("transforms");
-		if (StringUtils.isNotEmpty(transformName)) {
-			String transformTypeKey = String.format("transforms.%s.type", transformName);
-			String transformType = connectorConfigs.get(transformTypeKey);
-			// This currently supports only single transform projects !!!!!
-			try {
-				if (Class.forName(transformType).isAssignableFrom(AddFieldTransformation.class)) {
-					String connectorFormatStr = connectorConfigs.get(GraphDBSinkConfig.RDF_FORMAT);
-					String transformFormatKey = String.format("transforms.%s.%s", transformName, AddFieldTransformation.RDF_FORMAT);
-					String transformFormatStr = connectorConfigs.get(transformFormatKey);
-					if (StringUtils.isNotEmpty(connectorFormatStr) && StringUtils.isNotEmpty(transformFormatStr)) {
-						RDFFormat connectorRDFFormat = ValueUtil.getRDFFormat(connectorFormatStr);
-						RDFFormat transformationRDFFormat = ValueUtil.getRDFFormat(transformFormatStr);
-						if (!connectorRDFFormat.equals(transformationRDFFormat)) {
-							config.configValues()
-								.stream()
-								.filter(cv -> cv.name().equals(GraphDBSinkConfig.RDF_FORMAT))
-								.findFirst()
-								.ifPresent(
-									transformationRDFFormatConfig -> transformationRDFFormatConfig.addErrorMessage(
-										String.format(
+		String transformsValue = connectorConfigs.get("transforms");
+		if (StringUtils.isNotEmpty(transformsValue)) {
+			String[] transformations = transformsValue.split(",");
+			for (String transformation : transformations) {
+				if (StringUtils.isNotEmpty(transformation)) {
+					transformation = transformation.trim();
+					String transformTypeKey = String.format("transforms.%s.type", transformation);
+					String transformType = connectorConfigs.get(transformTypeKey);
+					if (StringUtils.isEmpty(transformType)) {
+						continue; // Let Kafka Connect SMT validation fail this error
+					}
+					try {
+						if (Class.forName(transformType).isAssignableFrom(AddFieldTransformation.class)) {
+							String connectorFormatStr = connectorConfigs.get(GraphDBSinkConfig.RDF_FORMAT);
+							String transformFormatKey = String.format("transforms.%s.%s", transformation,
+								AddFieldTransformation.RDF_FORMAT);
+							String transformFormatStr = connectorConfigs.get(transformFormatKey);
+							if (StringUtils.isNotEmpty(connectorFormatStr) && StringUtils.isNotEmpty(
+								transformFormatStr)) {
+								RDFFormat connectorRDFFormat;
+
+								try {
+									connectorRDFFormat = ValueUtil.getRDFFormat(connectorFormatStr);
+								} catch (IllegalArgumentException e) {
+									log.warn("Invalid Connector RDF format", e);
+									break; // Let Kafka Connect configuration validation fail this error
+								}
+								RDFFormat transformationRDFFormat;
+								try {
+									transformationRDFFormat = ValueUtil.getRDFFormat(transformFormatStr);
+								} catch (IllegalArgumentException e) {
+									log.warn("Invalid Transformation RDF format", e);
+									break; //Let Kafka Connect SMT validation fail this error
+								}
+								if (!connectorRDFFormat.equals(transformationRDFFormat)) {
+									config.configValues()
+										.stream()
+										.filter(cv -> cv.name().equals(GraphDBSinkConfig.RDF_FORMAT))
+										.findFirst()
+										.ifPresent(cv -> cv.addErrorMessage(String.format(
 											"Connector RDF format (%s) must match AddFieldTransformation RDF format (%s)",
 											connectorFormatStr, transformFormatStr)));
+								}
+							}
 						}
+					} catch (ClassNotFoundException e) {
+						// Let Kafka Connect SMT validation fail this error
+						log.warn("Transformation class not found: {}", transformType, e);
 					}
 				}
-			} catch (ClassNotFoundException e) {
-				// Nothing happens here, error will be handled by the transformation config validation.
 			}
 		}
 		if (config.configValues().stream().anyMatch(cv -> !cv.errorMessages().isEmpty())) {
