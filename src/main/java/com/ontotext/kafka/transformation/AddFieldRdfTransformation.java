@@ -1,5 +1,25 @@
 package com.ontotext.kafka.transformation;
 
+import com.ontotext.kafka.GraphDBSinkConfig;
+import com.ontotext.kafka.util.EnumValidator;
+import com.ontotext.kafka.util.RDFFormatValidator;
+import com.ontotext.kafka.util.ValueUtil;
+import org.apache.commons.lang.StringUtils;
+import org.apache.kafka.common.config.ConfigDef;
+import org.apache.kafka.common.config.ConfigException;
+import org.apache.kafka.connect.errors.ConnectException;
+import org.apache.kafka.connect.errors.DataException;
+import org.apache.kafka.connect.sink.SinkRecord;
+import org.apache.kafka.connect.transforms.util.SimpleConfig;
+import org.eclipse.rdf4j.model.*;
+import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
+import org.eclipse.rdf4j.rio.RDFFormat;
+import org.eclipse.rdf4j.rio.RDFHandlerException;
+import org.eclipse.rdf4j.rio.RDFParseException;
+import org.eclipse.rdf4j.rio.Rio;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -11,38 +31,12 @@ import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-import org.apache.commons.lang.StringUtils;
-import org.apache.kafka.common.config.ConfigDef;
-import org.apache.kafka.common.config.ConfigException;
-import org.apache.kafka.common.config.ConfigValue;
-import org.apache.kafka.connect.errors.ConnectException;
-import org.apache.kafka.connect.errors.DataException;
-import org.apache.kafka.connect.sink.SinkRecord;
-import org.apache.kafka.connect.transforms.util.SimpleConfig;
-import org.eclipse.rdf4j.model.IRI;
-import org.eclipse.rdf4j.model.Literal;
-import org.eclipse.rdf4j.model.Model;
-import org.eclipse.rdf4j.model.Resource;
-import org.eclipse.rdf4j.model.ValueFactory;
-import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
-import org.eclipse.rdf4j.rio.RDFFormat;
-import org.eclipse.rdf4j.rio.RDFHandlerException;
-import org.eclipse.rdf4j.rio.RDFParseException;
-import org.eclipse.rdf4j.rio.Rio;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.ontotext.kafka.GraphDBSinkConfig;
-import com.ontotext.kafka.util.EnumValidator;
-import com.ontotext.kafka.util.RDFFormatValidator;
-import com.ontotext.kafka.util.ValueUtil;
-
 /**
  * Executes preconfigured transformations on the record value. Currently, only the byte[] format is supported for the
  * record value.
  */
-public class AddFieldTransformation extends TransformationValidator {
-	private static final Logger log = LoggerFactory.getLogger(AddFieldTransformation.class);
+public class AddFieldRdfTransformation extends RdfTransformation {
+	private static final Logger log = LoggerFactory.getLogger(AddFieldRdfTransformation.class);
 	private static final ValueFactory VF = SimpleValueFactory.getInstance();
 	public static final String SUBJECT_IRI = "subject.iri";
 	public static final String PREDICATE_IRI = "predicate.iri";
@@ -203,46 +197,19 @@ public class AddFieldTransformation extends TransformationValidator {
 
 	/**
 	 * Checks if there is an RDF format mismatch between Sink Connector and AddFieldTransformation
+	 * Checks for equality based on String value (assuming that no two format strings point to the same RdfFormat)
 	 *
 	 * @param connectorConfigs the config of the Sink Connector
 	 * @return a list containing an error if there is RDF format mismatch
 	 */
 	@Override
-	public ConfigValue validateConfig(String transformationName, final Map<String, String> connectorConfigs) {
-		ConfigValue error = null;
-		String connectorFormatStr = connectorConfigs.get(GraphDBSinkConfig.RDF_FORMAT);
-		String transformFormatKey = String.format("transforms.%s.%s", transformationName,
-			AddFieldTransformation.RDF_FORMAT);
-		String transformFormatStr = connectorConfigs.get(transformFormatKey);
-		if (connectorFormatStr.isEmpty()) {
-			log.warn("Connection RDF format cannot be empty!");
-			return error;
+	public void validateConfig(String transformationName, final Map<String, String> connectorConfigs) throws ConfigException {
+		String connectorConfigRdfFormat = connectorConfigs.get(GraphDBSinkConfig.RDF_FORMAT);
+		String transformFormatKey = String.format("transforms.%s.%s", transformationName, AddFieldRdfTransformation.RDF_FORMAT);
+		String transformationConfigRdfFormat = connectorConfigs.get(transformFormatKey);
+		if (!StringUtils.equals(transformationConfigRdfFormat, connectorConfigRdfFormat)) {
+			throw new ConfigException(String.format("Connector RDF format (%s) must match Transformation RDF Format (%s)", connectorConfigRdfFormat, transformationConfigRdfFormat));
 		}
-		if (transformFormatStr.isEmpty()) {
-			log.warn("Transformation {} RDF format cannot be empty!", transformationName);
-			return error;
-		}
-		RDFFormat connectorRDFFormat;
-		try {
-			connectorRDFFormat = ValueUtil.getRDFFormat(connectorFormatStr);
-		} catch (IllegalArgumentException e) {
-			log.warn("Invalid Connector RDF format", e);
-			return error;
-		}
-		RDFFormat transformationRDFFormat;
-		try {
-			transformationRDFFormat = ValueUtil.getRDFFormat(transformFormatStr);
-		} catch (IllegalArgumentException e) {
-			log.warn("Invalid Transformation RDF format", e);
-			return error;
-		}
-		if (!connectorRDFFormat.equals(transformationRDFFormat)) {
-			error = new ConfigValue(transformFormatKey);
-			error.addErrorMessage(String.format("Connector RDF format (%s) must match %s RDF format (%s)",
-				connectorFormatStr, transformationName, transformFormatStr));
-			return error;
-		}
-		return error;
 	}
 
 	/**

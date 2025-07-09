@@ -1,35 +1,10 @@
 package com.ontotext.kafka.transformation;
 
-import static com.ontotext.kafka.test.framework.RdfMockDataUtils.generateSinkRecord;
-import static com.ontotext.kafka.test.framework.RdfMockDataUtils.generateSinkRecordWithGraphContext;
-import static com.ontotext.kafka.test.framework.RdfMockDataUtils.generateSinkRecordWithMultipleGraphContexts;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Collectors;
-
 import org.apache.kafka.common.config.ConfigException;
-import org.apache.kafka.common.config.ConfigValue;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.eclipse.rdf4j.model.BNode;
-import org.eclipse.rdf4j.model.IRI;
-import org.eclipse.rdf4j.model.Literal;
-import org.eclipse.rdf4j.model.Model;
-import org.eclipse.rdf4j.model.Resource;
-import org.eclipse.rdf4j.model.Statement;
-import org.eclipse.rdf4j.model.Value;
-import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.*;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.XMLSchema;
 import org.eclipse.rdf4j.rio.RDFFormat;
@@ -37,14 +12,24 @@ import org.eclipse.rdf4j.rio.Rio;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+import java.util.stream.Collectors;
+
+import static com.ontotext.kafka.test.framework.RdfMockDataUtils.*;
+import static org.assertj.core.api.Assertions.*;
+
 public class AddFieldTransformationTest {
 
-	private TransformationValidator transformation;
+	private RdfTransformation transformation;
 	private Map<String, String> config;
 
 	@BeforeEach
 	void setUp() {
-		transformation = new AddFieldTransformation();
+		transformation = new AddFieldRdfTransformation();
 		config = new HashMap<>();
 		config.put("subject.iri", "http://example.com/subject");
 		config.put("predicate.iri", "http://example.com/predicate");
@@ -194,10 +179,9 @@ public class AddFieldTransformationTest {
 		Map<String, String> connectorConfigs = new HashMap<>();
 		String transformationName = "AddFieldTransformation";
 		connectorConfigs.put("graphdb.update.rdf.format", "jsonld");
-		connectorConfigs.put("transforms." + transformationName + ".rdf.format",
-			"ttl");
-		ConfigValue error = transformation.validateConfig(transformationName, connectorConfigs);
-		assertThat(error.errorMessages().get(0).contains("Connector RDF format (jsonld) must match AddFieldTransformation RDF format (ttl)")).as("RDF format mismatch should generate error.").isTrue();
+		connectorConfigs.put("transforms." + transformationName + ".rdf.format", "ttl");
+		assertThatCode(() -> transformation.validateConfig(transformationName, connectorConfigs)).isInstanceOf(ConfigException.class)
+			.hasMessageContaining("Connector RDF format (jsonld) must match Transformation RDF Format (ttl)");
 	}
 
 	@Test
