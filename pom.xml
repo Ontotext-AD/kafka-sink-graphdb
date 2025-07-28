@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>com.ontotext.graphdb.kafka</groupId>
@@ -9,15 +10,15 @@
 	<description>Kafka Sink Connector for RDF update streaming to GraphDB</description>
 
 	<properties>
-        <kafka.version>3.8.0</kafka.version>
+		<kafka.version>3.8.0</kafka.version>
 		<slf4j.version>2.0.16</slf4j.version>
-        <jackson.version>2.15.3</jackson.version>
-        <java.level>11</java.level>
+		<jackson.version>2.15.3</jackson.version>
+		<java.level>11</java.level>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<!-- Keep rdf4j identical to GDB's version -->
 		<rdf4j.version>4.3.12</rdf4j.version>
 		<confluent.connect.plugin.version>0.12.0</confluent.connect.plugin.version>
-        <avro.version>1.11.3</avro.version>
+		<avro.version>1.11.3</avro.version>
 		<dependency.check.version>8.4.3</dependency.check.version>
 		<jetty.version>12.0.14</jetty.version>
 		<apache.maven.version>3.9.6</apache.maven.version>
@@ -34,6 +35,7 @@
 		<maven.release.plugin.version>2.5.3</maven.release.plugin.version>
 		<maven.compiler.plugin.version>3.8.1</maven.compiler.plugin.version>
 		<commons.collections.version>4.4</commons.collections.version>
+		<commons.lang3.version>3.18.0</commons.lang3.version>
 		<maven.shade.plugin.version>3.0.0</maven.shade.plugin.version>
 		<maven.surefire.plugin.version>3.0.0-M3</maven.surefire.plugin.version>
 		<mockito.version>5.2.0</mockito.version>
@@ -49,8 +51,8 @@
 
 		<!-- Empty defaults to keep things happy, argLine can be overridden on command line,
             extraArgLine may be overridden by one of the profiles. -->
-		<argLine />
-		<extraArgLine />
+		<argLine/>
+		<extraArgLine/>
 	</properties>
 
 	<packaging>jar</packaging>
@@ -254,67 +256,73 @@
 	</dependencyManagement>
 
 	<dependencies>
-        <dependency>
-            <groupId>org.apache.kafka</groupId>
-            <artifactId>connect-api</artifactId>
-            <version>${kafka.version}</version>
-        </dependency>
+		<dependency>
+			<groupId>org.apache.kafka</groupId>
+			<artifactId>connect-api</artifactId>
+			<version>${kafka.version}</version>
+		</dependency>
 		<dependency>
 			<groupId>org.apache.kafka</groupId>
 			<artifactId>connect-runtime</artifactId>
 			<version>${kafka.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-log4j12</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
+			<exclusions>
+				<exclusion>
+					<groupId>org.slf4j</groupId>
+					<artifactId>slf4j-log4j12</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
 		<dependency>
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-collections4</artifactId>
 			<version>${commons.collections.version}</version>
 		</dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <version>${jackson.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.confluent</groupId>
-            <artifactId>kafka-connect-maven-plugin</artifactId>
-            <version>${confluent.connect.plugin.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.eclipse.rdf4j</groupId>
-            <artifactId>rdf4j-http-client</artifactId>
-            <version>${rdf4j.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.eclipse.rdf4j</groupId>
-            <artifactId>rdf4j-repository-http</artifactId>
-            <version>${rdf4j.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.eclipse.rdf4j</groupId>
-            <artifactId>rdf4j-repository-manager</artifactId>
-            <version>${rdf4j.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.eclipse.rdf4j</groupId>
-            <artifactId>rdf4j-repository-sail</artifactId>
-            <version>${rdf4j.version}</version>
-        </dependency>
+		<!-- https://mvnrepository.com/artifact/org.apache.commons/commons-lang3 -->
 		<dependency>
-            <groupId>commons-logging</groupId>
-            <artifactId>commons-logging</artifactId>
-            <version>${commons.logging.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.eclipse.rdf4j</groupId>
-            <artifactId>rdf4j-rio-nquads</artifactId>
-            <version>${rdf4j.version}</version>
-        </dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-lang3</artifactId>
+			<version>${commons.lang3.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.fasterxml.jackson.core</groupId>
+			<artifactId>jackson-databind</artifactId>
+			<version>${jackson.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>io.confluent</groupId>
+			<artifactId>kafka-connect-maven-plugin</artifactId>
+			<version>${confluent.connect.plugin.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.eclipse.rdf4j</groupId>
+			<artifactId>rdf4j-http-client</artifactId>
+			<version>${rdf4j.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.eclipse.rdf4j</groupId>
+			<artifactId>rdf4j-repository-http</artifactId>
+			<version>${rdf4j.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.eclipse.rdf4j</groupId>
+			<artifactId>rdf4j-repository-manager</artifactId>
+			<version>${rdf4j.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.eclipse.rdf4j</groupId>
+			<artifactId>rdf4j-repository-sail</artifactId>
+			<version>${rdf4j.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>commons-logging</groupId>
+			<artifactId>commons-logging</artifactId>
+			<version>${commons.logging.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.eclipse.rdf4j</groupId>
+			<artifactId>rdf4j-rio-nquads</artifactId>
+			<version>${rdf4j.version}</version>
+		</dependency>
 		<dependency>
 			<groupId>org.eclipse.rdf4j</groupId>
 			<artifactId>rdf4j-rio-ntriples</artifactId>
@@ -361,27 +369,27 @@
 			<version>${rdf4j.version}</version>
 		</dependency>
 		<dependency>
-            <groupId>org.eclipse.rdf4j</groupId>
-            <artifactId>rdf4j-sail-memory</artifactId>
-            <version>${rdf4j.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.eclipse.rdf4j</groupId>
-            <artifactId>rdf4j-sail-api</artifactId>
-            <version>${rdf4j.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.avro</groupId>
-            <artifactId>avro-maven-plugin</artifactId>
-            <version>${avro.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <version>${junit.jupiter.version}</version>
-            <scope>test</scope>
-        </dependency>
+			<groupId>org.eclipse.rdf4j</groupId>
+			<artifactId>rdf4j-sail-memory</artifactId>
+			<version>${rdf4j.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.eclipse.rdf4j</groupId>
+			<artifactId>rdf4j-sail-api</artifactId>
+			<version>${rdf4j.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.avro</groupId>
+			<artifactId>avro-maven-plugin</artifactId>
+			<version>${avro.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter</artifactId>
+			<version>${junit.jupiter.version}</version>
+			<scope>test</scope>
+		</dependency>
 		<dependency>
 			<groupId>org.junit.platform</groupId>
 			<artifactId>junit-platform-launcher</artifactId>
@@ -409,17 +417,17 @@
 			<artifactId>log4j-over-slf4j</artifactId>
 			<version>${slf4j.version}</version>
 		</dependency>
-        <dependency>
-            <groupId>org.eclipse.collections</groupId>
-            <artifactId>eclipse-collections-api</artifactId>
-            <version>${eclipse.collections.version}</version>
-        </dependency>
+		<dependency>
+			<groupId>org.eclipse.collections</groupId>
+			<artifactId>eclipse-collections-api</artifactId>
+			<version>${eclipse.collections.version}</version>
+		</dependency>
 
-        <dependency>
-            <groupId>org.eclipse.collections</groupId>
-            <artifactId>eclipse-collections</artifactId>
-            <version>${eclipse.collections.version}</version>
-        </dependency>
+		<dependency>
+			<groupId>org.eclipse.collections</groupId>
+			<artifactId>eclipse-collections</artifactId>
+			<version>${eclipse.collections.version}</version>
+		</dependency>
 		<dependency>
 			<groupId>org.json</groupId>
 			<artifactId>json</artifactId>

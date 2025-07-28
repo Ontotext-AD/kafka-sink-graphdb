@@ -8,6 +8,7 @@ import org.eclipse.rdf4j.rio.RDFFormat;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.Charset;
+import java.util.Locale;
 import java.util.Objects;
 
 public class ValueUtil {
@@ -18,35 +19,36 @@ public class ValueUtil {
 	}
 
 	public static RDFFormat getRDFFormat(String format) {
-		if (RDFFormat.RDFXML.getDefaultFileExtension().contains(format)) {
+		String cleanedFormat = format.trim().replace("\\.", "");
+		if (RDFFormat.RDFXML.getDefaultFileExtension().equalsIgnoreCase(cleanedFormat)) {
 			return RDFFormat.RDFXML;
-		} else if (RDFFormat.NTRIPLES.getDefaultFileExtension().contains(format)) {
+		} else if (RDFFormat.NTRIPLES.getDefaultFileExtension().equalsIgnoreCase(cleanedFormat)) {
 			return RDFFormat.NTRIPLES;
-		} else if (RDFFormat.TURTLE.getDefaultFileExtension().contains(format)) {
+		} else if (RDFFormat.TURTLE.getDefaultFileExtension().equalsIgnoreCase(cleanedFormat)) {
 			return RDFFormat.TURTLE;
-		} else if (RDFFormat.TURTLESTAR.getDefaultFileExtension().contains(format)) {
+		} else if (RDFFormat.TURTLESTAR.getDefaultFileExtension().equalsIgnoreCase(cleanedFormat)) {
 			return RDFFormat.TURTLESTAR;
-		} else if (RDFFormat.N3.getDefaultFileExtension().contains(format)) {
+		} else if (RDFFormat.N3.getDefaultFileExtension().equalsIgnoreCase(cleanedFormat)) {
 			return RDFFormat.N3;
-		} else if (RDFFormat.TRIX.getDefaultFileExtension().contains(format)) {
+		} else if (RDFFormat.TRIX.getDefaultFileExtension().equalsIgnoreCase(cleanedFormat)) {
 			return RDFFormat.TRIX;
-		} else if (RDFFormat.TRIG.getDefaultFileExtension().contains(format)) {
+		} else if (RDFFormat.TRIG.getDefaultFileExtension().equalsIgnoreCase(cleanedFormat)) {
 			return RDFFormat.TRIG;
-		} else if (RDFFormat.TRIGSTAR.getDefaultFileExtension().contains(format)) {
+		} else if (RDFFormat.TRIGSTAR.getDefaultFileExtension().equalsIgnoreCase(cleanedFormat)) {
 			return RDFFormat.TRIGSTAR;
-		} else if (RDFFormat.BINARY.getDefaultFileExtension().contains(format)) {
+		} else if (RDFFormat.BINARY.getDefaultFileExtension().equalsIgnoreCase(cleanedFormat)) {
 			return RDFFormat.BINARY;
-		} else if (RDFFormat.NQUADS.getDefaultFileExtension().contains(format)) {
+		} else if (RDFFormat.NQUADS.getDefaultFileExtension().equalsIgnoreCase(cleanedFormat)) {
 			return RDFFormat.NQUADS;
-		} else if (RDFFormat.JSONLD.getDefaultFileExtension().contains(format)) {
+		} else if (RDFFormat.JSONLD.getDefaultFileExtension().equalsIgnoreCase(cleanedFormat)) {
 			return RDFFormat.JSONLD;
-		} else if (RDFFormat.NDJSONLD.getDefaultFileExtension().contains(format)) {
+		} else if (RDFFormat.NDJSONLD.getDefaultFileExtension().equalsIgnoreCase(cleanedFormat)) {
 			return RDFFormat.NDJSONLD;
-		} else if (RDFFormat.RDFJSON.getDefaultFileExtension().contains(format)) {
+		} else if (RDFFormat.RDFJSON.getDefaultFileExtension().equalsIgnoreCase(cleanedFormat)) {
 			return RDFFormat.RDFJSON;
-		} else if (RDFFormat.RDFA.getDefaultFileExtension().contains(format)) {
+		} else if (RDFFormat.RDFA.getDefaultFileExtension().equalsIgnoreCase(cleanedFormat)) {
 			return RDFFormat.RDFA;
-		} else if (RDFFormat.HDT.getDefaultFileExtension().contains(format)) {
+		} else if (RDFFormat.HDT.getDefaultFileExtension().equalsIgnoreCase(cleanedFormat)) {
 			return RDFFormat.HDT;
 		} else {
 			throw new IllegalArgumentException("Invalid RDF Format " + format);

@@ -4,6 +4,7 @@ import com.ontotext.kafka.GraphDBSinkConfig;
 import com.ontotext.kafka.util.EnumValidator;
 import com.ontotext.kafka.util.RDFFormatValidator;
 import com.ontotext.kafka.util.ValueUtil;
+
 import org.apache.commons.lang.StringUtils;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigException;
@@ -41,7 +42,7 @@ public class AddFieldRdfTransformation extends RdfTransformation {
 	public static final String SUBJECT_IRI = "subject.iri";
 	public static final String PREDICATE_IRI = "predicate.iri";
 	public static final String RDF_FORMAT = "rdf.format";
-	public static final String DEFAULT_RDF_TYPE = "jsonld";
+	public static final String DEFAULT_RDF_TYPE = "ttl";
 	public static final String DEFAULT_TRANSFORMATION_TYPE = "TIMESTAMP";
 	private static final ConfigDef CONFIG_DEF = new ConfigDef()
 		.define(
@@ -200,15 +201,27 @@ public class AddFieldRdfTransformation extends RdfTransformation {
 	 * Checks for equality based on String value (assuming that no two format strings point to the same RdfFormat)
 	 *
 	 * @param connectorConfigs the config of the Sink Connector
-	 * @return a list containing an error if there is RDF format mismatch
 	 */
 	@Override
-	public void validateConfig(String transformationName, final Map<String, String> connectorConfigs) throws ConfigException {
-		String connectorConfigRdfFormat = connectorConfigs.get(GraphDBSinkConfig.RDF_FORMAT);
-		String transformFormatKey = String.format("transforms.%s.%s", transformationName, AddFieldRdfTransformation.RDF_FORMAT);
-		String transformationConfigRdfFormat = connectorConfigs.get(transformFormatKey);
-		if (!StringUtils.equals(transformationConfigRdfFormat, connectorConfigRdfFormat)) {
-			throw new ConfigException(String.format("Connector RDF format (%s) must match Transformation RDF Format (%s)", connectorConfigRdfFormat, transformationConfigRdfFormat));
+	public void validateConfig(String transformationName, final Map<String, String> connectorConfigs) throws
+		ConfigException {
+		String connectorConfigRdfFormatString = connectorConfigs.get(GraphDBSinkConfig.RDF_FORMAT);
+		if (connectorConfigRdfFormatString == null) {
+			connectorConfigRdfFormatString = GraphDBSinkConfig.DEFAULT_RDF_TYPE;
+		}
+		String transformationFormatKey = String.format("transforms.%s.%s", transformationName,
+			AddFieldRdfTransformation.RDF_FORMAT);
+		String transformationConfigRdfFormatString = connectorConfigs.get(transformationFormatKey);
+		if (transformationConfigRdfFormatString == null) {
+			transformationConfigRdfFormatString = DEFAULT_RDF_TYPE;
+		}
+		RDFFormat connectorConfigRdfFormat = ValueUtil.getRDFFormat(connectorConfigRdfFormatString);
+		RDFFormat transformationConfigRdfFormat = ValueUtil.getRDFFormat(transformationConfigRdfFormatString);
+		if (!connectorConfigRdfFormat.equals(transformationConfigRdfFormat)) {
+			throw new ConfigException(
+				String.format("Connector RDF format (%s) must match Transformation RDF Format (%s)",
+					connectorConfigRdfFormat.getDefaultFileExtension(),
+					transformationConfigRdfFormat.getDefaultFileExtension()));
 		}
 	}
 

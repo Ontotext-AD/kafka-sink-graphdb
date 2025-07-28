@@ -127,7 +127,7 @@ public class GDBConnectionManager {
 					}
 					break;
 				case 10: // 10.8+
-					if (minor > 8) {
+					if (minor >= 8) {
 						versionSupported = true;
 					}
 					break;
