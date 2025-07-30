@@ -345,3 +345,73 @@ An alternative authentication option is to provide the client certificate in the
 
 For more information on how to configure GraphDB to use header-base certificate authentication
 see [here](https://graphdb.ontotext.com/documentation/11.0/access-control.html#using-x-509-certificate-authentication-with-http-headers)
+
+### Configuring Transformations
+
+`AddFieldRdfTransformation` is a custom implementation of the Kafka Sink [Transformation](https://docs.confluent.io/kafka-connectors/transforms/current/overview.html#kconnect-long-single-message-transform-reference-for-product) interface.
+
+This transformation modifies the record value by adding an RDF triple. Currently, the only supported transformation type is `TIMESTAMP`, which adds an ingestion timestamp triple to the RDF data.
+
+Supported Configuration Properties:
+
+`subject.iri` – The IRI to use as the subject of the added triple.
+
+`predicate.iri` – The IRI to use as the predicate of the added triple.
+
+`transformation.type` – The type of transformation to apply. Currently, only `TIMESTAMP` is supported.
+
+`rdf.format` – The RDF format of the record value.
+
+#### Design considerations
+
+Kafka Sink Transformations should be independent of the Sink Connector and act as self-contained plugins. As
+described in the [Confluent SMT tutorial](https://www.confluent.io/blog/kafka-connect-single-message-transformation-tutorial-with-examples/#configuring-smt) and the [Transformation interface definition](https://docs.confluent.io/platform/current/connect/javadocs/javadoc/org/apache/kafka/connect/transforms/Transformation.html#config()), SMTs are
+configured separately under the `transforms.*` namespace, and do not have access to connector-level configurations.
+However, in this case, the `rdf.format` configuration must match the value of the Connector’s `graphdb.update.rdf.format` property. This is required so that the transformation can correctly parse the record value and insert a triple using the correct RDF serialization format. Although this introduces redundancy, it is a necessary compromise due to the isolation model of SMTs.
+
+**Note:** Currently, the `AddFieldRdfTransformation` supports only record values in byte[] format.
+
+Example configuration:
+
+```shell
+	if ! curl -s --fail host:port/connectors/kafka-sink-graphdb &> /dev/null; then
+		curl -H 'Content-Type: application/json' --data '
+		{
+			"name": "kafka-sink-graphdb",
+			"config": {
+				"connector.class":"com.ontotext.kafka.GraphDBSinkConnector",
+				"key.converter": "com.ontotext.kafka.convert.DirectRDFConverter",
+				"value.converter": "com.ontotext.kafka.convert.DirectRDFConverter",
+				"value.converter.schemas.enable": "false",
+				"topics":"test",
+				"tasks.max":"1",
+				"offset.storage.file.filename": "/tmp/storage",
+				"graphdb.server.url": "http://graphdb:7200",
+				"graphdb.server.repository": "test",
+				"graphdb.batch.size": 64,
+				"graphdb.batch.commit.limit.ms": 1000,
+				"graphdb.auth.type": "NONE",
+				"graphdb.update.type": "ADD",
+				"graphdb.update.rdf.format": "nq",
+				"errors.tolerance": "all",
+				"transforms": "YourTransformation",
+				"transforms.YourTransformation.type": "com.ontotext.kafka.transformation.AddFieldRdfTransformation",
+				"transforms.YourTransformation.subject.iri": "http://test/subject",
+				"transforms.YourTransformation.predicate.iri": "http://test/timestamp",
+				"transforms.YourTransformation.transformation.type": "TIMESTAMP",
+				"transforms.YourTransformation.rdf.format": "nq",
+				"bootstrap.servers": "localhost:9092",
+				"errors.deadletterqueue.topic.name": "failed-messages-01",
+				"producer.override.errors.retry.timeout": "5000",
+				"producer.override.errors.retry.delay.max.ms": "1000",
+				"producer.override.errors.deadletterqueue.topic.replication.factor": "1",
+				"producer.override.bootstrap.servers": "your-bootstrap-servers",
+				"producer.override.security.protocol": "SASL_SSL",
+				"producer.override.sasl.mechanism": "PLAIN",
+				"producer.override.sasl.jaas.config": "your-sasl-config"
+			}
+		}' http://host:port/connectors -w "\n"
+	fi
+```
+
+
