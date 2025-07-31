@@ -6,7 +6,7 @@ import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.model.*;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
-import org.eclipse.rdf4j.model.vocabulary.XMLSchema;
+import org.eclipse.rdf4j.model.vocabulary.XSD;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.Rio;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 import static com.ontotext.kafka.test.framework.RdfMockDataUtils.*;
 import static org.assertj.core.api.Assertions.*;
 
-public class AddFieldTransformationTest {
+public class AddFieldRdfTransformationTest {
 
 	private RdfTransformation transformation;
 	private Map<String, String> config;
@@ -55,7 +55,7 @@ public class AddFieldTransformationTest {
 			.anyMatch(statement -> {
 				Value obj = statement.getObject();
 				return obj instanceof Literal &&
-					((Literal) obj).getDatatype().equals(XMLSchema.DATETIME);
+					((Literal) obj).getDatatype().equals(XSD.DATETIME);
 			});
 		assertThat(hasTimestampInGraph)
 			.as("Model should contain a timestamp object for the given subject and predicate in the correct graph")
@@ -83,7 +83,7 @@ public class AddFieldTransformationTest {
 				.anyMatch(statement -> {
 					Value obj = statement.getObject();
 					return obj instanceof Literal &&
-						((Literal) obj).getDatatype().equals(XMLSchema.DATETIME);
+						((Literal) obj).getDatatype().equals(XSD.DATETIME);
 				});
 			assertThat(hasTimestampInGraph)
 				.as("Graph <%s> must contain the timestamp triple", graphContext.stringValue())
@@ -110,7 +110,7 @@ public class AddFieldTransformationTest {
 			.filter(st -> {
 				Value obj = st.getObject();
 				return obj instanceof Literal &&
-					((Literal) obj).getDatatype().equals(XMLSchema.DATETIME);
+					((Literal) obj).getDatatype().equals(XSD.DATETIME);
 			})
 			.collect(Collectors.toList());
 		assertThat(bnodeStatements)
@@ -180,8 +180,16 @@ public class AddFieldTransformationTest {
 		String transformationName = "AddFieldTransformation";
 		connectorConfigs.put("graphdb.update.rdf.format", "jsonld");
 		connectorConfigs.put("transforms." + transformationName + ".rdf.format", "ttl");
-		assertThatCode(() -> transformation.validateConfig(transformationName, connectorConfigs)).isInstanceOf(ConfigException.class)
+		assertThatThrownBy(() -> transformation.validateConfig(transformationName, connectorConfigs)).isInstanceOf(ConfigException.class)
 			.hasMessageContaining("Connector RDF format (jsonld) must match Transformation RDF Format (ttl)");
+	}
+
+	@Test
+	void test_transformation_config_validation_passes_if_connector_default_rdf_format_default_is_used() {
+		Map<String, String> connectorConfigs = new HashMap<>();
+		String transformationName = "AddFieldTransformation";
+		connectorConfigs.put("transforms." + transformationName + ".rdf.format", "ttl");
+		assertThatCode(() -> transformation.validateConfig(transformationName, connectorConfigs)).doesNotThrowAnyException();
 	}
 
 	@Test

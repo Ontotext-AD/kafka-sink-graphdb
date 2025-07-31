@@ -19,6 +19,7 @@ package com.ontotext.kafka;
 import com.ontotext.kafka.transformation.RdfTransformation;
 import com.ontotext.kafka.util.GraphDBConnectionValidator;
 import com.ontotext.kafka.util.VersionUtil;
+
 import org.apache.commons.lang.StringUtils;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
@@ -82,7 +83,6 @@ public class GraphDBSinkConnector extends SinkConnector {
 	public Config validate(final Map<String, String> connectorConfigs) {
 		Config config = super.validate(connectorConfigs);
 		// Validate transformations
-		List<ConfigValue> transformationErrors = new ArrayList<>();
 		String transformationsNames = connectorConfigs.get("transforms");
 		if (StringUtils.isNotEmpty(transformationsNames)) {
 			log.debug("Got transformations {}", transformationsNames);
@@ -112,7 +112,10 @@ public class GraphDBSinkConnector extends SinkConnector {
 					log.warn("Transformation class cannot be initialized: {}", transformationClass, e);
 				} catch (ConfigException e) {
 					log.error("Transformation class did not validate - {}", transformationClass, e);
-					config.configValues().add(new ConfigValue(String.format("transforms.%s", transformation)));
+					ConfigValue transformationValidationError = new ConfigValue(
+						String.format("transforms.%s", transformation));
+					transformationValidationError.addErrorMessage("Invalid transformation configurations.");
+					config.configValues().add(transformationValidationError);
 				}
 			}
 		}
