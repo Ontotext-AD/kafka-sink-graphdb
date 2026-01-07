@@ -49,8 +49,7 @@ public class AddFieldRdfTransformationTest {
 		ValueFactory vf = SimpleValueFactory.getInstance();
 		IRI subject = vf.createIRI("http://example.com/subject");
 		IRI predicate = vf.createIRI("http://example.com/predicate");
-		Resource graphContext = vf.createIRI("urn:graph");
-		boolean hasTimestampInGraph = transformedRecordValue.filter(subject, predicate, null, graphContext)
+		boolean hasTimestampInGraph = transformedRecordValue.filter(subject, predicate, null)
 			.stream()
 			.anyMatch(statement -> {
 				Value obj = statement.getObject();
@@ -60,35 +59,6 @@ public class AddFieldRdfTransformationTest {
 		assertThat(hasTimestampInGraph)
 			.as("Model should contain a timestamp object for the given subject and predicate in the correct graph")
 			.isTrue();
-	}
-
-	@Test
-	void test_transformation_adds_timestamp_correctly_if_record_value_contains_multiple_graphs() throws IOException {
-		transformation.configure(config);
-		SinkRecord record = generateSinkRecordWithMultipleGraphContexts(10, 5);
-		SinkRecord transformedRecord = transformation.apply(record);
-		Model transformedRecordValue;
-		try (InputStream inputStream = new ByteArrayInputStream((byte[]) transformedRecord.value())) {
-			transformedRecordValue = Rio.parse(inputStream, "", RDFFormat.NQUADS);
-		}
-		ValueFactory vf = SimpleValueFactory.getInstance();
-		IRI subject = vf.createIRI("http://example.com/subject");
-		IRI predicate = vf.createIRI("http://example.com/predicate");
-		Set<Resource> namedGraphs = transformedRecordValue.contexts().stream()
-			.filter(Objects::nonNull) // exclude the default graph
-			.collect(Collectors.toSet());
-		for (Resource graphContext : namedGraphs) {
-			boolean hasTimestampInGraph = transformedRecordValue.filter(subject, predicate, null, graphContext)
-				.stream()
-				.anyMatch(statement -> {
-					Value obj = statement.getObject();
-					return obj instanceof Literal &&
-						((Literal) obj).getDatatype().equals(XSD.DATETIME);
-				});
-			assertThat(hasTimestampInGraph)
-				.as("Graph <%s> must contain the timestamp triple", graphContext.stringValue())
-				.isTrue();
-		}
 	}
 
 	@Test
@@ -198,17 +168,5 @@ public class AddFieldRdfTransformationTest {
 		assertThatThrownBy(() -> transformation.configure(config))
 			.isInstanceOf(ConfigException.class)
 			.hasMessageContaining("subject.iri must be set (use empty string for blank node)");
-	}
-
-	@Test
-	void test_transformation_fails_if_record_value_does_not_contain_named_graph() {
-		config.put("rdf.format", "nt");
-		SinkRecord sinkRecordWithNoNamedGraph = generateSinkRecord(10);
-		assertThatThrownBy(() -> {
-			transformation.configure(config);
-			transformation.apply(sinkRecordWithNoNamedGraph);
-		})
-			.isInstanceOf(ConnectException.class)
-			.hasMessageContaining("No named graph found. Transformation only works with named graphs.");
 	}
 }
