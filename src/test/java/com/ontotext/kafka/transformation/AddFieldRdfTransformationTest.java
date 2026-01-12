@@ -62,6 +62,16 @@ public class AddFieldRdfTransformationTest {
 	}
 
 	@Test
+	void test_transformation_is_skipped_if_record_value_is_null() {
+		transformation.configure(config);
+		SinkRecord record = generateSinkRecordWithGraphContext(0);
+		SinkRecord transformedRecord = transformation.apply(record);
+		assertThat(record)
+			.as("Transormation is skipped on records that have a null record value.")
+			.isEqualTo(transformedRecord);
+	}
+
+	@Test
 	void test_transformation_creates_blank_node_if_subject_iri_is_empty() throws IOException {
 		// Set up config such that subject IRI is intentionally blank
 		config.put("subject.iri", "");
@@ -86,17 +96,6 @@ public class AddFieldRdfTransformationTest {
 		assertThat(bnodeStatements)
 			.as("Model should contain a triple with a blank node subject and timestamp object")
 			.isNotEmpty();
-	}
-
-	@Test
-	void test_transformation_fails_if_record_value_is_null() {
-		SinkRecord nullValueRecord = new SinkRecord("test", 0, null, "key", null, null, 12);
-		assertThatThrownBy(() -> {
-			transformation.configure(config);
-			transformation.apply(nullValueRecord);
-		})
-			.isInstanceOf(DataException.class)
-			.hasMessageContaining("Record value must not be null");
 	}
 
 	@Test

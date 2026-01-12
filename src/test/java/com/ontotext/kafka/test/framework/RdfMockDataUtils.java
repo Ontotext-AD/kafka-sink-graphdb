@@ -83,19 +83,17 @@ public class RdfMockDataUtils {
 	public static SinkRecord generateSinkRecord(int statementsSize, String topic, int partition, Schema keySchema,
 		String key, Schema valueSchema,
 		long kafkaOffset) {
+												String key, Schema valueSchema,
 		return new SinkRecord(topic, partition, keySchema, key, valueSchema,
 			generateRDFStatements(statementsSize).getBytes(), kafkaOffset);
 	}
 
 	public static SinkRecord generateSinkRecordWithGraphContext(int statementsSize) {
+		if (statementsSize == 0) {
+			return new SinkRecord("topic", 0, null, "<urn:graph>", null,
+				null, 12);
+		}
 		return new SinkRecord("topic", 0, null, "<urn:graph>", null,
 			generateRDFStatementsWithGraphContext(statementsSize).getBytes(), 12);
-	}
-
-	public static SinkRecord generateSinkRecordWithMultipleGraphContexts(int graphContextStatementSize,
-		int graphContextCount) {
-		return new SinkRecord("topic", 0, null, UUID.randomUUID().toString(), null,
-			generateRDFStatementsWithMultipleGraphContexts(graphContextStatementSize, graphContextCount).getBytes(),
-			12);
 	}
 }
