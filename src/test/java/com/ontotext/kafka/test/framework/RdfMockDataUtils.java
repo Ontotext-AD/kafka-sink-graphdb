@@ -81,9 +81,8 @@ public class RdfMockDataUtils {
 	}
 
 	public static SinkRecord generateSinkRecord(int statementsSize, String topic, int partition, Schema keySchema,
-		String key, Schema valueSchema,
-		long kafkaOffset) {
 												String key, Schema valueSchema,
+												long kafkaOffset) {
 		return new SinkRecord(topic, partition, keySchema, key, valueSchema,
 			generateRDFStatements(statementsSize).getBytes(), kafkaOffset);
 	}
