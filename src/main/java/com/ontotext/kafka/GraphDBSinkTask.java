@@ -80,8 +80,10 @@ public class GraphDBSinkTask extends SinkTask {
 
 	@Override
 	public void stop() {
-		log.trace("Shutting down processor");
+		log.info("Shutting down processor");
+		String connectorName = config.getConnectorName();
 		SinkExecutor.getInstance().stopProcessor(processor);
+		processors.remove(connectorName);
 	}
 
 	@Override
