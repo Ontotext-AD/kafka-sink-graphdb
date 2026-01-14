@@ -10,8 +10,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
+
+import static com.ontotext.kafka.processor.SinkProcessorManager.*;
 
 /**
  * {@link SinkTask} implementation that sends the incoming {@link SinkRecord} messages to a synchronous queue for further processing downstream
@@ -22,52 +23,28 @@ import java.util.Map;
 public class GraphDBSinkTask extends SinkTask {
 
 	private static final Logger log = LoggerFactory.getLogger(GraphDBSinkTask.class);
-
-	/**
-	 * Use a single processor and queue for all tasks of a single unique connector.
-	 */
-	private static final Map<String, SinkRecordsProcessor> processors = new HashMap<>();
 	private GraphDBSinkConfig config;
-	private SinkRecordsProcessor processor;
 
 
 	@Override
 	public void start(Map<String, String> properties) {
 		this.config = new GraphDBSinkConfig(properties);
 		log.info("Starting the GraphDB sink task for connector {}", config.getConnectorName());
-		this.processor = createAndStartProcessor(config);
+		startNewProcessor(config);
 		log.info("Configuration complete.");
 	}
 
-	/**
-	 * Creates a new {@link SinkRecordsProcessor} and starts its thread, for a corresponding connector name.
-	 * If a context has already been created (i.e. from another task initialization for the same connector), return the existing queue, without starting
-	 * any new threads.
-	 *
-	 * @param config - The configuration for which to create the new context
-	 * @return ProcessorContext
-	 */
-	private SinkRecordsProcessor createAndStartProcessor(GraphDBSinkConfig config) {
-		String connectorName = config.getConnectorName();
-		if (processors.containsKey(connectorName)) {
-			return processors.get(connectorName);
-		}
-		synchronized (processors) {
-			if (processors.containsKey(connectorName)) {
-				return processors.get(connectorName);
-			}
-			log.info("Creating a new processor for connector {}", connectorName);
-			SinkRecordsProcessor processor = processors.compute(connectorName, (s, sinkRecordsProcessor) -> new SinkRecordsProcessor(config));
-			SinkExecutor.getInstance().startNewProcessor(processor);
-			return processor;
-		}
-	}
 
 
 	@Override
 	public void put(Collection<SinkRecord> collection) {
 		if (CollectionUtils.isEmpty(collection)) {
 			return;
+		}
+		SinkRecordsProcessor processor = getRunningProcessor(config.getConnectorName());
+		if (processor == null) {
+			log.warn("Processor {} has completed. Recreating processor", config.getConnectorName());
+			processor = startNewProcessor(config);
 		}
 		if (processor.shouldBackOff()) {
 			log.info("Congestion in processor, backing off");
@@ -81,7 +58,7 @@ public class GraphDBSinkTask extends SinkTask {
 	@Override
 	public void stop() {
 		log.trace("Shutting down processor");
-		SinkExecutor.getInstance().stopProcessor(processor);
+		stopProcessor(config.getConnectorName());
 	}
 
 	@Override

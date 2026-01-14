@@ -1,0 +1,137 @@
+package com.ontotext.kafka.processor;
+
+import com.ontotext.kafka.GraphDBSinkConfig;
+import org.apache.kafka.connect.errors.RetriableException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
+/**
+ * A singleton instance responsible for managing the lifecycle of all {@link SinkRecordsProcessor} threads.
+ * Stores all running processors, and only starts new ones (based on the processor UUID)
+ * <p>
+ * Starting and stopping a new processor instance are thread-safe operations
+ */
+public final class SinkProcessorManager {
+
+	private static final ExecutorService executorService = Executors.newCachedThreadPool();
+	private static final Map<String, ProcessorEntry> runningProcessors = new HashMap<>();
+	private static final Set<String> stoppingProcessors = new HashSet<>();
+	private static final Logger log = LoggerFactory.getLogger(SinkProcessorManager.class);
+	private static final long WAIT_TIMEOUT = 2000;
+	private static final int MAX_NUMBER_TIMES_WAITED_FOR_PROCESSOR_TO_STOP = 4;
+
+	private SinkProcessorManager() {
+		throw new IllegalStateException("Utility class");
+	}
+
+
+	/**
+	 * Creates a record process for the provided connector. Only one processor per unique connector can exist, therefore processor instances are cached and used when requested.
+	 *
+	 * @param config The configuration of the newly installed connector
+	 * @return The records processor instance
+	 */
+	public static synchronized SinkRecordsProcessor startNewProcessor(GraphDBSinkConfig config) {
+		return startNewProcessor(config, WAIT_TIMEOUT, MAX_NUMBER_TIMES_WAITED_FOR_PROCESSOR_TO_STOP);
+	}
+
+	static synchronized SinkRecordsProcessor startNewProcessor(GraphDBSinkConfig config, long waitTimeout, int numTimesToWaitForExistingProcessorToStop) {
+		String name = config.getConnectorName();
+		SinkRecordsProcessor processor = getRunningProcessor(name);
+		if (processor != null) {
+			if (!stoppingProcessors.contains(name)) {
+				log.warn("Processor with id {} already started", name);
+				return processor;
+			}
+			log.info("Waiting for processor {}} to stop", name);
+			int numberOfTimesWaitedForProcessor = 0;
+			while (stoppingProcessors.contains(name)) {
+				if (numberOfTimesWaitedForProcessor >= numTimesToWaitForExistingProcessorToStop) {
+					throw new RetriableException(
+						String.format("Waited %dms for processor %s to stop, but processor is still active. Cannot continue creating this processor", numberOfTimesWaitedForProcessor * waitTimeout, name));
+				}
+				try {
+					Thread.sleep(waitTimeout);
+				} catch (InterruptedException e) {
+					throw new RetriableException(String.format("Interrupted while waiting for processor %s to stop", name), e);
+				}
+				numberOfTimesWaitedForProcessor++;
+			}
+
+		}
+		log.info("Starting processor for connector {}", name);
+
+		ProcessorEntry entry = new ProcessorEntry();
+
+
+		processor = SinkRecordsProcessor.create(config, name);
+		entry.processor = processor;
+		// Put the entry into map before starting the processor to prevent issues that may arise if the processor (for some reason) terminates immediately due to an error
+		runningProcessors.put(name, entry);
+		entry.future = executorService.submit(processor);
+		return processor;
+	}
+
+
+	public static synchronized void startNewProcessor(SinkRecordsProcessor processor) {
+
+	}
+
+	public static synchronized void stopProcessor(String name) {
+		startEviction(name, null);
+		ProcessorEntry entry = runningProcessors.get(name);
+		if (entry != null) {
+			log.info("Stopping processor with id {}", name);
+			entry.future.cancel(true);
+		} else {
+			log.warn("Processor with id {} does not exist, it may have already been stopped", name);
+		}
+	}
+
+	public static synchronized SinkRecordsProcessor getRunningProcessor(String connectorName) {
+		if (runningProcessors.containsKey(connectorName)) {
+			return runningProcessors.get(connectorName).processor;
+		} else {
+			log.debug("Processor with id {} does not exist", connectorName);
+			return null;
+		}
+	}
+
+	static void startEviction(String name, Throwable errorThrown) {
+		if (errorThrown != null) {
+			log.warn("Processor {} is stopping because it threw an exception", name, errorThrown);
+		}
+		stoppingProcessors.add(name);
+	}
+
+
+	/**
+	 * A callback to remove the processor from the cache. This is called from the processor itself when closing, because the manager is not able to predict all cases in which the processor will terminate, thus clear the cache accordingly
+	 *
+	 * @param name        - the connector name bound to the processor to be evicted
+	 * @param errorThrown - if the processor terminated exceptionally
+	 */
+	static void finishEviction(String name, Throwable errorThrown) {
+		if (errorThrown != null) {
+			log.warn("Processor {} threw exception", name, errorThrown);
+		}
+		log.info("Removing processor entry {}", name);
+		// First remove the entry from the stopping cache,
+		stoppingProcessors.remove(name);
+		runningProcessors.remove(name);
+	}
+
+
+	private static class ProcessorEntry {
+		private Future<?> future;
+		private SinkRecordsProcessor processor;
+	}
+}

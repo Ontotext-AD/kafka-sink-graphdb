@@ -51,18 +51,18 @@ public class SinkRecordsProcessorTest {
 	@Test
 	@Timeout(5)
 	void test_runProcessor_interrupted_exit() throws InterruptedException {
-		processor = spy(new SinkRecordsProcessor(config, sinkRecords, repositoryMgr));
+		processor = spy(new SinkRecordsProcessor(config, config.getConnectorName(), sinkRecords, repositoryMgr));
 		doThrow(new InterruptedException("Interrupted")).when(processor).pollForMessages();
 
 		processor.run();
 		assertThat(Thread.interrupted()).as("After interruption, the processor must clear the interrupt flag").isFalse();
-		verify(processor, atLeastOnce()).shutdown();
+		verify(processor, atLeastOnce()).shutdown(any());
 	}
 
 	@Test
 	@Timeout(5)
 	void test_runProcessor_interrupted_in_main_loop_exit() throws InterruptedException {
-		processor = spy(new SinkRecordsProcessor(config, sinkRecords, repositoryMgr));
+		processor = spy(new SinkRecordsProcessor(config, config.getConnectorName(), sinkRecords, repositoryMgr));
 		doAnswer(invocation -> {
 			Thread.currentThread().interrupt();
 			return null;
@@ -70,7 +70,7 @@ public class SinkRecordsProcessorTest {
 		sinkRecords.add(generateSinkRecords(10, 10));
 		processor.run();
 		assertThat(Thread.interrupted()).as("After interruption, the processor must clear the interrupt flag").isFalse();
-		verify(processor, atLeastOnce()).shutdown();
+		verify(processor, atLeastOnce()).shutdown(any());
 	}
 
 
@@ -82,7 +82,7 @@ public class SinkRecordsProcessorTest {
 			.batchSize(10)
 			.build();
 		Collection<SinkRecord> records = generateSinkRecords(2, 2);
-		processor = spy(new SinkRecordsProcessor(config, sinkRecords, repositoryMgr));
+		processor = spy(new SinkRecordsProcessor(config, config.getConnectorName(), sinkRecords, repositoryMgr));
 		final boolean[] stop = {false};
 
 		// Don't stop until the sink records have been consumed, and until the processor has polled on an empty queue at least once (to force the timeout)
@@ -100,14 +100,14 @@ public class SinkRecordsProcessorTest {
 		sinkRecords.add(records);
 
 		doNothing().when(processor).flushUpdates(any());
-		doNothing().when(processor).shutdown(); // Ignore flush logic in shutdown to make sure that flush logic on timeout is being called
+		doNothing().when(processor).shutdown(any()); // Ignore flush logic in shutdown to make sure that flush logic on timeout is being called
 
 		processor.run();
 
 		assertThat(sinkRecords).as("All records have been consumed").isEmpty();
 
 
-		verify(processor, atLeastOnce()).shutdown();
+		verify(processor, atLeastOnce()).shutdown(any());
 		verify(processor, times(1)).flushUpdates(captor.capture());
 
 		Queue<SinkRecord> batch = captor.getValue();
@@ -126,7 +126,7 @@ public class SinkRecordsProcessorTest {
 			.timeoutCommitMs(10) // some small timeout to not have to wait a long time
 			.batchSize(batchSize)
 			.build();
-		processor = spy(new SinkRecordsProcessor(config, sinkRecords, repositoryMgr));
+		processor = spy(new SinkRecordsProcessor(config, config.getConnectorName(), sinkRecords, repositoryMgr));
 
 
 		doAnswer(invocation -> !sinkRecords.isEmpty()).when(processor).shouldRun();
@@ -146,14 +146,14 @@ public class SinkRecordsProcessorTest {
 			return null;
 		}).when(processor).flushUpdates(any());
 
-		doNothing().when(processor).shutdown(); // Ignore flush logic in shutdown to make sure that flush logic on timeout is being called
+		doNothing().when(processor).shutdown(any()); // Ignore flush logic in shutdown to make sure that flush logic on timeout is being called
 
 		processor.run();
 
 		assertThat(sinkRecords).as("All records have been consumed").isEmpty();
 
 
-		verify(processor, atLeastOnce()).shutdown();
+		verify(processor, atLeastOnce()).shutdown(any());
 		verify(processor, times(2)).flushUpdates(any());
 
 		assertThat(consumedRecords).hasSize(batchSize * 2);
@@ -172,7 +172,7 @@ public class SinkRecordsProcessorTest {
 
 			mockedStatic.when(() -> RecordHandler.getRecordHandler(any())).thenReturn(handlerMock);
 
-			processor = spy(new SinkRecordsProcessor(config, sinkRecords, repositoryMgr));
+			processor = spy(new SinkRecordsProcessor(config, config.getConnectorName(), sinkRecords, repositoryMgr));
 			assertThatCode(() -> processor.handleRecord(generateSinkRecord(2), null)).doesNotThrowAnyException();
 
 		}
@@ -189,7 +189,7 @@ public class SinkRecordsProcessorTest {
 			};
 			mockedStatic.when(() -> RecordHandler.getRecordHandler(any())).thenReturn(handlerMock);
 
-			processor = spy(new SinkRecordsProcessor(config, sinkRecords, repositoryMgr));
+			processor = spy(new SinkRecordsProcessor(config, config.getConnectorName(), sinkRecords, repositoryMgr));
 			assertThatCode(() -> processor.handleRecord(generateSinkRecord(2), null)).isInstanceOf(RetriableException.class).hasMessage("IOException");
 
 		}
@@ -206,7 +206,7 @@ public class SinkRecordsProcessorTest {
 			.timeoutCommitMs(10) // some small timeout to not have to wait a long time
 			.batchSize(batchSize)
 			.build();
-		processor = spy(new SinkRecordsProcessor(config, sinkRecords, repositoryMgr));
+		processor = spy(new SinkRecordsProcessor(config, config.getConnectorName(), sinkRecords, repositoryMgr));
 
 		sinkRecords.add(firstBatchRecords);
 		sinkRecords.add(secondBatchRecords);
@@ -224,7 +224,7 @@ public class SinkRecordsProcessorTest {
 		}).when(processor).flushUpdates(any());
 
 
-		processor.shutdown();
+		processor.shutdown(any());
 
 		assertThat(sinkRecords).as("All records have been consumed").isEmpty();
 		verify(processor, times(1)).flushUpdates(any());
@@ -243,7 +243,7 @@ public class SinkRecordsProcessorTest {
 			.backOffRetryTimeoutMs(10)
 			.batchSize(1)
 			.build();
-		processor = spy(new SinkRecordsProcessor(config, sinkRecords, repositoryMgr));
+		processor = spy(new SinkRecordsProcessor(config, config.getConnectorName(), sinkRecords, repositoryMgr));
 
 		Collection<SinkRecord> records = generateSinkRecords(1, 20);
 		sinkRecords.add(records);
@@ -263,7 +263,7 @@ public class SinkRecordsProcessorTest {
 			return null;
 		}).doNothing().when(processor).flushUpdates(any());
 
-		doNothing().when(processor).shutdown();
+		doNothing().when(processor).shutdown(any());
 		processor.run();
 		assertThat(sinkRecords).as("All records have been consumed").isEmpty();
 		assertThat(consumedRecords).containsAll(records);
@@ -291,7 +291,7 @@ public class SinkRecordsProcessorTest {
 		try (MockedStatic<RecordHandler> mock = mockStatic(RecordHandler.class)) {
 			mock.when(() -> RecordHandler.getRecordHandler(any())).thenReturn(handler);
 
-			processor = spy(new SinkRecordsProcessor(config, sinkRecords, repositoryMgr));
+			processor = spy(new SinkRecordsProcessor(config, config.getConnectorName(), sinkRecords, repositoryMgr));
 
 			assertThatCode(() -> processor.doFlush(recordBatch)).doesNotThrowAnyException();
 
@@ -324,7 +324,7 @@ public class SinkRecordsProcessorTest {
 		try (MockedStatic<RecordHandler> mock = mockStatic(RecordHandler.class)) {
 			mock.when(() -> RecordHandler.getRecordHandler(any())).thenReturn(handler);
 
-			processor = spy(new SinkRecordsProcessor(config, sinkRecords, repositoryMgr));
+			processor = spy(new SinkRecordsProcessor(config, config.getConnectorName(), sinkRecords, repositoryMgr));
 
 			assertThatCode(() -> processor.doFlush(recordBatch)).isInstanceOf(RetriableException.class);
 
@@ -359,7 +359,7 @@ public class SinkRecordsProcessorTest {
 		try (MockedStatic<RecordHandler> mock = mockStatic(RecordHandler.class)) {
 			mock.when(() -> RecordHandler.getRecordHandler(any())).thenReturn(handler);
 
-			processor = spy(new SinkRecordsProcessor(config, sinkRecords, repositoryMgr));
+			processor = spy(new SinkRecordsProcessor(config, config.getConnectorName(), sinkRecords, repositoryMgr));
 
 			assertThatCode(() -> processor.doFlush(recordBatch)).isInstanceOf(RetriableException.class);
 
@@ -404,7 +404,7 @@ public class SinkRecordsProcessorTest {
 		try (MockedStatic<RecordHandler> mock = mockStatic(RecordHandler.class)) {
 			mock.when(() -> RecordHandler.getRecordHandler(any())).thenReturn(handler);
 
-			processor = spy(new SinkRecordsProcessor(config, sinkRecords, repositoryMgr));
+			processor = spy(new SinkRecordsProcessor(config, config.getConnectorName(), sinkRecords, repositoryMgr));
 			// First pass - get records and try to flush, catch Retriable exception, second pass flush records after backoff wait, then exit
 			doReturn(true).doReturn(true).doReturn(false).when(processor).shouldRun();
 
@@ -454,7 +454,7 @@ public class SinkRecordsProcessorTest {
 		try (MockedStatic<RecordHandler> mock = mockStatic(RecordHandler.class)) {
 			mock.when(() -> RecordHandler.getRecordHandler(any())).thenReturn(handler);
 
-			processor = spy(new SinkRecordsProcessor(config, sinkRecords, repositoryMgr));
+			processor = spy(new SinkRecordsProcessor(config, config.getConnectorName(), sinkRecords, repositoryMgr));
 			// First pass - get records and try to flush, catch Retriable exception, second pass flush records after backoff wait, then exit
 			doReturn(true).doReturn(true).doReturn(false).when(processor).shouldRun();
 
@@ -468,7 +468,7 @@ public class SinkRecordsProcessorTest {
 
 	@Test
 	@Timeout(5)
-	void test_doFlush_error_noTolerance_fail() {
+	void test_doFlush_error_noTolerance_fail() throws InterruptedException {
 
 		config = new TestSinkConfigBuilder()
 			.timeoutCommitMs(10) // some small timeout to not have to wait a long time
@@ -494,10 +494,10 @@ public class SinkRecordsProcessorTest {
 		try (MockedStatic<RecordHandler> mock = mockStatic(RecordHandler.class)) {
 			mock.when(() -> RecordHandler.getRecordHandler(any())).thenReturn(handler);
 
-			processor = spy(new SinkRecordsProcessor(config, sinkRecords, repositoryMgr));
+			processor = spy(new SinkRecordsProcessor(config, config.getConnectorName(), sinkRecords, repositoryMgr));
 			// First pass - get records and try to flush, catch Retriable exception, second pass flush records after backoff wait, then exit
 			doReturn(true).doReturn(true).doReturn(false).when(processor).shouldRun();
-
+			Thread.sleep(1000);
 			assertThatCode(() -> processor.flushUpdates(batch)).isInstanceOf(ConnectException.class).hasMessageContaining("Error tolerance exceeded.");
 
 		}
