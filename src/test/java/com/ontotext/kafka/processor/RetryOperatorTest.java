@@ -85,7 +85,7 @@ class RetryOperatorTest {
 		try (MockedStatic<RecordHandler> mock = mockStatic(RecordHandler.class)) {
 			mock.when(() -> RecordHandler.getRecordHandler(any())).thenReturn(handler);
 
-			processor = spy(new SinkRecordsProcessor(config, sinkRecords, repositoryMgr, retryOperator));
+			processor = spy(new SinkRecordsProcessor(config, config.getConnectorName(), sinkRecords, repositoryMgr, retryOperator));
 
 			assertThatCode(() -> processor.flushUpdates(recordBatch)).doesNotThrowAnyException();
 		}
@@ -130,7 +130,7 @@ class RetryOperatorTest {
 		try (MockedStatic<RecordHandler> mock = mockStatic(RecordHandler.class)) {
 			mock.when(() -> RecordHandler.getRecordHandler(any())).thenReturn(handler);
 
-			processor = spy(new SinkRecordsProcessor(config, sinkRecords, repositoryMgr, retryOperator));
+			processor = spy(new SinkRecordsProcessor(config, config.getConnectorName(), sinkRecords, repositoryMgr, retryOperator));
 
 			assertThatCode(() -> processor.flushUpdates(recordBatch)).isInstanceOf(RetriableException.class).hasMessage("Operation failed");
 		}
@@ -181,7 +181,7 @@ class RetryOperatorTest {
 		try (MockedStatic<RecordHandler> mock = mockStatic(RecordHandler.class)) {
 			mock.when(() -> RecordHandler.getRecordHandler(any())).thenReturn(handler);
 
-			processor = spy(new SinkRecordsProcessor(config, sinkRecords, repositoryMgr, retryOperator));
+			processor = spy(new SinkRecordsProcessor(config, config.getConnectorName(), sinkRecords, repositoryMgr, retryOperator));
 
 			assertThatCode(() -> processor.flushUpdates(recordBatch)).doesNotThrowAnyException();
 		}

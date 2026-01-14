@@ -15,7 +15,7 @@ import static org.apache.kafka.connect.runtime.WorkerConfig.BOOTSTRAP_SERVERS_CO
 
 public class TestSinkConfigBuilder {
 
-	private final Map<String, Object> configProperties = new HashMap<>();
+	private final Map<String, String> configProperties = new HashMap<>();
 
 	public TestSinkConfigBuilder() {
 		initDefaults();
@@ -28,14 +28,18 @@ public class TestSinkConfigBuilder {
 
 	}
 
+	public TestSinkConfigBuilder connectorName(String name) {
+		this.configProperties.put(NAME_CONFIG, name);
+		return this;
+	}
 
 	public TestSinkConfigBuilder batchSize(int batchSize) {
-		this.configProperties.put(BATCH_SIZE, batchSize);
+		this.configProperties.put(BATCH_SIZE, String.valueOf(batchSize));
 		return this;
 	}
 
 	public TestSinkConfigBuilder timeoutCommitMs(long ms) {
-		this.configProperties.put(RECORD_POLL_TIMEOUT, ms);
+		this.configProperties.put(RECORD_POLL_TIMEOUT, String.valueOf(ms));
 		return this;
 	}
 
@@ -70,27 +74,31 @@ public class TestSinkConfigBuilder {
 	}
 
 	public TestSinkConfigBuilder errorRetryTimeout(long timeout) {
-		this.configProperties.put(ERRORS_RETRY_TIMEOUT_CONFIG, timeout);
+		this.configProperties.put(ERRORS_RETRY_TIMEOUT_CONFIG, String.valueOf(timeout));
 		return this;
 	}
 
 	public TestSinkConfigBuilder errorMaxDelayInMillis(long ms) {
-		this.configProperties.put(ERRORS_RETRY_MAX_DELAY_CONFIG, ms);
+		this.configProperties.put(ERRORS_RETRY_MAX_DELAY_CONFIG, String.valueOf(ms));
 		return this;
 	}
 
 	public TestSinkConfigBuilder backOffRetryTimeoutMs(long ms) {
-		this.configProperties.put(POLL_BACKOFF_TIMEOUT, ms);
+		this.configProperties.put(POLL_BACKOFF_TIMEOUT, String.valueOf(ms));
 		return this;
 	}
 
 	public TestSinkConfigBuilder prop(String key, Object val) {
-		this.configProperties.put(key, val);
+		this.configProperties.put(key, (String) val);
 		return this;
 	}
 
 	public GraphDBSinkConfig build() {
 		return new GraphDBSinkConfig(this.configProperties);
+	}
+
+	public Map<String, String> buildAsProperties() {
+		return configProperties;
 	}
 
 

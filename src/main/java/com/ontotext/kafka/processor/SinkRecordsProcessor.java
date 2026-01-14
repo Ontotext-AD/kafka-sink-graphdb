@@ -16,7 +16,10 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedList;
+import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -32,9 +35,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public final class SinkRecordsProcessor implements Runnable {
 
-	private static final Logger LOG = LoggerFactory.getLogger(SinkRecordsProcessor.class);
+	private static final Logger log = LoggerFactory.getLogger(SinkRecordsProcessor.class);
 
-	private final UUID id = UUID.randomUUID();
+	private final String name;
 	private final LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords;
 	private final Queue<SinkRecord> recordsBatch;
 	private final GDBConnectionManager connectionManager;
@@ -46,25 +49,27 @@ public final class SinkRecordsProcessor implements Runnable {
 	private final GraphDBSinkConfig config;
 	private final AtomicBoolean backOff = new AtomicBoolean(false);
 	private final RetryOperator retryOperator;
+	private volatile boolean running = false;
 
-	public SinkRecordsProcessor(GraphDBSinkConfig config) {
-		this(config, new LinkedBlockingQueue<>(), new GDBConnectionManager(new GdbConnectionConfig(config)));
-	}
-
-	public SinkRecordsProcessor(GraphDBSinkConfig config, LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords, GDBConnectionManager connectionManager) {
-		this(config, sinkRecords, connectionManager, new RetryOperator(config));
+	public static SinkRecordsProcessor create(GraphDBSinkConfig config, String name) {
+		return new SinkRecordsProcessor(config, name, new LinkedBlockingQueue<>(), new GDBConnectionManager(new GdbConnectionConfig(config)));
 	}
 
 
-	public SinkRecordsProcessor(GraphDBSinkConfig config, LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords, GDBConnectionManager connectionManager,
+	SinkRecordsProcessor(GraphDBSinkConfig config, String name, LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords, GDBConnectionManager connectionManager) {
+		this(config, name, sinkRecords, connectionManager, new RetryOperator(config));
+	}
+
+	SinkRecordsProcessor(GraphDBSinkConfig config, String name, LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords, GDBConnectionManager connectionManager,
 								RetryOperator retryOperator) {
-		this(config, sinkRecords, new LinkedList<>(), connectionManager, new LogErrorHandler(config), RecordHandler.getRecordHandler(config), retryOperator);
+		this(config, name, sinkRecords, new LinkedList<>(), connectionManager, new LogErrorHandler(config), RecordHandler.getRecordHandler(config), retryOperator);
 	}
 
-	private SinkRecordsProcessor(GraphDBSinkConfig config, LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords, Queue<SinkRecord> recordsBatch,
+	private SinkRecordsProcessor(GraphDBSinkConfig config, String name, LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords, Queue<SinkRecord> recordsBatch,
 								 GDBConnectionManager connectionManager, LogErrorHandler logErrorHandler, RecordHandler recordHandler,
 								 RetryOperator retryOperator) {
 		this.config = config;
+		this.name = name;
 		this.sinkRecords = sinkRecords;
 		this.connectionManager = connectionManager;
 		this.errorHandler = logErrorHandler;
@@ -82,56 +87,61 @@ public final class SinkRecordsProcessor implements Runnable {
 
 	@Override
 	public void run() {
+		Throwable errorThrown = null;
+		running = true;
 		while (shouldRun()) {
 			try {
 				if (backOff.getAndSet(false)) {
-					LOG.info("Retrying flush");
+					log.info("Retrying flush");
 					flushUpdates(this.recordsBatch);
-					LOG.info("Flush (on retry) successful");
+					log.info("Flush (on retry) successful");
 				}
 				Collection<SinkRecord> messages = pollForMessages();
 				if (messages != null) {
 					consumeRecords(messages);
 				} else {
-					LOG.trace("Did not receive any records (waited {} {} ) for repository {}. Flushing all records in batch.", timeoutCommitMs,
+					log.trace("Did not receive any records (waited {} {} ) for repository {}. Flushing all records in batch.", timeoutCommitMs,
 						TimeUnit.MILLISECONDS, connectionManager);
 					flushUpdates(this.recordsBatch);
 				}
 			} catch (RetriableException e) {
 				long backoffTimeoutMs = config.getBackOffTimeoutMs();
 				backOff.set(true);
-				LOG.warn("Caught a retriable exception while flushing the current batch. " +
+				log.warn("Caught a retriable exception while flushing the current batch. " +
 					"Will sleep for {}ms and will try to flush the records again", backoffTimeoutMs);
 				try {
 					Thread.sleep(backoffTimeoutMs);
 				} catch (InterruptedException iex) {
-					LOG.info("Thread was interrupted during backoff. Shutting down");
+					log.info("Thread was interrupted during backoff. Shutting down");
 					break;
 				}
-			} catch (Exception e) {
+			} catch (Throwable e) {
 				if (e instanceof InterruptedException) {
-					LOG.info("Thread was interrupted. Shutting down processor");
+					log.info("Thread was interrupted. Shutting down processor");
 				} else {
-					LOG.error("Caught an exception, cannot recover.  Shutting down", e);
+					errorThrown = e;
+					log.error("Caught an exception, cannot recover.  Shutting down", e);
 				}
 				break;
 			}
 		}
+		log.info("Shutting down processor");
 		Thread.interrupted();
-		shutdown();
+		shutdown(errorThrown);
 	}
 
 	boolean shouldRun() {
-		return !Thread.currentThread().isInterrupted();
+		return !Thread.currentThread().isInterrupted() && isRunning();
 	}
 
 	Collection<SinkRecord> pollForMessages() throws InterruptedException {
 		return sinkRecords.poll(timeoutCommitMs, TimeUnit.MILLISECONDS);
 	}
 
-	void shutdown() {
+	void shutdown(Throwable errorThrown) {
+		SinkProcessorManager.startEviction(name, errorThrown);
 		// commit any records left before shutdown. Bypass batch checking, just add all records and flush downstream
-		LOG.info("Commiting any records left before shutdown");
+		log.info("Commiting any records left before shutdown");
 		Collection<SinkRecord> records;
 		while ((records = sinkRecords.poll()) != null) {
 			recordsBatch.addAll(records);
@@ -140,10 +150,13 @@ public final class SinkRecordsProcessor implements Runnable {
 			flushUpdates(this.recordsBatch);
 		} catch (Exception e) {
 			// We did ou best. Just log the exception and shut down
-			LOG.warn("While shutting down, failed to flush updates due to exception", e);
+			log.warn("While shutting down, failed to flush updates due to exception", e);
 		}
 
 		connectionManager.shutDownRepository();
+		running = false;
+		SinkProcessorManager.finishEviction(name, errorThrown);
+
 	}
 
 	void consumeRecords(Collection<SinkRecord> messages) {
@@ -182,14 +195,14 @@ public final class SinkRecordsProcessor implements Runnable {
 		try (RepositoryConnection connection = connectionManager.newConnection()) {
 			connection.begin();
 			int recordsInCurrentBatch = recordsBatch.size();
-			LOG.trace("Transaction started, batch size: {} , records in current batch: {}", batchSize, recordsInCurrentBatch);
+			log.trace("Transaction started, batch size: {} , records in current batch: {}", batchSize, recordsInCurrentBatch);
 			while (recordsBatch.peek() != null) {
 				SinkRecord record = recordsBatch.peek();
 				try {
 					retryOperator.execute(() -> handleRecord(record, connection));
 					consumedRecords.add(recordsBatch.poll());
 				} catch (RetriableException e) {
-					LOG.warn("Failed to commit record. Will handle failure, and remove from the batch");
+					log.warn("Failed to commit record. Will handle failure, and remove from the batch");
 					errorHandler.handleFailingRecord(record, e);
 					recordsBatch.poll();
 				}
@@ -197,7 +210,7 @@ public final class SinkRecordsProcessor implements Runnable {
 			try {
 				connection.commit();
 			} catch (RepositoryException e) {
-				LOG.error(
+				log.error(
 					"Failed to commit transaction due to exception. Restoring consumed records so that they can be flushed later, and rolling back the transaction",
 					e);
 				recordsBatch.addAll(consumedRecords);
@@ -207,10 +220,10 @@ public final class SinkRecordsProcessor implements Runnable {
 				throw e;
 			}
 
-			LOG.trace("Transaction commited, Batch size: {} , Records in current batch: {}", batchSize, recordsInCurrentBatch);
-			if (LOG.isTraceEnabled()) {
+			log.trace("Transaction commited, Batch size: {} , Records in current batch: {}", batchSize, recordsInCurrentBatch);
+			if (log.isTraceEnabled()) {
 				long finish = System.currentTimeMillis();
-				LOG.trace("Finished batch processing for {} ms", finish - start);
+				log.trace("Finished batch processing for {} ms", finish - start);
 			}
 		} catch (RepositoryException e) {
 			throw new RetriableException(e);
@@ -220,22 +233,22 @@ public final class SinkRecordsProcessor implements Runnable {
 	void handleRecord(SinkRecord record, RepositoryConnection connection) {
 		long start = System.currentTimeMillis();
 		try {
-			LOG.trace("Executing {} operation......", transactionType.toString().toLowerCase());
+			log.trace("Executing {} operation......", transactionType.toString().toLowerCase());
 			recordHandler.handle(record, connection, config);
 		} catch (IOException e) {
 			throw new RetriableException(e.getMessage(), e);
 		} finally {
-			if (LOG.isTraceEnabled()) {
-				LOG.trace("Record info: {}", ValueUtil.recordInfo(record));
+			if (log.isTraceEnabled()) {
+				log.trace("Record info: {}", ValueUtil.recordInfo(record));
 				long finish = System.currentTimeMillis();
-				LOG.trace("Converted the record and added it to the RDF4J connection for {} ms", finish - start);
+				log.trace("Converted the record and added it to the RDF4J connection for {} ms", finish - start);
 			}
 		}
 
 	}
 
-	public UUID getId() {
-		return id;
+	public String getName() {
+		return name;
 	}
 
 	public LinkedBlockingQueue<Collection<SinkRecord>> getQueue() {
@@ -244,5 +257,9 @@ public final class SinkRecordsProcessor implements Runnable {
 
 	public boolean shouldBackOff() {
 		return backOff.get();
+	}
+
+	public boolean isRunning() {
+		return running;
 	}
 }
