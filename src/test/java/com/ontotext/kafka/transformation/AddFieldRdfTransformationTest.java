@@ -99,6 +99,45 @@ public class AddFieldRdfTransformationTest {
 	}
 
 	@Test
+	void test_transformation_uses_record_key_as_subject_if_configured() throws IOException {
+		// Set up config such that it uses the record key as the subject iri
+		config.put("subject.iri", "@recordKey");
+		transformation.configure(config);
+		String recordKey = "https://test";
+		SinkRecord record = new SinkRecord("topic", 0, null, recordKey.getBytes(StandardCharsets.UTF_8), null,
+			generateRDFStatements(10).getBytes(StandardCharsets.UTF_8), 12);
+		SinkRecord transformedRecord = transformation.apply(record);
+		Model model;
+		try (InputStream inputStream = new ByteArrayInputStream((byte[]) transformedRecord.value())) {
+			model = Rio.parse(inputStream, "", RDFFormat.NQUADS);
+		}
+		ValueFactory vf = SimpleValueFactory.getInstance();
+		IRI predicate = vf.createIRI("http://example.com/predicate");
+		List<Statement> transformationTriple = model.stream()
+			.filter(st -> st.getSubject().stringValue().equals(recordKey))
+			.filter(st -> st.getPredicate().equals(predicate))
+			.filter(st -> {
+				Value obj = st.getObject();
+				return obj instanceof Literal &&
+					((Literal) obj).getDatatype().equals(XSD.DATETIME);
+			})
+			.collect(Collectors.toList());
+		assertThat(transformationTriple)
+			.as("Model should contain a triple with a subjectIri equal to the record key and timestamp object")
+			.isNotEmpty();
+	}
+
+	@Test
+	void test_transformation_fails_if_record_key_not_byte_array_when_used_as_subject_iri() {
+		config.put("subject.iri", "@recordKey");
+		transformation.configure(config);
+		SinkRecord invalidRecord = new SinkRecord(null, 0, null, "key", null,
+			generateRDFStatements(10).getBytes(StandardCharsets.UTF_8), 12);
+		assertThatThrownBy(() -> transformation.apply(invalidRecord)).isInstanceOf(ConnectException.class)
+			.hasMessageContaining("Record key must be of type byte[] and must not be null!");
+	}
+
+	@Test
 	void test_transformation_fails_if_record_value_invalid_rdf() {
 		// This test will log an RDF4J parse error — this is expected since RDF4J logs parser errors by default
 		transformation.configure(config);

@@ -24,6 +24,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -78,7 +79,9 @@ public class AddFieldRdfTransformation extends RdfTransformation {
 		}
 		Model model = convertToRDF(sinkRecord.value());
 		log.debug("Converted record value to rdf.");
-		executeTransformation(model);
+		Resource subject = createSubject(sinkRecord.key());
+		IRI predicate = VF.createIRI(this.predicateIRI);
+		executeTransformation(model, subject, predicate);
 		log.debug("Transformation applied on record value.");
 		byte[] updatedValue = convertToBytes(model);
 		log.debug("Record RDF converted back to byte array.");
@@ -118,9 +121,7 @@ public class AddFieldRdfTransformation extends RdfTransformation {
 	 *
 	 * @param model the record value in RDF.
 	 */
-	private void executeTransformation(Model model) {
-		Resource subject = createSubject();
-		IRI predicate = VF.createIRI(this.predicateIRI);
+	private void executeTransformation(Model model, Resource subject, IRI predicate) {
 		Literal transformation = VF.createLiteral(this.transformation.value.get(),
 			VF.createIRI(this.transformation.dataType));
 		model.add(subject, predicate, transformation);
@@ -131,11 +132,19 @@ public class AddFieldRdfTransformation extends RdfTransformation {
 	 *
 	 * @return created subject
 	 */
-	private Resource createSubject() {
+	private Resource createSubject(Object recordKey) {
 		if (this.subjectIRI.isEmpty()) {
 			return VF.createBNode();
 		} else if (this.subjectIRI.startsWith("_:")) {
 			return VF.createBNode(this.subjectIRI.substring(2));
+		} else if (this.subjectIRI.equals("@recordKey")) {
+			if (recordKey instanceof byte[]) {
+				String recordKeyString = new String((byte[]) recordKey, StandardCharsets.UTF_8);
+				log.trace("Converted record key to string - {}", recordKeyString);
+				return VF.createIRI(recordKeyString);
+			} else {
+				throw new ConnectException("Record key must be of type byte[] and must not be null!");
+			}
 		} else {
 			return VF.createIRI(this.subjectIRI);
 		}
