@@ -369,7 +369,11 @@ described in the [Confluent SMT tutorial](https://www.confluent.io/blog/kafka-co
 configured separately under the `transforms.*` namespace, and do not have access to connector-level configurations.
 However, in this case, the `rdf.format` configuration must match the value of the Connector’s `graphdb.update.rdf.format` property. This is required so that the transformation can correctly parse the record value and insert a triple using the correct RDF serialization format. Although this introduces redundancy, it is a necessary compromise due to the isolation model of SMTs.
 
-**Note:** Currently, the `AddFieldRdfTransformation` supports only record values in byte[] format.
+The `subject.iri` configuration has custom behaviour if set to one of these keywords:
+ - `""` or `_:` - creates a blank node for the subject of the added triple
+ - `@recordKey` - Uses the record key as the subject IRI of the added triple (This will throw an exception if the record key is null!)
+
+**Note:** Currently, the `AddFieldRdfTransformation` supports only record values and keys in byte[] format.
 
 Example configuration:
 
