@@ -497,7 +497,7 @@ public class SinkRecordsProcessorTest {
 			processor = spy(new SinkRecordsProcessor(config, config.getConnectorName(), sinkRecords, repositoryMgr));
 			// First pass - get records and try to flush, catch Retriable exception, second pass flush records after backoff wait, then exit
 			doReturn(true).doReturn(true).doReturn(false).when(processor).shouldRun();
-			Thread.sleep(1000);
+			Thread.sleep(2000);
 			assertThatCode(() -> processor.flushUpdates(batch)).isInstanceOf(ConnectException.class).hasMessageContaining("Error tolerance exceeded.");
 
 		}

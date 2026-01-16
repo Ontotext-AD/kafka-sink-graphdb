@@ -33,16 +33,21 @@ public final class SinkProcessorManager {
 	}
 
 
-	/**
-	 * Creates a record process for the provided connector. Only one processor per unique connector can exist, therefore processor instances are cached and used when requested.
-	 *
-	 * @param config The configuration of the newly installed connector
-	 * @return The records processor instance
-	 */
 	public static synchronized SinkRecordsProcessor startNewProcessor(GraphDBSinkConfig config) {
 		return startNewProcessor(config, WAIT_TIMEOUT, MAX_NUMBER_TIMES_WAITED_FOR_PROCESSOR_TO_STOP);
 	}
 
+	/**
+	 * Creates a record process for the provided connector. Only one processor per unique connector can exist, therefore processor instances are cached and used when requested.
+	 * If a processor for the same connector is already running, that instance will be returned.
+	 * If a processor for the same connector is being stopped, this call will wait for it to stop before creating a new instance. The total wait time is calculated based on the waitTimeout and numTimesToWaitForExistingProcessorToStop
+	 * parameters
+	 *
+	 * @param config                                   The configuration of the newly installed connector
+	 * @param waitTimeout                              How much time (ms) to wait before checking if an existing processor for the same connector has terminated
+	 * @param numTimesToWaitForExistingProcessorToStop How many times to repeat waiting for an existing process to terminate
+	 * @return The records processor instance
+	 */
 	static synchronized SinkRecordsProcessor startNewProcessor(GraphDBSinkConfig config, long waitTimeout, int numTimesToWaitForExistingProcessorToStop) {
 		String name = config.getConnectorName();
 		SinkRecordsProcessor processor = getRunningProcessor(name);
@@ -68,21 +73,13 @@ public final class SinkProcessorManager {
 
 		}
 		log.info("Starting processor for connector {}", name);
-
 		ProcessorEntry entry = new ProcessorEntry();
-
-
 		processor = SinkRecordsProcessor.create(config, name);
 		entry.processor = processor;
 		// Put the entry into map before starting the processor to prevent issues that may arise if the processor (for some reason) terminates immediately due to an error
 		runningProcessors.put(name, entry);
 		entry.future = executorService.submit(processor);
 		return processor;
-	}
-
-
-	public static synchronized void startNewProcessor(SinkRecordsProcessor processor) {
-
 	}
 
 	public static synchronized void stopProcessor(String name) {
