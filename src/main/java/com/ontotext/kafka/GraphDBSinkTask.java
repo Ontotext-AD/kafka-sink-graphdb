@@ -1,5 +1,7 @@
 package com.ontotext.kafka;
 
+import com.ontotext.kafka.logging.LoggerFactory;
+import com.ontotext.kafka.logging.LoggingContext;
 import com.ontotext.kafka.processor.SinkRecordsProcessor;
 import com.ontotext.kafka.util.VersionUtil;
 import org.apache.commons.collections4.CollectionUtils;
@@ -7,7 +9,6 @@ import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 import java.util.Map;
@@ -23,14 +24,16 @@ import static com.ontotext.kafka.processor.SinkProcessorManager.startNewProcesso
  */
 public class GraphDBSinkTask extends SinkTask {
 
-	private static final Logger log = LoggerFactory.getLogger(GraphDBSinkTask.class);
+	private final Logger log = LoggerFactory.getLogger(getClass());
 	private GraphDBSinkConfig config;
 
 
 	@Override
 	public void start(Map<String, String> properties) {
 		this.config = new GraphDBSinkConfig(properties);
-		log.info("Task started");
+		try (LoggingContext ctx = LoggingContext.withContext("connectorName=" + config.getConnectorName())) {
+			log.info("Task started");
+		}
 	}
 
 
@@ -40,18 +43,20 @@ public class GraphDBSinkTask extends SinkTask {
 		if (CollectionUtils.isEmpty(collection)) {
 			return;
 		}
-		SinkRecordsProcessor processor = getRunningProcessor(config.getConnectorName());
-		if (processor == null) {
-			log.warn("Processor {} has completed. Recreating processor", config.getConnectorName());
-			processor = startNewProcessor(config);
+		try (LoggingContext ctx = LoggingContext.withContext("connectorName=" + config.getConnectorName())) {
+			SinkRecordsProcessor processor = getRunningProcessor(config.getConnectorName());
+			if (processor == null) {
+				log.warn("Processor {} has completed. Recreating processor", config.getConnectorName());
+				processor = startNewProcessor(config);
+			}
+			if (processor.shouldBackOff()) {
+				log.info("Congestion in processor, backing off");
+				context.timeout(config.getBackOffTimeoutMs());
+				throw new RetriableException("Congestion in processor, retry later");
+			}
+			log.trace("Sink task received {} records", collection.size());
+			processor.getQueue().add(collection);
 		}
-		if (processor.shouldBackOff()) {
-			log.info("Congestion in processor, backing off");
-			context.timeout(config.getBackOffTimeoutMs());
-			throw new RetriableException("Congestion in processor, retry later");
-		}
-		log.trace("Sink task received {} records", collection.size());
-		processor.getQueue().add(collection);
 	}
 
 	@Override
@@ -62,6 +67,7 @@ public class GraphDBSinkTask extends SinkTask {
 	public String version() {
 		return VersionUtil.getVersion();
 	}
+
 
 }
 

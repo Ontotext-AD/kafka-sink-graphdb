@@ -1,5 +1,6 @@
 package com.ontotext.kafka;
 
+import com.ontotext.kafka.logging.LoggerFactory;
 import com.ontotext.kafka.util.EnumValidator;
 import com.ontotext.kafka.util.RDFFormatValidator;
 import com.ontotext.kafka.util.ValueUtil;
@@ -31,6 +32,7 @@ import static org.apache.kafka.connect.runtime.SinkConnectorConfig.*;
 public class GraphDBSinkConfig extends AbstractConfig {
 
 	public static final ConfigDef CONFIG_DEFINITION = createConfigDef();
+
 
 	private final int batchSize;
 	private final Long processorRecordPollTimeoutMs;
@@ -86,6 +88,15 @@ public class GraphDBSinkConfig extends AbstractConfig {
 	public static final String AUTH_BASIC_USER = "graphdb.auth.basic.username";
 	public static final String AUTH_BASIC_USER_DOC = "GraphDB basic authentication username";
 	public static final String DEFAULT_AUTH_BASIC_USER = "admin";
+
+	public static final String LOG_LEVEL_OVERRIDE = "log.level.override";
+	public static final String LOG_LEVEL_OVERRIDE_DOC = "Log level override for Kafka Sink Connector. Overrides the log level that may be set in log4j properties. May work with some loggers (example, MSK)";
+	public static final String LOG_LEVEL_OVERRIDE_DEFAULT = "INFO";
+
+	public static final String LOGGER_TYPE = "logger.type";
+	public static final String LOGGER_TYPE_DOC = "Log level override for Kafka Sink Connector. Overrides the log level that may be set in log4j properties. May work with some loggers (example, MSK)";
+	public static final String LOGGER_TYPE_DEFAULT = "default";
+
 
 	public static final String AUTH_BASIC_PASS = "graphdb.auth.basic.password";
 	public static final String AUTH_BASIC_PASS_DOC = "GraphDB basic authentication password";
@@ -270,6 +281,21 @@ public class GraphDBSinkConfig extends AbstractConfig {
 				"",
 				ConfigDef.Importance.LOW,
 				AUTH_HEADER_CERTIFICATE_STRING_DOC
+			)
+			.define(
+				LOG_LEVEL_OVERRIDE,
+				ConfigDef.Type.STRING,
+				LOG_LEVEL_OVERRIDE_DEFAULT,
+				ConfigDef.Importance.LOW,
+				LOG_LEVEL_OVERRIDE_DOC
+			)
+			.define(
+				LOGGER_TYPE,
+				ConfigDef.Type.STRING,
+				LOGGER_TYPE_DEFAULT,
+				new EnumValidator(LoggerFactory.LoggerType.class),
+				ConfigDef.Importance.LOW,
+				LOGGER_TYPE_DOC
 			)
 			.define(
 				AUTH_HEADER_NAME,

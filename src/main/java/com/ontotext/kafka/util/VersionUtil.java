@@ -16,29 +16,32 @@
 
 package com.ontotext.kafka.util;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+import com.ontotext.kafka.logging.LoggerFactory;
+import org.slf4j.Logger;
+
+import java.io.IOException;
 import java.util.Properties;
 
 public class VersionUtil {
 
-	private static final Logger LOG = LoggerFactory.getLogger(VersionUtil.class);
+
 	private static String version = "0.0.1";
-	private static Properties properties;
+	private static final Logger log = LoggerFactory.getLogger(VersionUtil.class);
+
 
 	private VersionUtil() {
+		throw new IllegalStateException("Utility class");
 	}
 
 	static {
+		Properties properties = new Properties();
 		try {
-			properties = new Properties();
 			properties.load(VersionUtil.class.getResourceAsStream("/graphdb-kafka-version.properties"));
-			properties.load(VersionUtil.class.getResourceAsStream("/graphdb-kafka-sink.properties"));
-			version = properties.getProperty("graphdb.version", version).trim();
-		} catch (Exception e) {
-			LOG.warn("error while loading version:", e);
+		} catch (IOException e) {
+			log.warn("Could not load graphdb-kafka-version.properties file. Check if file exists. Will use default version {}", version, e);
 		}
+		version = properties.getProperty("graphdb.version", version).trim();
 	}
 
 	public static String getVersion() {

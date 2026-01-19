@@ -89,8 +89,7 @@ class GraphDBConnectionValidatorTest extends MockServerTest {
 			.build()
 			.build();
 
-		final Config[] result = new Config[]{config};
-		assertThatCode(() -> result[0] = GraphDBConnectionValidator.validateGraphDBConnection(config)).doesNotThrowAnyException();
+		assertThatCode(() -> new GraphDBConnectionValidator().validate(config, Collections.emptyMap())).doesNotThrowAnyException();
 		Collection<String> errors = config.configValues()
 			.stream()
 			.map(ConfigValue::errorMessages)
@@ -165,7 +164,7 @@ class GraphDBConnectionValidatorTest extends MockServerTest {
 			.build()
 			.build();
 		final Config[] result = new Config[]{config};
-		assertThatCode(() -> result[0] = GraphDBConnectionValidator.validateGraphDBConnection(config)).doesNotThrowAnyException();
+		assertThatCode(() -> new GraphDBConnectionValidator().validate(config, Collections.emptyMap())).doesNotThrowAnyException();
 		Collection<String> errors = config.configValues()
 			.stream()
 			.map(ConfigValue::errorMessages)
@@ -241,7 +240,7 @@ class GraphDBConnectionValidatorTest extends MockServerTest {
 			.build();
 
 		final Config[] result = new Config[]{config};
-		assertThatCode(() -> result[0] = GraphDBConnectionValidator.validateGraphDBConnection(config)).doesNotThrowAnyException();
+		assertThatCode(() -> new GraphDBConnectionValidator().validate(config, Collections.emptyMap())).doesNotThrowAnyException();
 		Collection<String> errors = config.configValues()
 			.stream()
 			.map(ConfigValue::errorMessages)
@@ -325,7 +324,7 @@ class GraphDBConnectionValidatorTest extends MockServerTest {
 		setMTlsClientCertificateChain(chainPath.toString());
 
 		final Config[] result = new Config[]{config};
-		assertThatCode(() -> result[0] = GraphDBConnectionValidator.validateGraphDBConnection(config)).doesNotThrowAnyException();
+		assertThatCode(() -> new GraphDBConnectionValidator().validate(config, Collections.emptyMap())).doesNotThrowAnyException();
 		Collection<String> errors = config.configValues()
 			.stream()
 			.map(ConfigValue::errorMessages)
@@ -406,7 +405,7 @@ class GraphDBConnectionValidatorTest extends MockServerTest {
 		setMTlsClientCertificateChain(chainPath.toString());
 
 		final Config[] result = new Config[]{config};
-		assertThatCode(() -> result[0] = GraphDBConnectionValidator.validateGraphDBConnection(config)).doesNotThrowAnyException();
+		assertThatCode(() -> new GraphDBConnectionValidator().validate(config, Collections.emptyMap())).doesNotThrowAnyException();
 		Collection<String> errors = config.configValues()
 			.stream()
 			.map(ConfigValue::errorMessages)
@@ -487,7 +486,7 @@ class GraphDBConnectionValidatorTest extends MockServerTest {
 			.build();
 
 		final Config[] result = new Config[]{config};
-		assertThatCode(() -> result[0] = GraphDBConnectionValidator.validateGraphDBConnection(config)).doesNotThrowAnyException();
+		assertThatCode(() -> new GraphDBConnectionValidator().validate(config, Collections.emptyMap())).doesNotThrowAnyException();
 		Collection<String> errors = config.configValues()
 			.stream()
 			.map(ConfigValue::errorMessages)
@@ -532,7 +531,7 @@ class GraphDBConnectionValidatorTest extends MockServerTest {
 
 
 		final Config[] result = new Config[]{config};
-		assertThatCode(() -> result[0] = GraphDBConnectionValidator.validateGraphDBConnection(config)).doesNotThrowAnyException();
+		assertThatCode(() -> new GraphDBConnectionValidator().validate(config, Collections.emptyMap())).doesNotThrowAnyException();
 		Collection<String> errors = config.configValues()
 			.stream()
 			.map(ConfigValue::errorMessages)

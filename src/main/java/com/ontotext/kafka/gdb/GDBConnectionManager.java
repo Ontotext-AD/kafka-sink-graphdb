@@ -1,6 +1,8 @@
 package com.ontotext.kafka.gdb;
 
 import com.ontotext.kafka.GraphDBSinkConfig;
+import com.ontotext.kafka.logging.LoggerFactory;
+import com.ontotext.kafka.logging.LoggingContext;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
@@ -11,7 +13,6 @@ import org.eclipse.rdf4j.repository.http.HTTPRepository;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.net.URL;
 import java.nio.charset.Charset;
@@ -21,7 +22,7 @@ import static com.ontotext.kafka.tls.HttpClientManager.createHttpClient;
 
 public class GDBConnectionManager {
 
-	private static final Logger log = LoggerFactory.getLogger(GDBConnectionManager.class);
+	private final Logger log = LoggerFactory.getLogger(GDBConnectionManager.class);
 	private final HTTPRepository repository;
 	private final GdbConnectionConfig config;
 	private final HttpClient httpClient;
@@ -33,7 +34,7 @@ public class GDBConnectionManager {
 	 * @throws org.apache.kafka.common.config.ConfigException if a configuration property was not validated
 	 */
 	public GDBConnectionManager(GdbConnectionConfig config) {
-		try {
+		try (LoggingContext ctx = LoggingContext.withContext("graphdbURL=" + config.getServerUrl())) {
 			this.config = config;
 			this.httpClient = createHttpClient(config);
 			this.repository = initRepository(config, httpClient);
@@ -56,7 +57,7 @@ public class GDBConnectionManager {
 		this.config = config;
 	}
 
-	private static HTTPRepository initRepository(GdbConnectionConfig config, HttpClient httpClient) {
+	private HTTPRepository initRepository(GdbConnectionConfig config, HttpClient httpClient) {
 		String address = config.getServerUrl();
 		String repositoryId = config.getRepositoryId();
 		GraphDBSinkConfig.AuthenticationType authType = config.getAuthType();

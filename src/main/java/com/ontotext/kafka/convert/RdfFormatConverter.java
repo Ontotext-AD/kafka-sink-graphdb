@@ -1,11 +1,11 @@
 package com.ontotext.kafka.convert;
 
+import com.ontotext.kafka.logging.LoggerFactory;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFParser;
 import org.eclipse.rdf4j.rio.RDFWriter;
 import org.eclipse.rdf4j.rio.Rio;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.*;
 
@@ -18,7 +18,7 @@ public class RdfFormatConverter {
 	public RdfFormatConverter(RDFFormat inputFormat, RDFFormat outputFormat) {
 		this.inputFormat = inputFormat;
 		this.outputFormat = outputFormat;
-		this.log = LoggerFactory.getLogger(String.format("Converter [%s]->[%s]", inputFormat, outputFormat));
+		this.log = LoggerFactory.getLogger(getClass());
 	}
 
 

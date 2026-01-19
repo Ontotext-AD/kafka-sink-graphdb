@@ -1,7 +1,7 @@
 package com.ontotext.kafka.test.framework.mockServer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ontotext.kafka.tls.HttpClientManager;
+import com.ontotext.kafka.util.CertificateUtil;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.Charsets;
 import org.apache.commons.io.FileUtils;
@@ -34,7 +34,7 @@ public abstract class MockServerTest {
 
 	@BeforeEach
 	public void configureMockServer() throws IOException, CertificateException {
-		this.mockServerCA = HttpClientManager.getCertificateFromPEM(loadFileFromLocation("/org/mockserver/socket/CertificateAuthorityCertificate.pem"));
+		this.mockServerCA = CertificateUtil.getCertificateFromPEM(loadFileFromLocation("/org/mockserver/socket/CertificateAuthorityCertificate.pem"));
 		this.thumbprint = DigestUtils.sha256Hex(mockServerCA.getEncoded());
 	}
 

@@ -57,7 +57,7 @@ services:
       - 5005:5005
     environment:
       # Uncomment the line below to configure remote JVM debug on port 5005
-      # JAVA_TOOL_OPTIONS: -agentlib:jdwp=transport=dt_socket,address=*:5005,server=y,suspend=n
+      #      JAVA_TOOL_OPTIONS: -agentlib:jdwp=transport=dt_socket,address=*:5005,server=y,suspend=n
       CONNECT_BOOTSTRAP_SERVERS: broker:9092
       CONNECT_REST_ADVERTISED_HOST_NAME: connect-1
       CONNECT_REST_PORT: 8083
@@ -74,7 +74,8 @@ services:
       CONNECT_STATUS_STORAGE_TOPIC: docker-connect-status-1
       CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_ZOOKEEPER_CONNECT: zookeeper:2181
-      CONNECT_LOG4J_LOGGERS: org.apache.zookeeper=DEBUG,org.I0Itec.zkclient=DEBUG,org.reflections=ERROR
+  #      CONNECT_LOG4J_LOGGERS: org.apache.zookeeper=DEBUG,org.I0Itec.zkclient=DEBUG,org.reflections=ERROR,com.ontotext=TRACE
+  #      CONNECT_LOG4J_APPENDER_STDOUT_LAYOUT_CONVERSIONPATTERN: "[%d] %p %m (%c:%L) [%X]%n"
 
   connect-2:
     build:

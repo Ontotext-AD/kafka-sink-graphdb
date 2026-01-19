@@ -1,12 +1,13 @@
 package com.ontotext.kafka.processor;
 
 import com.ontotext.kafka.GraphDBSinkConfig;
+import com.ontotext.kafka.logging.LoggerFactory;
+import com.ontotext.kafka.logging.LoggingContext;
 import org.apache.kafka.common.utils.Time;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.runtime.errors.ToleranceType;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
@@ -41,16 +42,17 @@ public class RetryOperator {
 	 * @throws ConnectException   wrapper if any non-tolerated exception was thrown by the operation
 	 */
 	public void execute(Runnable operation) {
-		Exception errorThrown = execAndHandleError(operation);
-		if (errorThrown != null) {
-			log.error("Operation failed. Underlying exception - {}", errorThrown.getMessage());
-			if (config.getTolerance() == ToleranceType.NONE) {
-				throw new ConnectException("Error tolerance exceeded.");
+		try (LoggingContext context = LoggingContext.withContext("connectorName=" + config.getConnectorName())) {
+			Exception errorThrown = execAndHandleError(operation);
+			if (errorThrown != null) {
+				log.error("Operation failed. Underlying exception - {}", errorThrown.getMessage());
+				if (config.getTolerance() == ToleranceType.NONE) {
+					throw new ConnectException("Error tolerance exceeded.");
+				}
+				log.warn("Errors are tolerated (tolerance = {}).", config.getTolerance());
+				throw new RetriableException("Operation failed", errorThrown);
 			}
-			log.warn("Errors are tolerated (tolerance = {}).", config.getTolerance());
-			throw new RetriableException("Operation failed", errorThrown);
 		}
-
 	}
 
 	/**
