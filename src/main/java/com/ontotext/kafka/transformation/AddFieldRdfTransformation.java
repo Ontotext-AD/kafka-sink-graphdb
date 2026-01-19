@@ -72,6 +72,10 @@ public class AddFieldRdfTransformation extends RdfTransformation {
 
 	@Override
 	public SinkRecord apply(SinkRecord sinkRecord) {
+		if (sinkRecord.value() == null) {
+			log.trace("Record value is null. Transformation is skipped.");
+			return sinkRecord;
+		}
 		Model model = convertToRDF(sinkRecord.value());
 		log.debug("Converted record value to rdf.");
 		executeTransformation(model);
@@ -96,10 +100,6 @@ public class AddFieldRdfTransformation extends RdfTransformation {
 	 * @return the RDF model of the record value
 	 */
 	private Model convertToRDF(Object recordValue) {
-		if (recordValue == null) {
-			log.error("Record value must not be null.");
-			throw new DataException("Record value must not be null.");
-		}
 		if (recordValue instanceof byte[]) {
 			try (InputStream is = new ByteArrayInputStream((byte[]) recordValue)) {
 				return Rio.parse(is, "", rdfFormat);
