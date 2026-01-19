@@ -11,8 +11,6 @@ import org.eclipse.rdf4j.http.protocol.UnauthorizedException;
 import org.eclipse.rdf4j.query.TupleQueryResult;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.RepositoryException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.function.Function;
@@ -20,27 +18,38 @@ import java.util.stream.Collectors;
 
 import static com.ontotext.kafka.GraphDBSinkConfig.*;
 
-public final class GraphDBConnectionValidator {
-	private static final Logger LOG = LoggerFactory.getLogger(GraphDBConnectionValidator.class);
+public final class GraphDBConnectionValidator extends AbstractConfigValidator {
 
 
-	private GraphDBConnectionValidator() {
-		throw new IllegalStateException("Utility class");
-	}
-
-
-	public static Config validateGraphDBConnection(Config validatedConnectorConfigs) {
-
-		Map<String, ConfigValue> configValues = validatedConnectorConfigs.configValues().stream()
+	@Override
+	protected void doValidate(Config config, Map<String, String> connectorConfigs) {
+		Map<String, ConfigValue> configValues = config.configValues().stream()
 			.collect(Collectors.toMap(ConfigValue::name, Function.identity()));
 
 		ConfigValue repository = configValues.get(REPOSITORY);
 		ConfigValue serverIri = configValues.get(SERVER_URL);
 
 		try {
-			GDBConnectionManager manager = new GDBConnectionManager(new GdbConnectionConfig(validatedConnectorConfigs));
+			GDBConnectionManager manager = new GDBConnectionManager(new GdbConnectionConfig(config));
 			manager.validateGDBVersion();
-			doValidate(configValues, manager);
+			getLog().trace("Validating GraphDB authentication and repository");
+			ConfigValue templateIdValue = configValues.get(TEMPLATE_ID);
+			try (RepositoryConnection connection = manager.newConnection()) {
+				getLog().trace("Starting repository connection test");
+				connection.begin();
+				if (templateIdValue != null && StringUtils.isNotEmpty((String) templateIdValue.value())) {
+					String templateId = (String) templateIdValue.value();
+					getLog().info("Querying template ID {} from repository {}", templateId, manager.getRepositoryURL());
+					validateTemplate(connection, templateId);
+				}
+				connection.rollback();
+				getLog().trace("Rolled back repository connection test");
+			} catch (RepositoryException e) {
+				if (e instanceof UnauthorizedException) {
+					throw new GdbConnectionConfigException(AUTH_TYPE, null, "Invalid credentials" + e.getMessage());
+				}
+				throw e;
+			}
 		} catch (GdbConnectionConfigException e) {
 			configValues.get(e.getValueName()).addErrorMessage(e.getMessage());
 		} catch (RepositoryException e) {
@@ -49,9 +58,9 @@ public final class GraphDBConnectionValidator {
 		} catch (Exception e) {
 			serverIri.addErrorMessage(e.getMessage());
 		}
-		return validatedConnectorConfigs;
 	}
-	private static void validateTemplate(RepositoryConnection connection, String templateId) {
+
+	private void validateTemplate(RepositoryConnection connection, String templateId) {
 		String templateContentQ = "select ?template {\n <%s> <http://www.ontotext.com/sparql/template> ?template\n}";
 		try (TupleQueryResult templates = connection.prepareTupleQuery(String.format(templateContentQ, templateId)).evaluate()) {
 			String template = null;
@@ -62,30 +71,8 @@ public final class GraphDBConnectionValidator {
 			if (StringUtils.isEmpty(template)) {
 				throw new ConfigException("Did not find template with ID {}", templateId);
 			}
-			LOG.info("Found template {}", template);
+			getLog().info("Found template {}", template);
 		}
 	}
 
-	private static void doValidate(Map<String, ConfigValue> configValues, GDBConnectionManager manager) {
-		LOG.trace("Validating GraphDB authentication and repository");
-
-
-		ConfigValue templateIdValue = configValues.get(TEMPLATE_ID);
-		try (RepositoryConnection connection = manager.newConnection()) {
-			LOG.trace("Starting repository connection test");
-			connection.begin();
-			if (templateIdValue != null && StringUtils.isNotEmpty((String) templateIdValue.value())) {
-				String templateId = (String) templateIdValue.value();
-				LOG.info("Querying template ID {} from repository {}", templateId, manager.getRepositoryURL());
-				validateTemplate(connection, templateId);
-			}
-			connection.rollback();
-			LOG.trace("Rolled back repository connection test");
-		} catch (RepositoryException e) {
-			if (e instanceof UnauthorizedException) {
-				throw new GdbConnectionConfigException(AUTH_TYPE, null, "Invalid credentials" + e.getMessage());
-			}
-			throw e;
-		}
-	}
 }

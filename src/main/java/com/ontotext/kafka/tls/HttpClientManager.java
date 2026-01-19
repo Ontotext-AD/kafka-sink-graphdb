@@ -5,9 +5,10 @@ import com.ontotext.kafka.gdb.GdbConnectionConfig;
 import com.ontotext.kafka.gdb.GdbConnectionConfigException;
 import com.ontotext.kafka.gdb.auth.AuthHeaderConfig;
 import com.ontotext.kafka.gdb.auth.MtlsConfig;
+import com.ontotext.kafka.logging.LoggerFactory;
+import com.ontotext.kafka.logging.LoggingContext;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang.StringUtils;
-import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.http.HttpConnection;
 import org.apache.http.HttpResponse;
@@ -20,34 +21,27 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.protocol.HttpContext;
-import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
-import org.bouncycastle.cert.X509CertificateHolder;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.openssl.PEMParser;
-import org.bouncycastle.openssl.jcajce.JceOpenSSLPKCS8DecryptorProviderBuilder;
-import org.bouncycastle.operator.InputDecryptorProvider;
 import org.bouncycastle.operator.OperatorCreationException;
-import org.bouncycastle.pkcs.PKCS8EncryptedPrivateKeyInfo;
 import org.bouncycastle.pkcs.PKCSException;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.*;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.StringReader;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.security.*;
-import java.security.cert.*;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateEncodingException;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.security.spec.InvalidKeySpecException;
-import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.Collection;
+
+import static com.ontotext.kafka.util.CertificateUtil.getCertificateFromPEM;
+import static com.ontotext.kafka.util.CertificateUtil.getPrivateKeyFromPEM;
 
 /**
  * A utility class to configure the TLS connection between the Kafka Sink Connector (client) and downstream GraphDB instance (server)
@@ -59,6 +53,75 @@ public final class HttpClientManager {
 	private HttpClientManager() {
 		throw new IllegalStateException("Utility class");
 	}
+
+
+	/**
+	 * Initialize the TLS context for working with the provided server. This will configure the default {@link SSLContext} for all communication
+	 *
+	 * @param config = The connection configuration that contains all required parameters for creating an HTTP(S) connection
+	 * @throws SSLException             - if any error occured during configuration
+	 * @throws IllegalArgumentException - if no thumbprint provided by the server url is https
+	 */
+	public static CloseableHttpClient createHttpClient(GdbConnectionConfig config) throws SSLException {
+		try (LoggingContext loggingContext = LoggingContext.withContext("GraphDBURL=" + config.getServerUrl())) {
+			String serverUrl = config.getServerUrl();
+			String sha256Thumbprint = config.getTlsThumbprint();
+			if (!isUrlHttps(serverUrl) || StringUtils.isEmpty(sha256Thumbprint)) {
+				log.info("Not an HTTPS connection, or no thumbprint provided. Skipping creation of custom HTTPClient");
+				return getClientBuilder().build();
+			}
+			KeyManager[] keyManagers = null;
+			Collection<BasicHeader> headers = new ArrayList<>();
+			X509Certificate serverCertificate = null;
+			if (config.getAuthType() == GraphDBSinkConfig.AuthenticationType.MTLS) {
+				X509Certificate clientCertificate = getCertificateFromPEM(config.getMtlsConfig().getCertificate());
+				keyManagers = createKeyManagers(config, clientCertificate);
+				serverCertificate = getCertificate(serverUrl, sha256Thumbprint, keyManagers, clientCertificate);
+			} else {
+				serverCertificate = getCertificate(serverUrl, sha256Thumbprint);
+			}
+			if (config.getAuthType() == GraphDBSinkConfig.AuthenticationType.X509_HEADER) {
+				headers = createX509Header(config);
+			}
+
+			log.info("Certificate that matches thumbprint {} found for server URL {}", sha256Thumbprint, serverUrl);
+
+			if (serverCertificate == null) {
+				throw new GdbConnectionConfigException(GraphDBSinkConfig.TLS_THUMBPRINT, sha256Thumbprint, String.format("Did not find certificate that matches the thumbprint %s", sha256Thumbprint));
+			}
+
+			log.debug("Creating a Trust Store to hold the connection certificate");
+			KeyStore gdbTrustStore = KeyStore.getInstance(KeyStore.getDefaultType());
+			gdbTrustStore.load(null, null);
+			log.debug("Importing the certificate to the new Trust Store");
+			gdbTrustStore.setCertificateEntry(sha256Thumbprint, serverCertificate);
+
+			X509TrustManager defaultTrustManager = getTrustManagerForStore(null);
+			X509TrustManager gdbTrustManager = getTrustManagerForStore(gdbTrustStore);
+			log.debug("Creating the composite Trust Manager");
+			CompositeTrustManager compositeTrustManager = new CompositeTrustManager(defaultTrustManager, gdbTrustManager);
+
+			log.debug("Registering the composite Trust Manager");
+			SSLContext context = SSLContext.getInstance("TLS");
+			context.init(keyManagers, new TrustManager[]{compositeTrustManager}, null);
+			HttpClientBuilder builder = getClientBuilder()
+				.setDefaultHeaders(headers)
+				.setSSLContext(context);
+			if (!config.isHostnameVerificationEnabled()) {
+				builder.setSSLHostnameVerifier((hostname, session) -> true);
+			}
+
+			return builder.build();
+		} catch (Exception e) {
+			log.error("Failed to initialize the TLS context due to exception", e);
+			if (e instanceof GdbConnectionConfigException) {
+				throw (GdbConnectionConfigException) e;
+			}
+			throw new SSLException(e);
+		}
+
+	}
+
 
 	/**
 	 * Parses the certificates provided in the connection to `connectionUrl` and finds the certificate that matches the provided thumbprint (SHA-256)
@@ -75,6 +138,7 @@ public final class HttpClientManager {
 		if (!isUrlHttps(connectionUrl)) {
 			throw new IllegalArgumentException("Invalid connection URL: " + connectionUrl);
 		}
+
 		log.debug("Fetching certificates from {}", connectionUrl);
 		try {
 			URLConnection connection = new URL(connectionUrl).openConnection();
@@ -138,75 +202,6 @@ public final class HttpClientManager {
 	}
 
 
-	/**
-	 * Initialize the TLS context for working with the provided server. This will configure the default {@link SSLContext} for all communication
-	 *
-	 * @param config = The connection configuration that contains all required parameters for creating an HTTP(S) connection
-	 * @throws SSLException             - if any error occured during configuration
-	 * @throws IllegalArgumentException - if no thumbprint provided by the server url is https
-	 */
-	public static CloseableHttpClient createHttpClient(GdbConnectionConfig config) throws SSLException {
-		String serverUrl = config.getServerUrl();
-		String sha256Thumbprint = config.getTlsThumbprint();
-		if (!isUrlHttps(serverUrl) || StringUtils.isEmpty(sha256Thumbprint)) {
-			log.info("Not an HTTPS connection, or no thumbprint provided. Skipping creation of custom HTTPClient");
-			return getClientBuilder().build();
-		}
-		try {
-			KeyManager[] keyManagers = null;
-			Collection<BasicHeader> headers = new ArrayList<>();
-			X509Certificate serverCertificate = null;
-			if (config.getAuthType() == GraphDBSinkConfig.AuthenticationType.MTLS) {
-				X509Certificate clientCertificate = getCertificateFromPEM(config.getMtlsConfig().getCertificate());
-				keyManagers = createKeyManagers(config, clientCertificate);
-				serverCertificate = getCertificate(serverUrl, sha256Thumbprint, keyManagers, clientCertificate);
-			} else {
-				serverCertificate = getCertificate(serverUrl, sha256Thumbprint);
-			}
-			if (config.getAuthType() == GraphDBSinkConfig.AuthenticationType.X509_HEADER) {
-				headers = createX509Header(config);
-			}
-
-			log.info("Certificate that matches thumbprint {} found for server URL {}", sha256Thumbprint, serverUrl);
-
-			if (serverCertificate == null) {
-				throw new GdbConnectionConfigException(GraphDBSinkConfig.TLS_THUMBPRINT, sha256Thumbprint, String.format("Did not find certificate that matches the thumbprint %s", sha256Thumbprint));
-			}
-
-			log.debug("Creating a Trust Store to hold the connection certificate");
-			KeyStore gdbTrustStore = KeyStore.getInstance(KeyStore.getDefaultType());
-			gdbTrustStore.load(null, null);
-			log.debug("Importing the certificate to the new Trust Store");
-			gdbTrustStore.setCertificateEntry(sha256Thumbprint, serverCertificate);
-
-			X509TrustManager defaultTrustManager = getTrustManagerForStore(null);
-			X509TrustManager gdbTrustManager = getTrustManagerForStore(gdbTrustStore);
-			log.debug("Creating the composite Trust Manager");
-			CompositeTrustManager compositeTrustManager = new CompositeTrustManager(defaultTrustManager, gdbTrustManager);
-
-			log.debug("Registering the composite Trust Manager");
-			SSLContext context = SSLContext.getInstance("TLS");
-			context.init(keyManagers, new TrustManager[]{compositeTrustManager}, null);
-			HttpClientBuilder builder = getClientBuilder()
-				.setDefaultHeaders(headers)
-				.setSSLContext(context);
-			if (!config.isHostnameVerificationEnabled()) {
-				builder.setSSLHostnameVerifier((hostname, session) -> true);
-			}
-
-			return builder.build();
-		}
-		catch (Exception e) {
-			log.error("Failed to initialize the TLS context due to exception", e);
-			if (e instanceof GdbConnectionConfigException) {
-				throw (GdbConnectionConfigException) e;
-			}
-			throw new SSLException(e);
-		}
-
-	}
-
-
 	private static Collection<BasicHeader> createX509Header(GdbConnectionConfig config) throws SSLException {
 		Collection<BasicHeader> headers = new ArrayList<>();
 		AuthHeaderConfig headerConfig = config.getAuthHeaderConfig();
@@ -261,7 +256,7 @@ public final class HttpClientManager {
 	}
 
 
-	public static boolean isUrlHttps(String url) {
+	private static boolean isUrlHttps(String url) {
 		return url != null && url.startsWith("https");
 	}
 
@@ -274,7 +269,7 @@ public final class HttpClientManager {
 	 * Copy of {@link org.eclipse.rdf4j.http.client.SharedHttpClientSessionManager}'s inner RetryHandlerStale which is private and, therefore inaccessible
 	 */
 	private static class RetryHandlerStale implements HttpRequestRetryHandler {
-		private final Logger logger = LoggerFactory.getLogger(RetryHandlerStale.class);
+		private static final Logger log = LoggerFactory.getLogger(RetryHandlerStale.class);
 
 		@Override
 		public boolean retryRequest(IOException ioe, int count, HttpContext context) {
@@ -283,21 +278,23 @@ public final class HttpClientManager {
 				return false;
 			}
 			HttpClientContext clientContext = HttpClientContext.adapt(context);
-			HttpConnection conn = clientContext.getConnection();
-			if (conn != null) {
-				synchronized (this) {
-					if (conn.isStale()) {
-						try {
-							logger.warn("Closing stale connection");
-							conn.close();
-							return true;
-						} catch (IOException e) {
-							logger.error("Error closing stale connection", e);
+			try (LoggingContext loggingContext = LoggingContext.withContext("Retry -> " + clientContext.getTargetHost().getHostName(), "Retry Count=" + count)) {
+				HttpConnection conn = clientContext.getConnection();
+				if (conn != null) {
+					synchronized (this) {
+						if (conn.isStale()) {
+							try {
+								log.warn("Closing stale connection");
+								conn.close();
+								return true;
+							} catch (IOException e) {
+								log.error("Error closing stale connection", e);
+							}
 						}
 					}
 				}
+				return false;
 			}
-			return false;
 		}
 	}
 
@@ -305,44 +302,48 @@ public final class HttpClientManager {
 	 * Copy of {@link org.eclipse.rdf4j.http.client.SharedHttpClientSessionManager}'s inner ServiceUnavailableRetryHandler which is private and, therefore inaccessible
 	 */
 	private static class ServiceUnavailableRetryHandler implements ServiceUnavailableRetryStrategy {
-		private final Logger logger = LoggerFactory.getLogger(ServiceUnavailableRetryHandler.class);
+		private static final Logger log = LoggerFactory.getLogger(ServiceUnavailableRetryHandler.class);
 
 		@Override
 		public boolean retryRequest(HttpResponse response, int executionCount, HttpContext context) {
-			// only retry on `408`
-			if (response.getStatusLine().getStatusCode() != HttpURLConnection.HTTP_CLIENT_TIMEOUT) {
-				return false;
-			}
-
-			// when `keepAlive` is disabled every connection is fresh (with the default `useSystemProperties` http
-			// client configuration we use), a 408 in that case is an unexpected issue we don't handle here
-			String keepAlive = System.getProperty("http.keepAlive", "true");
-			if (!"true".equalsIgnoreCase(keepAlive)) {
-				return false;
-			}
-
-			// worst case, the connection pool is filled to the max and all of them idled out on the server already
-			// we then need to clean up the pool and finally retry with a fresh connection. Hence, we need at most
-			// pooledConnections+1 retries.
-			// the pool size setting used here is taken from `HttpClientBuilder` when `useSystemProperties()` is used
-			int pooledConnections = Integer.parseInt(System.getProperty("http.maxConnections", "5"));
-			if (executionCount > (pooledConnections + 1)) {
-				return false;
-			}
-
 			HttpClientContext clientContext = HttpClientContext.adapt(context);
-			HttpConnection conn = clientContext.getConnection();
+			try (LoggingContext loggingContext = LoggingContext.withContext("Retry -> " + clientContext.getTargetHost().getHostName(), "Execution Count=" + executionCount)) {
 
-			synchronized (this) {
-				try {
-					logger.info("Cleaning up closed connection");
-					conn.close();
-					return true;
-				} catch (IOException e) {
-					logger.error("Error cleaning up closed connection", e);
+				// only retry on `408`
+				if (response.getStatusLine().getStatusCode() != HttpURLConnection.HTTP_CLIENT_TIMEOUT) {
+					return false;
 				}
+
+				// when `keepAlive` is disabled every connection is fresh (with the default `useSystemProperties` http
+				// client configuration we use), a 408 in that case is an unexpected issue we don't handle here
+				String keepAlive = System.getProperty("http.keepAlive", "true");
+				if (!"true".equalsIgnoreCase(keepAlive)) {
+					return false;
+				}
+
+				// worst case, the connection pool is filled to the max and all of them idled out on the server already
+				// we then need to clean up the pool and finally retry with a fresh connection. Hence, we need at most
+				// pooledConnections+1 retries.
+				// the pool size setting used here is taken from `HttpClientBuilder` when `useSystemProperties()` is used
+				int pooledConnections = Integer.parseInt(System.getProperty("http.maxConnections", "5"));
+				if (executionCount > (pooledConnections + 1)) {
+					return false;
+				}
+
+
+				HttpConnection conn = clientContext.getConnection();
+
+				synchronized (this) {
+					try {
+						log.info("Cleaning up closed connection");
+						conn.close();
+						return true;
+					} catch (IOException e) {
+						log.error("Error cleaning up closed connection", e);
+					}
+				}
+				return false;
 			}
-			return false;
 		}
 
 		@Override
@@ -351,47 +352,7 @@ public final class HttpClientManager {
 		}
 	}
 
-	public static X509Certificate getCertificateFromPEM(String pem) throws IOException, CertificateException {
-		Object pemObject = readPEMObject(pem);
 
-		if (pemObject instanceof X509CertificateHolder) {
-			X509CertificateHolder holder = (X509CertificateHolder) pemObject;
-			InputStream in = new ByteArrayInputStream(holder.getEncoded());
-			CertificateFactory cf = CertificateFactory.getInstance("X.509");
-			Certificate c = cf.generateCertificate(in);
-			if (c instanceof X509Certificate) {
-				return (X509Certificate) c;
-			}
-			throw new IllegalArgumentException("Certificate is not a X509 certificate");
-		}
-		throw new IllegalArgumentException("PEM object is not a X509 certificate");
-	}
-
-	public static PrivateKey getPrivateKeyFromPEM(String pem, char[] password) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException, PKCSException, OperatorCreationException {
-		Object pemObject = readPEMObject(pem);
-		KeyFactory kf = KeyFactory.getInstance("RSA");
-
-		if (pemObject instanceof PrivateKeyInfo) {
-			return kf.generatePrivate(new PKCS8EncodedKeySpec(((PrivateKeyInfo) pemObject).getEncoded()));
-		}
-		if (pemObject instanceof PKCS8EncryptedPrivateKeyInfo && ArrayUtils.isNotEmpty(password)) {
-			PKCS8EncryptedPrivateKeyInfo pkey = (PKCS8EncryptedPrivateKeyInfo) pemObject;
-			InputDecryptorProvider decryptor = new JceOpenSSLPKCS8DecryptorProviderBuilder().setProvider(new BouncyCastleProvider()).build(password);
-			PrivateKeyInfo keyInfo = pkey.decryptPrivateKeyInfo(decryptor);
-			return kf.generatePrivate(new PKCS8EncodedKeySpec(keyInfo.getEncoded()));
-		}
-		if (ArrayUtils.isEmpty(password)) {
-			throw new IllegalArgumentException("Private Key is encrypted but no password provided");
-		}
-		throw new IllegalArgumentException("PEM object is not a Private Key");
-	}
-
-
-	private static Object readPEMObject(String str) throws IOException {
-		PEMParser pemParser = new PEMParser(new StringReader(str));
-		return pemParser.readObject();
-
-	}
 
 
 	private static class TrustAllManager implements X509TrustManager {

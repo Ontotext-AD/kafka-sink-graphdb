@@ -4,6 +4,8 @@ import com.ontotext.kafka.GraphDBSinkConfig;
 import com.ontotext.kafka.error.LogErrorHandler;
 import com.ontotext.kafka.gdb.GDBConnectionManager;
 import com.ontotext.kafka.gdb.GdbConnectionConfig;
+import com.ontotext.kafka.logging.LoggerFactory;
+import com.ontotext.kafka.logging.LoggingContext;
 import com.ontotext.kafka.processor.record.handler.RecordHandler;
 import com.ontotext.kafka.util.ValueUtil;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -12,7 +14,6 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.RepositoryException;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import java.io.IOException;
@@ -35,7 +36,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public final class SinkRecordsProcessor implements Runnable {
 
-	private static final Logger log = LoggerFactory.getLogger(SinkRecordsProcessor.class);
+	private final Logger log = LoggerFactory.getLogger(SinkRecordsProcessor.class);
 
 	private final String name;
 	private final LinkedBlockingQueue<Collection<SinkRecord>> sinkRecords;
@@ -87,47 +88,49 @@ public final class SinkRecordsProcessor implements Runnable {
 
 	@Override
 	public void run() {
-		Throwable errorThrown = null;
-		running = true;
-		while (shouldRun()) {
-			try {
-				if (backOff.getAndSet(false)) {
-					log.info("Retrying flush");
-					flushUpdates(this.recordsBatch);
-					log.info("Flush (on retry) successful");
-				}
-				Collection<SinkRecord> messages = pollForMessages();
-				if (messages != null) {
-					consumeRecords(messages);
-				} else {
-					log.trace("Did not receive any records (waited {} {} ) for repository {}. Flushing all records in batch.", timeoutCommitMs,
-						TimeUnit.MILLISECONDS, connectionManager);
-					flushUpdates(this.recordsBatch);
-				}
-			} catch (RetriableException e) {
-				long backoffTimeoutMs = config.getBackOffTimeoutMs();
-				backOff.set(true);
-				log.warn("Caught a retriable exception while flushing the current batch. " +
-					"Will sleep for {}ms and will try to flush the records again", backoffTimeoutMs);
+		try (LoggingContext context = LoggingContext.withContext("connectorName=" + config.getConnectorName(), "repositoryURL=" + connectionManager.getRepositoryURL())) {
+			Throwable errorThrown = null;
+			running = true;
+			while (shouldRun()) {
 				try {
-					Thread.sleep(backoffTimeoutMs);
-				} catch (InterruptedException iex) {
-					log.info("Thread was interrupted during backoff. Shutting down");
+					if (backOff.getAndSet(false)) {
+						log.info("Retrying flush");
+						flushUpdates(this.recordsBatch);
+						log.info("Flush (on retry) successful");
+					}
+					Collection<SinkRecord> messages = pollForMessages();
+					if (messages != null) {
+						consumeRecords(messages);
+					} else {
+						log.trace("Did not receive any records (waited {} {} ) for repository {}. Flushing all records in batch.", timeoutCommitMs,
+							TimeUnit.MILLISECONDS, connectionManager);
+						flushUpdates(this.recordsBatch);
+					}
+				} catch (RetriableException e) {
+					long backoffTimeoutMs = config.getBackOffTimeoutMs();
+					backOff.set(true);
+					log.warn("Caught a retriable exception while flushing the current batch. " +
+						"Will sleep for {}ms and will try to flush the records again", backoffTimeoutMs);
+					try {
+						Thread.sleep(backoffTimeoutMs);
+					} catch (InterruptedException iex) {
+						log.info("Thread was interrupted during backoff. Shutting down");
+						break;
+					}
+				} catch (Throwable e) {
+					if (e instanceof InterruptedException) {
+						log.info("Thread was interrupted. Shutting down processor");
+					} else {
+						errorThrown = e;
+						log.error("Caught an exception, cannot recover.  Shutting down", e);
+					}
 					break;
 				}
-			} catch (Throwable e) {
-				if (e instanceof InterruptedException) {
-					log.info("Thread was interrupted. Shutting down processor");
-				} else {
-					errorThrown = e;
-					log.error("Caught an exception, cannot recover.  Shutting down", e);
-				}
-				break;
 			}
+			log.info("Shutting down processor");
+			Thread.interrupted();
+			shutdown(errorThrown);
 		}
-		log.info("Shutting down processor");
-		Thread.interrupted();
-		shutdown(errorThrown);
 	}
 
 	boolean shouldRun() {

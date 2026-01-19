@@ -16,22 +16,25 @@
 
 package com.ontotext.kafka;
 
-import com.ontotext.kafka.transformation.RdfTransformation;
+import com.ontotext.kafka.logging.LoggerFactory;
 import com.ontotext.kafka.util.GraphDBConnectionValidator;
+import com.ontotext.kafka.util.TransformationsValidator;
 import com.ontotext.kafka.util.VersionUtil;
 import org.apache.commons.lang.StringUtils;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
-import org.apache.kafka.common.config.ConfigException;
-import org.apache.kafka.common.config.ConfigValue;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.sink.SinkConnector;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.log4j.Level;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
+import static com.ontotext.kafka.GraphDBSinkConfig.LOGGER_TYPE;
+import static com.ontotext.kafka.GraphDBSinkConfig.LOG_LEVEL_OVERRIDE;
+import static com.ontotext.kafka.logging.LoggerFactory.LOGGER_TYPE_PROPERTY;
+import static com.ontotext.kafka.logging.LoggerFactory.LOG_LEVEL_PROPERTY;
 
 import static com.ontotext.kafka.processor.SinkProcessorManager.startNewProcessor;
 import static com.ontotext.kafka.processor.SinkProcessorManager.stopProcessor;
@@ -44,7 +47,6 @@ import static com.ontotext.kafka.processor.SinkProcessorManager.stopProcessor;
  */
 public class GraphDBSinkConnector extends SinkConnector {
 
-	private static final Logger log = LoggerFactory.getLogger(GraphDBSinkConnector.class);
 	private GraphDBSinkConfig config;
 	private Map<String, String> properties;
 
@@ -90,60 +92,34 @@ public class GraphDBSinkConnector extends SinkConnector {
 	@Override
 	public Config validate(final Map<String, String> connectorConfigs) {
 		Config config = super.validate(connectorConfigs);
-		// Validate transformations
-		String transformationsNames = connectorConfigs.get("transforms");
-		if (StringUtils.isNotEmpty(transformationsNames)) {
-			log.debug("Got transformations {}", transformationsNames);
-			for (String transformation : transformationsNames.split(",")) {
-				if (transformation.isEmpty()) {
-					log.warn("Invalid transformation name: {}", transformation);
-					break;
-				}
-				String transformationClass = getTransformationClass(transformation.trim(), connectorConfigs);
-				try {
-					if (transformationClass == null) {
-						log.warn("Did not find transformation class for transformation {}.", transformation);
-						break;
-					}
-					Class<?> clazz = Class.forName(transformationClass);
-					if (RdfTransformation.class.isAssignableFrom(clazz)) {
-						RdfTransformation transform = (RdfTransformation) clazz
-							.getDeclaredConstructor()
-							.newInstance();
-						transform.validateConfig(transformation, connectorConfigs);
-						log.debug("Transformation {} validated", transformation);
+		configureLogging(connectorConfigs);
 
-					}
-				} catch (ClassNotFoundException e) {
-					log.warn("Transformation class not found: {}", transformationClass, e);
-				} catch (ReflectiveOperationException e) {
-					log.warn("Transformation class cannot be initialized: {}", transformationClass, e);
-				} catch (ConfigException e) {
-					log.error("Transformation class did not validate - {}", transformationClass, e);
-					ConfigValue transformationValidationError = new ConfigValue(
-						String.format("transforms.%s", transformation));
-					transformationValidationError.addErrorMessage("Invalid transformation configurations.");
-					config.configValues().add(transformationValidationError);
-				}
-			}
-		}
+		new TransformationsValidator().validate(config, connectorConfigs);
+
+
 		if (config.configValues().stream().anyMatch(cv -> !cv.errorMessages().isEmpty())) {
 			return config;
 		}
-		return GraphDBConnectionValidator.validateGraphDBConnection(config);
+		new GraphDBConnectionValidator().validate(config, connectorConfigs);
+		return config;
 	}
 
-	private String getTransformationClass(String transformationName, final Map<String, String> connectorConfigs) {
-		if (StringUtils.isNotEmpty(transformationName)) {
-			String transformTypeKey = String.format("transforms.%s.type", transformationName);
-			String transformType = connectorConfigs.get(transformTypeKey);
-			if (StringUtils.isEmpty(transformType)) {
-				log.warn("Missing or empty type for transformation '{}'. Expected key: {}", transformationName,
-					transformTypeKey);
-				return null;
-			}
-			return transformType;
-		}
-		return null;
+	/**
+	 * Try to determine if the connector is deployed in MSK Cluster. Use bootstrap servers to identify if MSK servers are used.
+	 * Configure log level
+	 *
+	 * @param connectorConfigs
+	 */
+	private void configureLogging(Map<String, String> connectorConfigs) {
+		String logLevel = connectorConfigs.get(LOG_LEVEL_OVERRIDE);
+		Level level = Level.toLevel(logLevel, Level.INFO);
+		System.out.println("Log level: " + logLevel);
+		System.setProperty(LOG_LEVEL_PROPERTY, level.toString());
+
+		LoggerFactory.LoggerType loggerType = LoggerFactory.LoggerType.getLoggerType(connectorConfigs.get(LOGGER_TYPE));
+		System.out.println("Logger type: " + loggerType);
+		System.setProperty(LOGGER_TYPE_PROPERTY, loggerType.toString());
+
 	}
+
 }

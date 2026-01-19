@@ -1,6 +1,8 @@
 package com.ontotext.kafka.transformation;
 
 import com.ontotext.kafka.GraphDBSinkConfig;
+import com.ontotext.kafka.logging.LoggerFactory;
+import com.ontotext.kafka.logging.LoggingContext;
 import com.ontotext.kafka.util.EnumValidator;
 import com.ontotext.kafka.util.RDFFormatValidator;
 import com.ontotext.kafka.util.ValueUtil;
@@ -18,7 +20,6 @@ import org.eclipse.rdf4j.rio.RDFHandlerException;
 import org.eclipse.rdf4j.rio.RDFParseException;
 import org.eclipse.rdf4j.rio.Rio;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -29,12 +30,14 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.function.Supplier;
 
+import static org.apache.kafka.connect.runtime.ConnectorConfig.NAME_CONFIG;
+
 /**
  * Executes preconfigured transformations on the record value. Currently, only the byte[] format is supported for the
  * record value.
  */
 public class AddFieldRdfTransformation extends RdfTransformation {
-	private static final Logger log = LoggerFactory.getLogger(AddFieldRdfTransformation.class);
+	private final Logger log = LoggerFactory.getLogger(getClass());
 	private static final ValueFactory VF = SimpleValueFactory.getInstance();
 	public static final String SUBJECT_IRI = "subject.iri";
 	public static final String PREDICATE_IRI = "predicate.iri";
@@ -70,30 +73,37 @@ public class AddFieldRdfTransformation extends RdfTransformation {
 	private String predicateIRI;
 	private RDFFormat rdfFormat;
 	private TransformationType transformation;
+	// For contextual logging
+	private String connectorName;
 
 	@Override
 	public SinkRecord apply(SinkRecord sinkRecord) {
-		if (sinkRecord.value() == null) {
-			log.trace("Record value is null. Transformation is skipped.");
-			return sinkRecord;
+		try (LoggingContext loggingContext = LoggingContext.withContext(
+			"connectorName=" + this.connectorName,
+			"transformationType=" + transformation.toString(),
+			"rdfFormat=" + rdfFormat.toString())) {
+			if (sinkRecord.value() == null) {
+				log.trace("Record value is null. Transformation is skipped.");
+				return sinkRecord;
+			}
+			Model model = convertToRDF(sinkRecord.value());
+			log.debug("Converted record value to rdf.");
+			Resource subject = createSubject(sinkRecord.key());
+			IRI predicate = VF.createIRI(this.predicateIRI);
+			executeTransformation(model, subject, predicate);
+			log.debug("Transformation applied on record value.");
+			byte[] updatedValue = convertToBytes(model);
+			log.debug("Record RDF converted back to byte array.");
+			return sinkRecord.newRecord(
+				sinkRecord.topic(),
+				sinkRecord.kafkaPartition(),
+				sinkRecord.keySchema(),
+				sinkRecord.key(),
+				sinkRecord.valueSchema(),
+				updatedValue,
+				sinkRecord.kafkaOffset()
+			);
 		}
-		Model model = convertToRDF(sinkRecord.value());
-		log.debug("Converted record value to rdf.");
-		Resource subject = createSubject(sinkRecord.key());
-		IRI predicate = VF.createIRI(this.predicateIRI);
-		executeTransformation(model, subject, predicate);
-		log.debug("Transformation applied on record value.");
-		byte[] updatedValue = convertToBytes(model);
-		log.debug("Record RDF converted back to byte array.");
-		return sinkRecord.newRecord(
-			sinkRecord.topic(),
-			sinkRecord.kafkaPartition(),
-			sinkRecord.keySchema(),
-			sinkRecord.key(),
-			sinkRecord.valueSchema(),
-			updatedValue,
-			sinkRecord.kafkaOffset()
-		);
 	}
 
 	/**
@@ -178,18 +188,20 @@ public class AddFieldRdfTransformation extends RdfTransformation {
 	@Override
 	public void configure(Map<String, ?> map) {
 		SimpleConfig config = new SimpleConfig(CONFIG_DEF, map);
-		this.subjectIRI = config.getString("subject.iri");
-		if (this.subjectIRI == null) {
-			log.error("Subject IRI is null.");
-			throw new ConfigException("subject.iri must be set (use empty string for blank node)");
+		try (LoggingContext context = LoggingContext.withContext("connectName=" + this.connectorName)) {
+			this.subjectIRI = config.getString("subject.iri");
+			if (this.subjectIRI == null) {
+				log.error("Subject IRI is null.");
+				throw new ConfigException("subject.iri must be set (use empty string for blank node)");
+			}
+			this.predicateIRI = config.getString("predicate.iri");
+			if (StringUtils.isEmpty(this.predicateIRI)) {
+				log.error("Predicate IRI is empty.");
+				throw new ConfigException("Predicate cannot be null or empty");
+			}
+			this.rdfFormat = ValueUtil.getRDFFormat(config.getString("rdf.format"));
+			this.transformation = TransformationType.valueOf(config.getString("transformation.type").toUpperCase());
 		}
-		this.predicateIRI = config.getString("predicate.iri");
-		if (StringUtils.isEmpty(this.predicateIRI)) {
-			log.error("Predicate IRI is empty.");
-			throw new ConfigException("Predicate cannot be null or empty");
-		}
-		this.rdfFormat = ValueUtil.getRDFFormat(config.getString("rdf.format"));
-		this.transformation = TransformationType.valueOf(config.getString("transformation.type").toUpperCase());
 	}
 
 	/**
@@ -201,6 +213,7 @@ public class AddFieldRdfTransformation extends RdfTransformation {
 	@Override
 	public void validateConfig(String transformationName, final Map<String, String> connectorConfigs) throws
 		ConfigException {
+		this.connectorName = connectorConfigs.get(NAME_CONFIG);
 		String connectorConfigRdfFormatString = connectorConfigs.get(GraphDBSinkConfig.RDF_FORMAT);
 		if (connectorConfigRdfFormatString == null) {
 			connectorConfigRdfFormatString = GraphDBSinkConfig.DEFAULT_RDF_TYPE;
@@ -236,4 +249,5 @@ public class AddFieldRdfTransformation extends RdfTransformation {
 			this.value = value;
 		}
 	}
+
 }
