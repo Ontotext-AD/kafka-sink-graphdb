@@ -56,10 +56,10 @@ public final class SinkProcessorManager {
 				log.warn("Processor with id {} already started", name);
 				return processor;
 			}
-			log.info("Waiting for processor {}} to stop", name);
-			int numberOfTimesWaitedForProcessor = 0;
+			log.info("Waiting for processor {} to stop", name);
+			int numberOfTimesWaitedForProcessor = numTimesToWaitForExistingProcessorToStop;
 			while (stoppingProcessors.contains(name)) {
-				if (numberOfTimesWaitedForProcessor >= numTimesToWaitForExistingProcessorToStop) {
+				if (numTimesToWaitForExistingProcessorToStop <= 0) {
 					throw new RetriableException(
 						String.format("Waited %dms for processor %s to stop, but processor is still active. Cannot continue creating this processor", numberOfTimesWaitedForProcessor * waitTimeout, name));
 				}
@@ -68,7 +68,7 @@ public final class SinkProcessorManager {
 				} catch (InterruptedException e) {
 					throw new RetriableException(String.format("Interrupted while waiting for processor %s to stop", name), e);
 				}
-				numberOfTimesWaitedForProcessor++;
+				numTimesToWaitForExistingProcessorToStop--;
 			}
 
 		}
