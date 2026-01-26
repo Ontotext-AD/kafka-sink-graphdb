@@ -26,10 +26,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.Instant;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 /**
  * Executes preconfigured transformations on the record value. Currently, only the byte[] format is supported for the
@@ -126,17 +123,7 @@ public class AddFieldRdfTransformation extends RdfTransformation {
 		IRI predicate = VF.createIRI(this.predicateIRI);
 		Literal transformation = VF.createLiteral(this.transformation.value.get(),
 			VF.createIRI(this.transformation.dataType));
-		Set<Resource> namedContexts = model.contexts().stream()
-			.filter(Objects::nonNull) // exclude the default graph
-			.collect(Collectors.toSet());
-		if (!namedContexts.isEmpty()) {
-			for (Resource graphContext : namedContexts) {
-				model.add(subject, predicate, transformation, graphContext);
-			}
-		} else {
-			log.error("Record value must contain named graph.");
-			throw new ConnectException("No named graph found. Transformation only works with named graphs.");
-		}
+		model.add(subject, predicate, transformation);
 	}
 
 	/**
