@@ -19,7 +19,6 @@ package com.ontotext.kafka;
 import com.ontotext.kafka.transformation.RdfTransformation;
 import com.ontotext.kafka.util.GraphDBConnectionValidator;
 import com.ontotext.kafka.util.VersionUtil;
-
 import org.apache.commons.lang.StringUtils;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
@@ -34,6 +33,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static com.ontotext.kafka.processor.SinkProcessorManager.startNewProcessor;
+import static com.ontotext.kafka.processor.SinkProcessorManager.stopProcessor;
+
 /**
  * {@link SinkConnector} implementation for streaming messages containing RDF data to GraphDB repositories
  * asynchronously
@@ -43,6 +45,7 @@ import java.util.Map;
 public class GraphDBSinkConnector extends SinkConnector {
 
 	private static final Logger log = LoggerFactory.getLogger(GraphDBSinkConnector.class);
+	private GraphDBSinkConfig config;
 	private Map<String, String> properties;
 
 	@Override
@@ -52,8 +55,11 @@ public class GraphDBSinkConnector extends SinkConnector {
 
 	@Override
 	public void start(Map<String, String> properties) {
-		log.info("Starting the GraphDB SINK Connector ... ");
+		this.config = new GraphDBSinkConfig(properties);
 		this.properties = properties;
+		log.info("Starting the GraphDB SINK Connector {} ... ", config.getConnectorName());
+		startNewProcessor(config);
+
 	}
 
 	@Override
@@ -72,6 +78,8 @@ public class GraphDBSinkConnector extends SinkConnector {
 
 	@Override
 	public void stop() {
+		log.trace("Shutting down processor");
+		stopProcessor(config.getConnectorName());
 	}
 
 	@Override

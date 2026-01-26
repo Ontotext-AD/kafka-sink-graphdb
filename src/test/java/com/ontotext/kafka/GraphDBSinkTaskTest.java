@@ -25,30 +25,6 @@ import static org.mockito.Mockito.*;
 class GraphDBSinkTaskTest {
 
 	@Test
-	void test_start() throws InterruptedException {
-		String connectorName = UUID.randomUUID().toString();
-		Map<String, String> props = new TestSinkConfigBuilder()
-			.transactionType(GraphDBSinkConfig.TransactionType.SMART_UPDATE)
-			.batchSize(4)
-			.connectorName(connectorName)
-			.timeoutCommitMs(1000) // Need a small timeout value to force commits
-			.tolerance(ToleranceType.ALL)
-			.rdfFormat(RDFFormat.NQUADS.getDefaultFileExtension())
-			.buildAsProperties();
-
-		assertThat(SinkProcessorManager.getRunningProcessor(connectorName)).isNull();
-		GraphDBSinkTask task = new GraphDBSinkTask();
-		task.start(props);
-		Thread.sleep(1000);
-		SinkRecordsProcessor processor = SinkProcessorManager.getRunningProcessor(connectorName);
-		assertThat(processor).isNotNull();
-		assertThat(processor.isRunning()).isTrue();
-
-
-	}
-
-
-	@Test
 	void test_put() {
 		String connectorName = UUID.randomUUID().toString();
 		Map<String, String> props = new TestSinkConfigBuilder()
@@ -71,6 +47,8 @@ class GraphDBSinkTaskTest {
 
 			GraphDBSinkTask task = new GraphDBSinkTask();
 			task.start(props);
+			GraphDBSinkConnector connector = new GraphDBSinkConnector();
+			connector.start(props);
 
 			SinkRecord record = new SinkRecord("topic", 0, null, "key", null, "value", 1);
 			Collection<SinkRecord> collectionRecords = Collections.singletonList(record);
@@ -104,6 +82,8 @@ class GraphDBSinkTaskTest {
 
 			GraphDBSinkTask task = new GraphDBSinkTask();
 			task.start(props);
+			GraphDBSinkConnector connector = new GraphDBSinkConnector();
+			connector.start(props);
 			Thread.sleep(1000);
 
 
@@ -143,9 +123,12 @@ class GraphDBSinkTaskTest {
 
 
 		GraphDBSinkTask task = new GraphDBSinkTask();
+		task.start(props);
+
 		task.initialize(new WorkerSinkTaskContext(null, null, null));
 
-		task.start(props);
+		GraphDBSinkConnector connector = new GraphDBSinkConnector();
+		connector.start(props);
 		Thread.sleep(1000);
 		task.put(collectionRecords);
 

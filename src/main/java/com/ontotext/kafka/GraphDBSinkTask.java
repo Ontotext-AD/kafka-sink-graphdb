@@ -12,7 +12,8 @@ import org.slf4j.LoggerFactory;
 import java.util.Collection;
 import java.util.Map;
 
-import static com.ontotext.kafka.processor.SinkProcessorManager.*;
+import static com.ontotext.kafka.processor.SinkProcessorManager.getRunningProcessor;
+import static com.ontotext.kafka.processor.SinkProcessorManager.startNewProcessor;
 
 /**
  * {@link SinkTask} implementation that sends the incoming {@link SinkRecord} messages to a synchronous queue for further processing downstream
@@ -29,9 +30,7 @@ public class GraphDBSinkTask extends SinkTask {
 	@Override
 	public void start(Map<String, String> properties) {
 		this.config = new GraphDBSinkConfig(properties);
-		log.info("Starting the GraphDB sink task for connector {}", config.getConnectorName());
-		startNewProcessor(config);
-		log.info("Configuration complete.");
+		log.info("Task started");
 	}
 
 
@@ -57,8 +56,6 @@ public class GraphDBSinkTask extends SinkTask {
 
 	@Override
 	public void stop() {
-		log.trace("Shutting down processor");
-		stopProcessor(config.getConnectorName());
 	}
 
 	@Override
