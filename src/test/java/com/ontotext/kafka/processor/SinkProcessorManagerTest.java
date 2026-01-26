@@ -118,7 +118,7 @@ class SinkProcessorManagerTest {
 			processor = SinkProcessorManager.startNewProcessor(config);
 			SinkProcessorManager.stopProcessor(config.getConnectorName());
 		}
-		Thread.sleep(1000);
+		Thread.sleep(2000);
 		assertThatCode(() -> SinkProcessorManager.startNewProcessor(config, 1000, 1)).isInstanceOf(RetriableException.class).hasMessage(
 			String.format("Waited %dms for processor %s to stop, but processor is still active. Cannot continue creating this processor", 1000, config.getConnectorName()));
 	}

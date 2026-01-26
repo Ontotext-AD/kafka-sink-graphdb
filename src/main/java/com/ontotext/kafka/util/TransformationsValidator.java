@@ -8,6 +8,9 @@ import org.apache.kafka.common.config.ConfigValue;
 
 import java.util.Map;
 
+/**
+ * A simple validator class to validate the <b>transforms</b> connector configurations
+ */
 public class TransformationsValidator extends AbstractConfigValidator {
 
 
