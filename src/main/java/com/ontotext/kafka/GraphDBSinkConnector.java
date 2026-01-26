@@ -16,16 +16,16 @@
 
 package com.ontotext.kafka;
 
-import com.ontotext.kafka.logging.LoggerFactory;
 import com.ontotext.kafka.util.GraphDBConnectionValidator;
 import com.ontotext.kafka.util.TransformationsValidator;
 import com.ontotext.kafka.util.VersionUtil;
-import org.apache.commons.lang.StringUtils;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.sink.SinkConnector;
 import org.apache.log4j.Level;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,9 +35,9 @@ import static com.ontotext.kafka.GraphDBSinkConfig.LOGGER_TYPE;
 import static com.ontotext.kafka.GraphDBSinkConfig.LOG_LEVEL_OVERRIDE;
 import static com.ontotext.kafka.logging.LoggerFactory.LOGGER_TYPE_PROPERTY;
 import static com.ontotext.kafka.logging.LoggerFactory.LOG_LEVEL_PROPERTY;
-
 import static com.ontotext.kafka.processor.SinkProcessorManager.startNewProcessor;
 import static com.ontotext.kafka.processor.SinkProcessorManager.stopProcessor;
+import static org.apache.kafka.connect.runtime.ConnectorConfig.NAME_CONFIG;
 
 /**
  * {@link SinkConnector} implementation for streaming messages containing RDF data to GraphDB repositories
@@ -46,6 +46,8 @@ import static com.ontotext.kafka.processor.SinkProcessorManager.stopProcessor;
  * @author Tomas Kovachev tomas.kovachev@ontotext.com
  */
 public class GraphDBSinkConnector extends SinkConnector {
+
+	private static final Logger log = LoggerFactory.getLogger(GraphDBSinkConnector.class);
 
 	private GraphDBSinkConfig config;
 	private Map<String, String> properties;
@@ -59,7 +61,7 @@ public class GraphDBSinkConnector extends SinkConnector {
 	public void start(Map<String, String> properties) {
 		this.config = new GraphDBSinkConfig(properties);
 		this.properties = properties;
-		log.info("Starting the GraphDB SINK Connector {} ... ", config.getConnectorName());
+		log.info("[{}] Starting the GraphDB SINK Connector", config.getConnectorName());
 		startNewProcessor(config);
 
 	}
@@ -80,7 +82,7 @@ public class GraphDBSinkConnector extends SinkConnector {
 
 	@Override
 	public void stop() {
-		log.trace("Shutting down processor");
+		log.trace("[{}] Shutting down processor", config.getConnectorName());
 		stopProcessor(config.getConnectorName());
 	}
 
@@ -111,13 +113,14 @@ public class GraphDBSinkConnector extends SinkConnector {
 	 * @param connectorConfigs
 	 */
 	private void configureLogging(Map<String, String> connectorConfigs) {
+		String connectorName = connectorConfigs.get(NAME_CONFIG);
 		String logLevel = connectorConfigs.get(LOG_LEVEL_OVERRIDE);
 		Level level = Level.toLevel(logLevel, Level.INFO);
-		System.out.println("Log level: " + logLevel);
+		log.debug("[{}] Configuring log level = {}", connectorName, logLevel);
 		System.setProperty(LOG_LEVEL_PROPERTY, level.toString());
 
-		LoggerFactory.LoggerType loggerType = LoggerFactory.LoggerType.getLoggerType(connectorConfigs.get(LOGGER_TYPE));
-		System.out.println("Logger type: " + loggerType);
+		com.ontotext.kafka.logging.LoggerFactory.LoggerType loggerType = com.ontotext.kafka.logging.LoggerFactory.LoggerType.getLoggerType(connectorConfigs.get(LOGGER_TYPE));
+		log.info("[{}] Configuring logger type = {}", connectorName, loggerType);
 		System.setProperty(LOGGER_TYPE_PROPERTY, loggerType.toString());
 
 	}

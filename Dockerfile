@@ -14,5 +14,5 @@ FROM confluentinc/cp-kafka-connect:7.8.0
 
 COPY --from=builder /tmp/kafka-sink-graphdb/target/kafka-sink-graphdb /usr/share/java/kafka-sink-graphdb
 
-# Enable MDC
+# Add Mapped Diagnostic Context (MDC) to loggers (%X)
 RUN sed -i -e 's/log4j\.appender\.stdout\.layout\.ConversionPattern \=.*/log4j.appender.stdout.layout.ConversionPattern = [%d] %p %m (%c:%L) [%X]%n/g' /etc/kafka/connect-log4j.properties

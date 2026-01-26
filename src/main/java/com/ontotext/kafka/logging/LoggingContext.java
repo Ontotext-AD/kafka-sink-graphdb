@@ -26,27 +26,13 @@ import java.util.Objects;
 /**
  * A utility for defining Mapped Diagnostic Context (MDC) for SLF4J logs.
  *
- * <p>{@link LoggingContext} instances should be created in a try-with-resources block to ensure
- * that the logging context is properly closed. The only exception is the logging context created
- * upon thread creation that is to be used for the entire lifetime of the thread.
+ * An enhancement to {@link org.apache.kafka.connect.util.LoggingContext}, this class allows adding multiple MDC entries for a specific clode block
+ * To use this utility, wrap the code in try-with-resources block, any log messages inside the block will be enriched with the MDC values passed to this class
  *
- * <p>Any logger created on the thread will inherit the MDC context, so this mechanism is ideal for
- * providing additional information in the log messages without requiring connector
- * implementations to use a specific Connect API or SLF4J API. {@link LoggingContext#close()}
- * will also properly restore the Connect MDC parameters to their state just prior to when the
- * LoggingContext was created. Use {@link #clear()} to remove all MDC parameters from the
- * current thread context.
- *
- * <p>Compare this approach to {@link org.apache.kafka.common.utils.LogContext}, which must be
- * used to create a new {@link org.slf4j.Logger} instance pre-configured with the desired prefix.
- * Currently, LogContext does not allow the prefix to be changed, and it requires that all
- * components use the LogContext to create their Logger instance.
+ * @see org.apache.kafka.connect.util.LoggingContext
  */
 public final class LoggingContext implements AutoCloseable {
 
-	/**
-	 * The name of the Mapped Diagnostic Context (MDC) key that defines the context for a connector.
-	 */
 	public static final String CONNECTOR_CONTEXT = "connector.context";
 
 	public static final Collection<String> ALL_CONTEXTS = Collections.singleton(CONNECTOR_CONTEXT);
@@ -72,22 +58,7 @@ public final class LoggingContext implements AutoCloseable {
 		return context;
 	}
 
-
-	/**
-	 * Return the prefix that uses the specified connector name and additional (optional) items. The
-	 * format is as follows:
-	 *
-	 * <pre>
-	 *     [&lt;connectorName>|&lt;[items],>]&lt;sp>
-	 * </pre>
-	 * <p>
-	 * where "<code>&lt;connectorName></code>" is the name of the connector,
-	 * "<code>&lt;sp></code>" indicates a trailing space, and
-	 * "<code>&lt;items></code>" are additional context items
-	 *
-	 * @param ctxItems The context items
-	 * @return the prefix; never null
-	 */
+	
 	static String prefixFor(String... ctxItems) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("[");

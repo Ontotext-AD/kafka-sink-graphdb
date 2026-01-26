@@ -25,12 +25,23 @@ import java.security.cert.X509Certificate;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 
+/**
+ * A utility class that reads, parses and processes X509 objects
+ */
 public final class CertificateUtil {
 
 	private CertificateUtil() {
 		throw new IllegalStateException("Utility class");
 	}
 
+	/**
+	 * Parses a certificate string and returns the corresponding X509 certificate object
+	 *
+	 * @param pem The certificate string
+	 * @return The X509 Certificate
+	 * @throws IOException          if the certificate string cannot be parsed
+	 * @throws CertificateException if the provided string does not correspond to a valid certificate
+	 */
 	public static X509Certificate getCertificateFromPEM(String pem) throws IOException, CertificateException {
 		Object pemObject = readPEMObject(pem);
 
@@ -47,6 +58,12 @@ public final class CertificateUtil {
 		throw new IllegalArgumentException("PEM object is not a X509 certificate");
 	}
 
+	/**
+	 * Parses ac certificate string and retrieves the private key
+	 * @param pem The certificate string
+	 * @param password If the key is encrypted, holds the decryption passphrase
+	 * @return The private key
+	 */
 	public static PrivateKey getPrivateKeyFromPEM(String pem, char[] password) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException, PKCSException, OperatorCreationException {
 		Object pemObject = readPEMObject(pem);
 		KeyFactory kf = KeyFactory.getInstance("RSA");
