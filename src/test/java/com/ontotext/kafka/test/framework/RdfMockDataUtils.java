@@ -13,7 +13,10 @@ public class RdfMockDataUtils {
 	private RdfMockDataUtils() {
 	}
 
-	public static String generateRDFStatements(int quantity) {
+	public static byte[] generateRDFStatements(int quantity) {
+		if (quantity == 0) {
+			return null;
+		}
 		StringBuilder builder = new StringBuilder();
 		for (int i = 0; i < quantity; i++) {
 			builder.append(String.format("<urn:%s>", getRandomString(10)))
@@ -21,7 +24,7 @@ public class RdfMockDataUtils {
 				.append(String.format("<urn:%s>", getRandomString(10)))
 				.append(". \n");
 		}
-		return builder.toString();
+		return builder.toString().getBytes();
 	}
 
 	public static Collection<SinkRecord> generateSinkRecords(int recordsSize, int statementsSize) {
@@ -33,8 +36,8 @@ public class RdfMockDataUtils {
 	}
 
 	public static Collection<SinkRecord> generateSinkRecords(int recordsSize, int statementsSize, String topic,
-		int partition, Schema keySchema, String key,
-		Schema valueSchema, long kafkaOffset) {
+															 int partition, Schema keySchema, String key,
+															 Schema valueSchema, long kafkaOffset) {
 		Collection<SinkRecord> records = new ArrayList<>();
 		for (int i = 0; i < recordsSize; i++) {
 			records.add(generateSinkRecord(statementsSize, topic, partition, keySchema, key, valueSchema, kafkaOffset));
@@ -54,7 +57,6 @@ public class RdfMockDataUtils {
 												String key, Schema valueSchema,
 												long kafkaOffset) {
 		return new SinkRecord(topic, partition, keySchema, key, valueSchema,
-			generateRDFStatements(statementsSize).getBytes(), kafkaOffset);
+			generateRDFStatements(statementsSize), kafkaOffset);
 	}
-
 }

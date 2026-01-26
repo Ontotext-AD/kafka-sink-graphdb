@@ -89,14 +89,13 @@ public class AddFieldRdfTransformationTest {
 	}
 
 	@Test
-	void test_transformation_fails_if_record_value_is_null() {
-		SinkRecord nullValueRecord = new SinkRecord("test", 0, null, "key", null, null, 12);
-		assertThatThrownBy(() -> {
-			transformation.configure(config);
-			transformation.apply(nullValueRecord);
-		})
-			.isInstanceOf(DataException.class)
-			.hasMessageContaining("Record value must not be null");
+	void test_transformation_is_skipped_if_record_value_is_null() {
+		transformation.configure(config);
+		SinkRecord record = generateSinkRecord(0);
+		SinkRecord transformedRecord = transformation.apply(record);
+		assertThat(record)
+			.as("Transformation is skipped on records that have a null record value.")
+			.isEqualTo(transformedRecord);
 	}
 
 	@Test
