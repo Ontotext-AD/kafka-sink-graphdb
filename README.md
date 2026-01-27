@@ -362,6 +362,14 @@ Supported Configuration Properties:
 
 `rdf.format` – The RDF format of the record value.
 
+#### Connector logging in AWS MSK
+
+Amazon AWS MSK suppresses DEBUG and TRACE log messages when the connector is deployed in AWS MSK Cluster. To mitigate this limitation, the following connector property can be used to configure the connector
+to use a specific logger instance for MSK environment:
+`logger.type` - can be either `msk` or `default`. By default, `default` value is set. When `msk` is set, a custom logger will redirect TRACE and DEBUG log messages to INFO so that they are not suppressed.
+In addition, `log.level.override` property can be set to set the logger level (valid values are same as log4j logging levels : INFO, ERROR, WARN, TRACE, DEBUG). This property is only applicable when
+`logger.type` is `msk`
+
 #### Design considerations
 
 Kafka Sink Transformations should be independent of the Sink Connector and act as self-contained plugins. As
