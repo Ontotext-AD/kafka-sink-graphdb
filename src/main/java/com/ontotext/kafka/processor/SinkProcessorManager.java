@@ -6,10 +6,9 @@ import org.apache.kafka.connect.errors.RetriableException;
 import org.slf4j.Logger;
 import org.slf4j.MDC;
 
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -23,8 +22,8 @@ import java.util.concurrent.Future;
 public final class SinkProcessorManager {
 
 	private static final ExecutorService executorService = Executors.newCachedThreadPool();
-	private static final Map<String, ProcessorEntry> runningProcessors = new HashMap<>();
-	private static final Set<String> stoppingProcessors = new HashSet<>();
+	private static final Map<String, ProcessorEntry> runningProcessors = new ConcurrentHashMap<>();
+	private static final Set<String> stoppingProcessors = ConcurrentHashMap.newKeySet();
 	private static final Logger log = LoggerFactory.getLogger(SinkProcessorManager.class);
 	private static final long WAIT_TIMEOUT = 2000;
 	private static final int MAX_NUMBER_TIMES_WAITED_FOR_PROCESSOR_TO_STOP = 4;
@@ -49,34 +48,20 @@ public final class SinkProcessorManager {
 	 * @param numTimesToWaitForExistingProcessorToStop How many times to repeat waiting for an existing process to terminate
 	 * @return The records processor instance
 	 */
-	static synchronized SinkRecordsProcessor startNewProcessor(GraphDBSinkConfig config, long waitTimeout, int numTimesToWaitForExistingProcessorToStop) {
+	static SinkRecordsProcessor startNewProcessor(GraphDBSinkConfig config, long waitTimeout, int numTimesToWaitForExistingProcessorToStop) {
 		try {
 			String name = config.getConnectorName();
-			SinkRecordsProcessor processor = getRunningProcessor(name);
-			if (processor != null) {
+			ProcessorEntry entry = runningProcessors.get(name);
+			if (entry != null) {
 				if (!stoppingProcessors.contains(name)) {
 					log.warn("Processor with id {} already started", name);
-					return processor;
+					return entry.processor;
 				}
-				log.info("Waiting for processor {} to stop", name);
-				int numberOfTimesWaitedForProcessor = numTimesToWaitForExistingProcessorToStop;
-				while (stoppingProcessors.contains(name)) {
-					if (numTimesToWaitForExistingProcessorToStop <= 0) {
-						throw new RetriableException(
-							String.format("Waited %dms for processor %s to stop, but processor is still active. Cannot continue creating this processor", numberOfTimesWaitedForProcessor * waitTimeout, name));
-					}
-					try {
-						Thread.sleep(waitTimeout);
-					} catch (InterruptedException e) {
-						throw new RetriableException(String.format("Interrupted while waiting for processor %s to stop", name), e);
-					}
-					numTimesToWaitForExistingProcessorToStop--;
-				}
-
+				waitForProcessorToShutdown(entry, waitTimeout, numTimesToWaitForExistingProcessorToStop);
 			}
 			log.info("Starting processor for connector {}", name);
-			ProcessorEntry entry = new ProcessorEntry();
-			processor = SinkRecordsProcessor.create(config, name);
+			entry = new ProcessorEntry();
+			SinkRecordsProcessor processor = SinkRecordsProcessor.create(config, name);
 			entry.processor = processor;
 			// Put the entry into map before starting the processor to prevent issues that may arise if the processor (for some reason) terminates immediately due to an error
 			runningProcessors.put(name, entry);
@@ -87,18 +72,40 @@ public final class SinkProcessorManager {
 		}
 	}
 
-	public static synchronized void stopProcessor(String name) {
+	private static void waitForProcessorToShutdown(ProcessorEntry entry, long waitTimeout, int numTimesToWaitForExistingProcessorToStop) {
+		synchronized (entry.lock) {
+			String name = entry.processor.getName();
+			log.info("Waiting for processor {} to stop", name);
+			int numberOfTimesWaitedForProcessor = numTimesToWaitForExistingProcessorToStop;
+			while (stoppingProcessors.contains(name)) {
+				if (numTimesToWaitForExistingProcessorToStop <= 0) {
+					throw new RetriableException(
+						String.format("Waited %dms for processor %s to stop, but processor is still active. Cannot continue creating this processor", numberOfTimesWaitedForProcessor * waitTimeout, name));
+				}
+				try {
+					Thread.sleep(waitTimeout);
+				} catch (InterruptedException e) {
+					throw new RetriableException(String.format("Interrupted while waiting for processor %s to stop", name), e);
+				}
+				numTimesToWaitForExistingProcessorToStop--;
+			}
+		}
+
+	}
+
+	public static void stopProcessor(String name) {
 		startEviction(name, null);
 		ProcessorEntry entry = runningProcessors.get(name);
 		if (entry != null) {
 			log.info("Stopping processor with id {}", name);
 			entry.future.cancel(true);
+			waitForProcessorToShutdown(entry, WAIT_TIMEOUT, MAX_NUMBER_TIMES_WAITED_FOR_PROCESSOR_TO_STOP);
 		} else {
 			log.warn("Processor with id {} does not exist, it may have already been stopped", name);
 		}
 	}
 
-	public static synchronized SinkRecordsProcessor getRunningProcessor(String connectorName) {
+	public static SinkRecordsProcessor getRunningProcessor(String connectorName) {
 		if (runningProcessors.containsKey(connectorName)) {
 			return runningProcessors.get(connectorName).processor;
 		} else {
@@ -133,7 +140,9 @@ public final class SinkProcessorManager {
 
 
 	private static class ProcessorEntry {
+		public final Object lock = new Object();
 		private Future<?> future;
 		private SinkRecordsProcessor processor;
+
 	}
 }
