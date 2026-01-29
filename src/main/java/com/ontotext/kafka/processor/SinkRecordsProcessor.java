@@ -151,15 +151,15 @@ public final class SinkRecordsProcessor implements Runnable {
 		}
 		try {
 			flushUpdates(this.recordsBatch);
+			connectionManager.shutDownRepository();
 		} catch (Exception e) {
 			// We did ou best. Just log the exception and shut down
 			log.warn("While shutting down, failed to flush updates due to exception", e);
+		} finally {
+			running = false;
+			SinkProcessorManager.finishEviction(name, errorThrown);
 		}
-
-		connectionManager.shutDownRepository();
-		running = false;
-		SinkProcessorManager.finishEviction(name, errorThrown);
-
+		
 	}
 
 	void consumeRecords(Collection<SinkRecord> messages) {
