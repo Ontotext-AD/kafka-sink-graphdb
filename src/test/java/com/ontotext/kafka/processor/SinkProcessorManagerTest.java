@@ -108,15 +108,8 @@ class SinkProcessorManagerTest {
 
 			mockedStatic.when(() -> SinkRecordsProcessor.create(any(GraphDBSinkConfig.class), any(String.class))).thenReturn(processorMock);
 
-			try (MockedStatic<SinkProcessorManager> managerStaticMock = mockStatic(SinkProcessorManager.class)) {
-				managerStaticMock.when(() -> SinkProcessorManager.finishEviction(any(String.class), any())).thenAnswer(invocation -> {
-					return null;
-				});
-
-			}
-
 			processor = SinkProcessorManager.startNewProcessor(config);
-			SinkProcessorManager.stopProcessor(config.getConnectorName());
+			SinkProcessorManager.startEviction(config.getConnectorName(), null);
 		}
 		Thread.sleep(2000);
 		assertThatCode(() -> SinkProcessorManager.startNewProcessor(config, 1000, 1)).isInstanceOf(RetriableException.class).hasMessage(
