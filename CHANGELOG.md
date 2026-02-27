@@ -1,5 +1,26 @@
 # Kafka Sink Connector Changelog
 
+## Version 3.2.0
+
+### Highlights
+
+- Several fixes related to connector runtime
+- Improved transformation logic
+- Improved internal synchronization
+- Logging enhancements, especially when running in AWS MSK Cluster
+
+### Fixes
+
+- Fixed issue where internal processor thread would not start on connector restart (stop + start)
+- Improved internal synchronization which slightly improves performance and reliability.
+
+### New
+
+- Changed base docker image to `cp-server-connect`
+- Added `logger.type` runtime parameter - connectors running in AWS MSK Cluster can use this parameter to setup an MSK-specific logger, which translates all `DEBUG` and `TRACE `messages to `INFO`, if the logger
+  level is set to `DEBUG` or `TRACE`, respectively
+- Added `log.level.override` runtime parameter to explicitly set the logger level. This is mostly useful when using non-default loggers, i.e. MSK Loggers.
+
 ## Version 3.0.1
 
 ### Highlights
