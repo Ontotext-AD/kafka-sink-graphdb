@@ -1,6 +1,5 @@
 package com.ontotext.kafka.logging;
 
-import org.apache.log4j.Level;
 import org.slf4j.Logger;
 import org.slf4j.Marker;
 import org.slf4j.simple.SimpleLogger;
@@ -12,14 +11,13 @@ import static com.ontotext.kafka.logging.LoggerFactory.LOG_LEVEL_PROPERTY;
  */
 public class MskLogger extends SimpleLogger {
 
-	private final Level level;
 	private final Logger log;
 
 
 	public MskLogger(Class<?> clazz) {
 		super(clazz.getSimpleName());
 		this.log = org.slf4j.LoggerFactory.getLogger(clazz);
-		this.level = Level.toLevel(System.getProperty(LOG_LEVEL_PROPERTY));
+		this.currentLogLevel = stringToLevel(System.getProperty(LOG_LEVEL_PROPERTY));
 	}
 
 	@Override
@@ -312,55 +310,23 @@ public class MskLogger extends SimpleLogger {
 		}
 	}
 
-	@Override
-	public boolean isTraceEnabled() {
-		return level == Level.TRACE;
+	private static int stringToLevel(String levelStr) {
+		if ("trace".equalsIgnoreCase(levelStr)) {
+			return SimpleLogger.LOG_LEVEL_TRACE;
+		} else if ("debug".equalsIgnoreCase(levelStr)) {
+			return SimpleLogger.LOG_LEVEL_DEBUG;
+		} else if ("info".equalsIgnoreCase(levelStr)) {
+			return SimpleLogger.LOG_LEVEL_INFO;
+		} else if ("warn".equalsIgnoreCase(levelStr)) {
+			return SimpleLogger.LOG_LEVEL_WARN;
+		} else if ("error".equalsIgnoreCase(levelStr)) {
+			return SimpleLogger.LOG_LEVEL_ERROR;
+		} else if ("off".equalsIgnoreCase(levelStr)) {
+			return SimpleLogger.LOG_LEVEL_OFF;
+		}
+		// assume INFO by default
+		return SimpleLogger.LOG_LEVEL_INFO;
 	}
 
-	@Override
-	public boolean isTraceEnabled(Marker marker) {
-		return level == Level.TRACE;
-	}
-
-	@Override
-	public boolean isDebugEnabled() {
-		return level == Level.DEBUG;
-	}
-
-	@Override
-	public boolean isDebugEnabled(Marker marker) {
-		return level == Level.DEBUG;
-	}
-
-	@Override
-	public boolean isInfoEnabled() {
-		return level == Level.INFO;
-	}
-
-	@Override
-	public boolean isInfoEnabled(Marker marker) {
-		return level == Level.INFO;
-	}
-
-	@Override
-	public boolean isWarnEnabled() {
-		return level == Level.WARN;
-	}
-
-	@Override
-	public boolean isWarnEnabled(Marker marker) {
-		return level == Level.WARN;
-	}
-
-	@Override
-	public boolean isErrorEnabled() {
-		return level == Level.ERROR;
-	}
-
-	@Override
-	public boolean isErrorEnabled(Marker marker) {
-		return level == Level.ERROR;
-
-	}
 }
 
