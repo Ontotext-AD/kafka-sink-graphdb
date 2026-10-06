@@ -1,11 +1,11 @@
-FROM maven:3-openjdk-11-slim AS builder
+FROM maven:3-eclipse-temurin-11 AS builder
 
 COPY ./ /tmp/kafka-sink-graphdb/
 
 WORKDIR /tmp/kafka-sink-graphdb
 
 RUN \
-  apt-get update && apt-get install unzip && \
+  apt-get update && apt-get install -y unzip && \
   mvn -U -B -DskipTests clean package && \
   unzip /tmp/kafka-sink-graphdb/target/kafka-sink-graphdb-plugin.zip -d target/
 
