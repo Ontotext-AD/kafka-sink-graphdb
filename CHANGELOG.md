@@ -1,5 +1,11 @@
 # Kafka Sink Connector Changelog
 
+## Version 3.3.0
+
+### New
+
+- Adds support for GraphDB 12
+
 ## Version 3.2.0
 
 ### Highlights
