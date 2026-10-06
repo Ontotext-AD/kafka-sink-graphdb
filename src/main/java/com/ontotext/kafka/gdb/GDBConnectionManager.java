@@ -120,25 +120,10 @@ public class GDBConnectionManager {
 			String[] versionSplits = version.split("[.\\-]");
 			int major = Integer.parseInt(versionSplits[0]);
 			int minor = Integer.parseInt(versionSplits[1]);
-			boolean versionSupported = false;
-			switch (major) {
-				case 9: // 9.11+
-					if (minor >= 11) {
-						versionSupported = true;
-					}
-					break;
-				case 10: // 10.8+
-					if (minor >= 8) {
-						versionSupported = true;
-					}
-					break;
-				case 11: // 11+
-					versionSupported = true;
-					break;
-			}
+			boolean versionSupported = major >= 11 || (major == 9 && minor >= 11) || (major == 10 && minor >= 8);
 			if (!versionSupported) {
 				throw new GdbConnectionConfigException(SERVER_URL, serverUrl,
-					"Kafka sink is supported on GraphDB versions 10.8+, 11+ and 9.11+. Please update your GraphDB");
+					String.format("Unsupported GraphDB version %s. Kafka sink is supported on GraphDB versions 9.11+, 10.8+, and versions 11 and above. Please update your GraphDB", version));
 			}
 			log.info("Using GraphDB version {}", version);
 		} catch (Exception e) {
